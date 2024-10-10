@@ -13,3 +13,10 @@ Useful repos
    Does not support ANE
 - openVINO - https://github.com/openvinotoolkit/openvino  
    OSS repo for model deployment/inference
+
+# TODOS
+[] make a device map for m1 for huggingface
+[] make a flash attention implementation for m1
+[] implement vllm for m1?
+[] look at ollama/llama.cpp implementation of ANE/m1
+[] check what more can be done
