@@ -2,11 +2,11 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 torch.random.manual_seed(0)
-
+device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
 model = AutoModelForCausalLM.from_pretrained(
     "microsoft/Phi-3.5-mini-instruct",
     torch_dtype="auto",
-    trust_remote_code=True,
+    trust_remote_code=True
 )
 tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
 
@@ -21,6 +21,7 @@ pipe = pipeline(
     "text-generation",
     model=model,
     tokenizer=tokenizer,
+    device=device
 )
 
 generation_args = {
