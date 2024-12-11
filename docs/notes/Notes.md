@@ -79,3 +79,90 @@ Useful repos
 
 
 # https://huggingface.co/Salesforce/xLAM-1b-fc-r
+
+
+# Ingredients of RAG
+
+
+
+- https://python.langchain.com/docs/tutorials/rag/, https://www.pingcap.com/article/building-a-rag-application-from-scratch-a-beginners-guide/
+  - Load the document, chunk them and store them using DocumentLoader
+  - Embed the chunk and store it along with the indexes and metadata (like beginning, middle, end of doc, etc) in VectorStore (Sannu was using an additional similarity score with known keywords to enhance the similarity search results) - VectorStore
+    - Inverted indexing: map text to embed location for easier text oriented search 
+    - Retrieve relevant splits for a user query using a Retriever (vector similarity search)
+  - Evaluate the quality(relevance) of results using an Evaluator (ex; https://github.com/explodinggradients/ragas, https://docs.confident-ai.com/docs/guides-rag-evaluation) (ref doc on eval : https://www.pinecone.io/learn/series/vector-databases-in-production-for-busy-engineers/rag-evaluation/)
+
+
+
+
+Vector Search
+- Use faiss
+- Use Redis or PostgreSQL (with pgvector enabled)
+- Use Postgres+pgai - https://github.com/timescale/pgai, https://www.timescale.com/blog/vector-databases-are-the-wrong-abstraction/
+- Try to see if faiss can be configured to use Redis/Postgres
+- Try to see if Redis can store its keys & values in gpu memory (for m1, due to shared memory, memcpy could be avoided)
+- Use NLEmbedding from CoreML (https://developer.apple.com/documentation/naturallanguage/finding-similarities-between-pieces-of-text?language=objc)
+-
+
+
+Coreml reference - https://developer.apple.com/documentation/coreml/mltensor/matmul(_:)
+https://github.com/hollance/neural-engine/blob/master/docs/ane-vs-gpu.md
+Model conversion - https://github.com/pytorch/torchtune?tab=readme-ov-file
+https://apple.github.io/coremltools/docs-guides/source/convert-pytorch.html
+
+
+Info on Vector search: https://weaviate.io/blog/vector-search-explained
+
+Quantized models
+https://huggingface.co/TheBloke/phi-2-GGUF
+https://huggingface.co/QuantFactory/Llama-3.2-1B-Instruct-GGUF
+https://huggingface.co/lmstudio-community/Llama-3.2-1B-Instruct-GGUF
+https://huggingface.co/unsloth/Llama-3.2-1B-Instruct-GGUF/tree/main
+https://huggingface.co/bartowski/Phi-3.5-mini-instruct_Uncensored-GGUF/tree/main
+
+
+Reads on quantization: https://symbl.ai/developers/blog/a-guide-to-quantization-in-llms/
+https://www.tensorops.ai/post/what-are-quantized-llms
+https://www.datacamp.com/tutorial/quantization-for-large-language-models
+https://huggingface.co/posts/macadeliccc/247190826659941
+
+
+Model conversion:
+While model conversion makes sense for traditional PyTorch/Tensorflow packages, in case of LLMs, this leads to inefficiency and overhead. Capabilities like kv-caching is not efficient since it’s done using pythonic code.
+Hence, in this case, it is better to use optimized implementation of each model, as defined in projects like llama.cpp
+
+
+
+Way ahead: use the GGUF format, with quantization between q2k to q5.
+
+
+
+Chunking:
+Start with fixed size chunking of 256 tokens or one paragraph (whichever is lower) with some overlap
+https://www.pinecone.io/learn/chunking-strategies/
+
+
+
+
+
+Discussion on ANE support for GGML - https://github.com/ggerganov/llama.cpp/discussions/336
+https://github.com/apple/ml-ane-transformers/tree/main
+Exposing Swift APIs to C++
+https://www.swift.org/documentation/cxx-interop/#exposing-swift-apis-to-c
+Apple metal is similar to CUDA and uses the GPU but not the ANE. To use ANE will have to use coreML and write code in Swift
+
+Next steps:
+Make a cli that
+- Reads text files (convert pdf to text?)
+- Embed them into tokens ( llama.create_embedding)
+- Store them in psql
+- Do vector search over text
+- Feed to phi 2
+- Get some results
+
+Use faiss. Try to port the cuda code to MPS (https://github.com/MEHDI342/CUDAM and even potentially ANE)
+
+
+- Identify scopes of improvement
+  - llama.cpp optimizations
+  - Vector search optimizations (leveraging ANE for vector search)
