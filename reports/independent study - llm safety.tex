@@ -9,6 +9,7 @@
 }
 \usepackage{graphicx}
 \usepackage{titling}
+\usepackage[export]{adjustbox}
 
 \title{Independent Study on Safety, Security and Performance of Large Language Models}
 \author{Manu Hegde}
@@ -17,6 +18,8 @@
 \usepackage{fancyhdr}
 \usepackage{placeins}
 \usepackage{enumitem}
+\usepackage{wrapfig}
+\usepackage{amsmath} % For math environments and formatting
 
 \fancypagestyle{plain}{%  the preset of fancyhdr
     \fancyhf{} % clear all header and footer fields
@@ -85,6 +88,13 @@
 
     In order to deal with various issues of LLMs, both for safety of users and as for ensuring output structure and quality, LLM guardrails can be implemented. Generally, the guardrail frameworks aim for the following.\\
     Securing the input:
+
+    \subsubsection{Constraints on the LLM}
+    \begin{figure}[ht!]
+        \includegraphics[width=1\linewidth]{guardrails.png}
+        \caption{Guardrails example - [1]}
+        \label{fig:guardrails}
+    \end{figure}
     \begin{itemize}
         \item PII Safety: Ensuring that no PII (Personally Identifiable Information) is present by filter the prompt if required.
         \item Jailbreak attempt: Ensure that the user is not attacking the LLM by attempting it to break out of it's expected behavior or use it to exploit the host machine.
@@ -98,16 +108,15 @@
         \item Profanity detection: Detect and filter profanity/prohibited language
     \end{itemize}
 
-    \subsubsection{Constraints on the LLM}
     Putting constraints/guardrails on the input and output of at the level of an Individual LLM is a must. Frameworks like \href{https://github.com/guardrails-ai/guardrails}{'Guardrails-AI'} offer various capabilities as seen in Figure 1.
 
-    \begin{figure}[h!]
-        \includegraphics[width=1\linewidth]{guardrails.png}
-        \caption{Guardrails example}
-        \label{fig:guardrails}
-    \end{figure}
-
     \subsubsection{Autonomous LLM Agents}
+    \begin{wrapfigure}{rb}{0.25\textwidth}
+        \includegraphics[width=0.25\textwidth,right,height=9cm]{llm-agents.png}
+        \caption{LLM Agent[2]}
+        \label{fig:enter-label}
+    \end{wrapfigure}
+
     Although the guardrails may prevent potential damages to the system or to the user, it may yield insufficient results.
     This leads to a need to re-attempt output generation. Unfortunately, just another attempt may not be sufficient for the following reasons:
     \begin{enumerate}[label=\alph*)]
@@ -118,14 +127,6 @@
     This leads to the necessity to build a compute graph where the LLM is repeatedly prompted until output criteria is met (with a finite limit on attempts). This structure is often referred to as an \href{https://www.promptingguide.ai/research/llm-agents}{'Autonomous Agent'} as illustrated in Figure 2.
 
 
-    \begin{figure}[h!]
-        \centering
-        \includegraphics[width=0.25\linewidth]{llm-agents.png}
-        \caption{LLM Agent}
-        \label{fig:enter-label}
-    \end{figure}
-
-
     \section{LLM security - Securing the LLM Against Attacks}
     Whenever a software is exposed to users, the means of exposure are termed as 'surface area' for attack vectors. Each step or mechanism where the software exposes itself to the user, as input or output can be potentially exploited for attacking the LLM. Although LLM security is an evolving domain just like the LLM itself is, certain pattern of attacks have been observed and studied, as listed below.
 
@@ -133,87 +134,180 @@
 
     \subsection{Attacks with Limited Access}
     When an attacker is given the access of an end user, i.e can provide input and receive output via an authenticated and restricted interface.
-
     \begin{itemize}
         \item \textbf{Jailbreaking Attack}: \\
-        A jailbreaking attack involves manipulating the model into producing outputs that it was designed to avoid, such as bypassing ethical constraints or generating harmful content. This often occurs when an attacker provides adversarial prompts that trick the model into ignoring its guardrails or safety filters. \\
-        \textbf{Countermeasures}: To prevent jailbreaking, models can be enhanced with stricter guardrails during both training and inference. This can include reinforcement learning techniques that penalize harmful outputs, as well as the use of adversarial training to help the model learn to resist these types of manipulations. Additionally, implementing input filtering or content moderation systems can help identify and block potentially dangerous inputs before they reach the model. \\
-        \textbf{Reference}: \cite{Jailbreak_2021} explores the vulnerabilities of large language models to jailbreaking and presents countermeasures like reinforcement learning with safety constraints.
+        A jailbreaking attack involves manipulating the model into producing outputs that it was designed to avoid, such as bypassing ethical constraints or generating harmful content. This often occurs when an attacker provides adversarial prompts that trick the model into ignoring its guardrails or safety filters [3][4].
+        \begin{figure}[ht!]
+            \centering
+            \includegraphics[width=0.4\linewidth]{llm-jailbreaking.png}
+            \caption{Jailbreaking LLMs - [3]}
+            \label{fig:jailbreaking-llms}
+        \end{figure}
+
+        \textbf{Countermeasures}: To prevent jailbreaking, models can be enhanced with stricter guardrails during both training and inference. This can include reinforcement learning techniques that penalize harmful outputs, especially during RLHF (reinforcement learning with human feedback), as well as the use of adversarial training to help the model learn to resist these types of manipulations. Additionally, implementing input filtering or content moderation systems can help identify and block potentially dangerous inputs before they reach the model. \\
 
         \item \textbf{Data Extraction Attack}: \\
-        A data extraction attack is an adversarial strategy where the attacker queries the model repeatedly to extract confidential or sensitive information embedded within the model’s training data. By analyzing the model's outputs, attackers can infer patterns or specific data points from the model’s training set, which could include PII or proprietary business data. \\
-        \textbf{Countermeasures}: To defend against data extraction, training on private datasets can be done using differential privacy techniques, which introduce noise into the model to prevent exact data reconstruction. Additionally, limiting the number of queries a user can make to the model and employing output filtering mechanisms can prevent attackers from extracting meaningful data from the model. \\
-        \textbf{Reference}: \cite{Shokri_2017} presents methods for preventing data extraction attacks via differential privacy and outlines the effectiveness of query limiting.
+        A data extraction attack is an adversarial strategy where the attacker queries the model repeatedly to extract confidential or sensitive information embedded within the model’s training data. By analyzing the model's outputs, attackers can infer patterns or specific data points from the model’s training set, which could include PII or proprietary business data. For example, the paper by \href{https://arxiv.org/pdf/2311.17035}{Nasr et. al. from Google Deepmind} demnostrates how they were able to extract sensitive PII by asking ChatGPT to repeat 'poem' forever.
+
+        \begin{figure}[ht!]
+            \centering
+            \includegraphics[width=0.4\linewidth]{data-extraction-attack.png}
+            \caption{Data extraction attack - [2]}
+            \label{fig:data extraction attack}
+        \end{figure}
+
+        \textbf{Causes}: In general, it is considered that data extraction attacks are more likely when the model memorizes the training data and replicates it as is. If the attacker can find specific words that appear around the sensitive information, the LLM could go off-rail and simply print out the training data.
+
+        \textbf{Countermeasures}: To defend against data extraction, training can be done using differential privacy techniques, which introduce noise into the model to prevent exact data reconstruction. Additionally, limiting the number of queries a user can make to the model and employing output filtering mechanisms can prevent attackers from extracting meaningful data from the model. \\
 
         \item \textbf{Prompt Leaking Attack}: \\
-        A prompt leaking attack occurs when sensitive information, such as proprietary prompts or user-specific inputs, is unintentionally leaked in the model’s output. The model could reveal private data embedded within the prompt or previously encountered during training, inadvertently disclosing confidential information. \\
-        \textbf{Countermeasures}: To mitigate prompt leaking, models should be carefully trained with data anonymization methods, ensuring that private information is not directly stored or recalled by the model. Additionally, employing techniques like output sanitization and response filtering can help detect and remove any sensitive content before it is exposed to users. Regular audits and checks can ensure that private information does not get embedded during fine-tuning or training. \\
-        \textbf{Reference}: \cite{Carlini_2021} discusses how models might unintentionally leak sensitive information and suggests privacy-preserving measures like differential privacy and response filtering.
+        A prompt leaking attack occurs when sensitive information, such as proprietary prompt like the popular 'System Prompt' (that contains restrictions and guidelines for the LLM) are unintentionally leaked in the model’s output. The model could reveal sensitive information regarding guidelines to the model and in-advertantly shed light on how an attacker could further exploit the model, as demonstrated in [5].
+        \begin{figure}[h!]
+            \centering
+            \includegraphics[width=.7\linewidth]{prompt-leak-attack-2.png}
+            \caption{Prompt leak attack - [5]}
+            \label{fig:enter-label}
+        \end{figure} \\
+        \textbf{Countermeasures}: Preventing the LLM from revealing its instructions is the first and foremost step to securing the LLM. Hence output guardrails to perform a strict string check to forcibly clip out system prompt or known sensitive instructions or prompts. \\
 
-        \item \textbf{Prompt Injection Attack (PI)}: \\
-        Prompt injection is a type of attack where an adversary manipulates the input prompt to force the model into responding in a certain way, often by embedding malicious instructions within the prompt that the model is forced to follow. This could lead to the model performing unintended tasks or revealing confidential information. \\
-        \textbf{Countermeasures}: To prevent prompt injection, a combination of input sanitization and validation techniques can be applied to remove suspicious or unexpected content before it reaches the model. Additionally, models can be trained to recognize and reject inputs that attempt to modify or inject new instructions into the prompt. Implementing robust prompt design principles and user input validation can help in identifying and blocking potential injection attempts. \\
-        \textbf{Reference}: \cite{Wallace_2021} demonstrates prompt injection vulnerabilities in LLMs and proposes filtering and input validation techniques to counteract such attacks.
 
         \item \textbf{Membership Inference Attack}: \\
-        A membership inference attack allows an attacker to determine whether a specific data point was part of the model’s training set by analyzing the model’s behavior. This type of attack exploits the model’s overfitting to the training data, revealing whether certain data points were included in the training process, which can be a privacy concern. \\
-        \textbf{Countermeasures}: To defend against membership inference, models can incorporate regularization techniques during training to prevent overfitting. Differential privacy, as mentioned earlier, is another effective mechanism to obscure whether a particular data point was part of the training set. Additionally, defensive measures like adding noise to model predictions or limiting access to model internals (e.g., logits) can reduce the risk of membership inference attacks. \\
-        \textbf{Reference}: \cite{Shokri_2017} introduces membership inference attacks and presents techniques like differential privacy and regularization to prevent them.
+        A membership inference attack in machine learning models [6] functions based on the observation that models often react differently to data seen during training. This could be leveraged in LLM allows an attacker to determine whether a specific data point was part of the model’s training set by analyzing the model’s behavior. This type of attack exploits the model’s overfitting/memorization of training data, revealing whether certain data points were included in the training process, which can be a serious privacy concern [7].\\
 
+        A popular example of a potential exploit of MIA is the \href{https://www.nytimes.com/2023/12/27/business/media/new-york-times-open-ai-microsoft-lawsuit.html}{OpenAI vs New York Times Lawsuit} where the latter was able to get ChatGPT to reproduce the articles from NYT almost word-to-word. This was used as a proof in the lawsuit to sue for copyrights, as illustrated in Figure 6.
+        \begin{figure}[h!]
+            \centering
+            \includegraphics[width=1\linewidth]{NYT_lawsuit_copy_screenshot.png}
+            \caption{MIA - ChatGPT vs NYTimes Lawsuit proof - [8]}
+            \label{fig:enter-label}
+        \end{figure}\\
+        \textbf{Countermeasures}: To defend against membership inference, models can incorporate regularization techniques during training to prevent overfitting. As mentioned in [9] large scale training of the model with diverse data sets can make MIA even harder. In case of models like ChatGPT, that have massive number of parameters (175 Billion for ChatGPT 3.5), memorizing large amounts of text is hard to avoid. Additionally, as mentioned earlier, defensive measures like adding noise to model predictions or limiting access to model internals (e.g., logits/ token confidence) can further reduce the risk of membership inference attacks.
     \end{itemize}
 
     \subsection{Attacks with Enhanced Access}
+    When LLM is deployed on a user's device it grants further opportunities for an attacker to exploit the LLM. LLM may be deployed to user's device either by downloading and installing it as a package, or by downloading as a service worker/WASM (web assembly) module on a web browser. Following is the list of attacks that the LLM may be subjected to in such circumstances.
     \begin{itemize}
+        \item \textbf{Sampling Attack:} \\
+        Sampling attack [10] is another form of Data extraction attack that can be performed when the attacker has access to the LLM package. In this attack, the LLM is passed the 'start' token and is repeatedly sampled with no further input. This tends to expose LLM's learned behaviors and patterns in its training data set.
+
+        \textbf{Countermeasures}: Just like the other data extraction attacks, this attack can be countered by ensuring that the LLM does not overfit on its training data and include diversity, entropy and noise in the training dataset.
+
         \item \textbf{Backdoor Attack}: \\
-        A backdoor attack involves the insertion of a trigger during training that allows the attacker to control the model’s behavior during inference by inputting a specific trigger. This type of attack often causes the model to behave normally under most conditions but to produce targeted outputs when the trigger is activated. \\
-        \textbf{Countermeasures}: To counter backdoor attacks, techniques like neural cleanse and anomaly detection can be used to identify and remove backdoors. During the training phase, regularization methods can be employed to prevent the model from overfitting to malicious triggers. Additionally, rigorous validation checks and testing against adversarial inputs can help in detecting abnormal behaviors that might indicate the presence of a backdoor. \\
-        \textbf{Reference}: \cite{Gu_2017} presents the concept of backdoor attacks and solutions like neural cleanse and anomaly detection to mitigate them.
+        A backdoor attack involves the insertion of a trigger during training that allows the attacker to control the model’s behavior during inference by inputting a specific trigger. This type of attack often causes the model to behave normally under most conditions but to produce targeted outputs when the trigger is activated.
+
+        Even if the LLM was trained without such intent, if the attacker gains access to the LLM's weights, it could be fine-tuned to embody a backdoor. Backdoor attacks could be performed by 4 broad mechanisms: data poisoning, weight poisoning, hidden state manipulation, and chain-of-thought (CoT) attacks [11]. Data poisoning attack especially is more impactful since it only involves data modification and retaining the model structure and its software system as is. It is typically involves inserting rare words or irrelevant static phrases into instructions
+        to manipulate the model’s responses and create secret words to trigger the undesired behavior. \\
+        \textbf{Countermeasures}: To counter backdoor attacks, techniques like neural cleanse and anomaly detection can be used to identify and remove backdoors in initial training data. Furthermore during training phase, regularization methods can be employed to prevent the model from overfitting to malicious triggers. Additionally, training the model to respond uniformly to all inputs i.e without skewing weightage towards any specific set of input tokens. This could make malicious fine-tuning much harder.\\
 
         \item \textbf{Data Poisoning Attack}: \\
-        In a data poisoning attack, an attacker manipulates the training data to inject malicious examples that influence the model's behavior. By altering the data that the model is trained on, attackers can degrade its performance or introduce vulnerabilities that can be exploited later. \\
+        In a data poisoning attack, as mentioned earlier, is when an attacker manipulates the training data to inject malicious examples that influence the model's behavior. By altering the data that the model is trained on, attackers can degrade its performance or introduce vulnerabilities that can be exploited later [11]. \\
         \textbf{Countermeasures}: To prevent data poisoning, data validation techniques, such as outlier detection and anomaly detection, should be employed during the data collection and pre-processing stages. Additionally, robust training techniques like adversarial training, where the model is exposed to adversarial examples during training, can help the model become more resistant to malicious data inputs. Regular audits of training datasets are crucial to ensure their integrity. \\
-        \textbf{Reference}: \cite{Biggio_2012} discusses the vulnerabilities of machine learning models to data poisoning and presents strategies like data cleaning and adversarial training to mitigate such attacks.
 
         \item \textbf{Gradient Leakage Attack}: \\
-        Gradient leakage attacks exploit the gradients of a model during training or inference to extract information about the model’s parameters or training data. By observing the changes in gradients, attackers can infer sensitive information, such as individual data points or the model’s architecture. \\
-        \textbf{Countermeasures}: Gradient leakage can be mitigated by using \textbf{gradient masking} techniques, which obscure the gradients from external queries. Additionally, \textbf{federated learning} can be employed, where gradients are aggregated across multiple devices in a decentralized manner, making it difficult for attackers to target individual models. Differential privacy can also be applied to the gradient updates to ensure that individual data points are not discernible from the gradient values. \\
-        \textbf{Reference}: \cite{Zhu_2020} discusses gradient leakage attacks and presents solutions like gradient masking and federated learning to prevent the exposure of sensitive information.
-
-        \item \textbf{Personal Identifiable Information (PII) Leakage Attacks}: \\
-        PII leakage attacks target the accidental exposure of personal or sensitive data embedded in the model. These attacks exploit the model's ability to generate text that could unintentionally reveal private details, such as names, addresses, or phone numbers, which were part of the training data. \\
-        \textbf{Countermeasures}: To prevent PII leakage, training data should be carefully anonymized and stripped of any identifying information. Models can also be trained with privacy-preserving methods like differential privacy, which helps to ensure that individual data points cannot be reverse-engineered from the model’s output. Regular testing with privacy evaluation tools can also help identify and mitigate risks of PII leakage. \\
-        \textbf{Reference}: \cite{Carlini_2021} highlights the risks of PII leakage and proposes methods like data anonymization and differential privacy to address these concerns.
-
+        Gradient leakage attacks happens when models are trained in a distributed fashion using distributed learning across multiple GPUs/machines. This attack can enable the attacker to steal the training data by back-calculating training data over iterations by using subsequent gradient vectors.
+        As demonstrated in \href{https://arxiv.org/pdf/1906.08935}{Deep Leakage from gradients [12]}, a dummy data set and dummy model is used to repeatedly perform inverse calculations using the leaked gradients. \\
+        \textbf{Countermeasures}: Gradient leakage can be mitigated by using \textbf{gradient masking} techniques, which obscure the gradients from external queries. Additionally, \textbf{federated learning} can be employed, where gradients are aggregated across multiple devices in a decentralized manner, making it difficult for attackers to target individual models. Differential privacy can also be applied to the gradient updates to ensure that individual data points are not discernible from the gradient values.
     \end{itemize}
 
 
     \subsection*{3. LLM performance - Evaluating the LLM}
+    Since the advent of ChatGPT, thresholds of performance for LLMs have reached newer heights. Simple metrics based on sentence structure or n-gram similarity no longer sufficiently help differentiate LLM performance and output quality. Hence, it is important to use multiple metrics to evaluate the performance of LLMs.
     \begin{itemize}
         \item \textbf{Perplexity}: \\
         Perplexity is a common metric used to evaluate the performance of language models, particularly in natural language processing (NLP). It measures how well a model predicts a sample of text. A lower perplexity indicates better performance, as it suggests the model is more confident in its predictions. Mathematically, perplexity is the exponentiation of the average negative log-likelihood of the model's predictions. In essence, perplexity gauges how "surprised" the model is by the actual data, with lower values indicating that the model is less surprised and more accurate in its predictions.
+        Perplexity may also be inversely related to verbosity, i.e. if a model has low perplexity for a set of data, it may lead to a verbose/detailed response i.e just like how humans may elaborate on something they already know it well.
 
-        \item \textbf{Accuracy}: \\
-        Accuracy is a straightforward metric that measures the proportion of correct predictions made by a model. For LLMs, accuracy can be computed for tasks like classification, entity recognition, or even next-token prediction. While accuracy is useful, it may not fully capture the quality of a model's output, especially in complex tasks like generation, where context and coherence matter more than just matching exact labels or outputs.
+        \[\text{Perplexity} = 2^{-\frac{1}{N} \sum_{i=1}^{N} \log_2 P(w_i | w_1, w_2, \dots, w_{i-1})} \]
+        Where:
+        \begin{itemize}
+            \item \textbf{\(P(w_i | w_1, w_2, \dots, w_{i-1})\)} is the probability assigned by the model to the \(i^{th}\) word given the previous words
+            \item \textbf{\(N\)} is the total number of words in the sequence.
+            \item The formula takes the average negative log probability of the words and obtains its exponent and converts it into a measure of uncertainty.
+        \end{itemize}
+
+        Perplexity as a metric was originally introduced in the paper \href{https://aclanthology.org/J96-1002.pdf}{A Maximum Entropy Approach
+        to Natural Language Processing [13]}. The paper on
+
+        \href{https://arxiv.org/pdf/1810.04805}{BERT [14]} started using this metric to also indicate the quality of the output. they concluded that the lower the perplexity, better the quality of the language model and hence better output quality.
+
 
         \item \textbf{BLEU (Bilingual Evaluation Understudy)}: \\
-        BLEU is a widely used metric for evaluating the quality of text generated by machine translation models, but it can also be applied to general text generation tasks. BLEU measures how many n-grams (sequences of n words) in the generated text match n-grams in a reference text. Higher BLEU scores indicate better alignment with the reference text. However, it is often criticized for not capturing semantic meaning and for favoring exact matches over fluent or contextually appropriate language.
+        BLEU is a widely used metric for evaluating the quality of text generated by machine translation models, but it can also be applied to general text generation tasks [15]. It measures the overlap between generated and expected reference text; i.e, how many n-grams (sequences of n words) in the generated text match n-grams in a reference text. Higher BLEU scores indicate better alignment with the reference text. However, it is often criticized for not capturing semantic meaning and for favoring exact matches over fluent or contextually appropriate language.
+
+        \[
+            \text{BLEU} = \text{BP} \cdot \exp\left( \sum_{n=1}^{N} w_n \log p_n \right)
+        \]
+        Where:
+        \begin{itemize}
+            \item \(BP\): Brevity Penalty, accounts for length differences between generated text and reference.
+            \item \(p_n\): Precision of n-grams, calculates the proportion of overlapping n-grams between the generated text and reference.
+            \item \(w_n\): Weight assigned to n-grams, typically uniform (e.g., \(w_n = \frac{1}{N}\)).
+            \item \(N\): Maximum n-gram size, commonly \(N = 4\).
+        \end{itemize}
+
+        BLEU focuses on precision, i.e., the proportion of the generated text that matches the reference text, emphasizing correctness over coverage. For example, if the reference text mentions apples and oranges, but the output text only mentions apples, it may still achieve a reasonable BLEU score as it matches part of the reference text precisely.
 
         \item \textbf{ROUGE (Recall-Oriented Understudy for Gisting Evaluation)}: \\
-        ROUGE is another evaluation metric, primarily used for summarization tasks, that measures the overlap between the generated text and a reference text. It focuses on recall and precision of n-grams, word sequences, and word pairs. ROUGE can be more useful than BLEU in tasks where semantic similarity and recall of key information are more important than exact matching. ROUGE is often used to evaluate models in tasks like abstractive summarization, where the generated text might vary significantly from the reference text while still maintaining the same meaning.
+        ROUGE is another evaluation metric, primarily used for summarization tasks, that measures the overlap between the generated text and a reference text [15]. It focuses on recall and precision of n-grams, word sequences, and word pairs. ROUGE can be more useful than BLEU in tasks where semantic similarity and recall of key information are more important than exact matching. ROUGE is often used to evaluate models in tasks like abstractive summarization, where the generated text might vary significantly from the reference text while still maintaining the same meaning.
 
-        \item \textbf{F1 Score}: \\
-        The F1 score combines precision and recall into a single metric by calculating their harmonic mean. It is particularly useful in classification tasks where the balance between precision (correctly predicted positive instances) and recall (capturing all relevant instances) is crucial. An F1 score closer to 1 indicates a better model performance, especially in tasks like sentiment analysis or named entity recognition (NER), where the output is often sparse or imbalanced.
 
-        \item \textbf{Human Evaluation}: \\
-        While automated metrics like BLEU and ROUGE are commonly used for LLM performance evaluation, \textbf{human evaluation} remains a critical technique, especially for more subjective or complex tasks. Human evaluators rate the quality of model outputs based on fluency, coherence, informativeness, and overall relevance. This type of evaluation provides valuable insights into how well a model performs in real-world applications, beyond the scope of automated metrics. Human evaluation is often used alongside other metrics to assess the quality of dialogue systems, text generation models, or machine translation systems in practical scenarios.
+        \[
+            \text{ROUGE-N} = \frac{\sum_{n \in \{1, 2, \dots, N\}} \text{count}_{\text{overlap}}(n\text{-grams})}{\sum_{n \in \{1, 2, \dots, N\}} \text{count}_{\text{reference}}(n\text{-grams})}
+        \]
+        Where:
+        \begin{itemize}
+            \item \(\text{count}_{\text{overlap}}(n\text{-grams})\): The count of n-grams that overlap between the candidate and reference texts.
+            \item \(\text{count}_{\text{reference}}(n\text{-grams})\): The total count of n-grams in the reference text.
+        \end{itemize}
 
-        \item \textbf{Task-Specific Metrics}: \\
-        Task-specific metrics are used to evaluate LLMs in the context of a particular application. For example, in question-answering systems, metrics like \textbf{Exact Match (EM)} and \textbf{F1 score} are commonly used. In summarization tasks, metrics like compression ratio (how much the model condenses the input) and \textbf{informativeness} (how much useful information is retained) may be more relevant. These metrics are tailored to the specific requirements of the task and provide a more focused assessment of the model’s performance.
+        ROUGE focuses on recall, i.e., the proportion of the reference text that is covered by the output text, emphasizing coverage over correctness. For example, if the reference text mentions apples and oranges, but the output text mentions apples, oranges, and mangoes, it can still achieve a reasonable ROUGE score as it covers all the topics present in the reference text, even with additional content.
+
+
+        \item \textbf{BERTScore}: \\
+        While n-gram oriented metrics like BLEU and ROUGE are commonly used for LLM performance evaluation, they still fail to capture contextual or conceptual similarity between output and reference.
+        BERTScore [16] is a modern evaluation metric that leverages contextual embeddings from BERT (Bidirectional Encoder Representations from Transformers) to compare the output and reference text based on their cosine distance. This effectively compares their similarity in terms of content and meaning (as captured by the embeddings).
+
+        The texts to be converted are tokenized and embedded into high dimensional BERT vectors, with one vector for each token. The similarity is then measured using cosine similarity between these token-level embeddings. This allows BERTScore to capture subtle nuances in meaning, making it a powerful metric for tasks such as machine translation, text summarization, and paraphrase generation, especially when dealing with diverse or paraphrased text that traditional metrics may miss.
+
+        \[
+            \text{BERTScore} = \frac{1}{|C|} \sum_{c \in C} \max_{r \in R} \text{cosine\_similarity}(f(c), f(r))
+        \]
+
+        Where:
+        \begin{itemize}
+            \item \( C \) is the set of tokens in the candidate text.
+            \item \( R \) is the set of tokens in the reference text.
+            \item \( f(c) \) and \( f(r) \) are the BERT-generated embeddings for token \( c \) and token \( r \).
+            \item \( \text{cosine\_similarity}(f(c), f(r)) \) is the cosine similarity between the embeddings of the candidate and reference tokens.
+        \end{itemize}
+
+
+        BERTScore is similar to human evaluation where a person may be asked to compare two texts for their overall similarity and meaning.
     \end{itemize}
 
 
     \section{Conclusion}
-    \tab While the field of Large Language Models is fairly new and highly evolving at the moment, due to collaboration and cross-over of talent between major AI companies and academia, the shared understanding on capabilities, risks and impact of AI is well acknowledged.
-    The current set of available tools have enabled LLMs to be used safely despite some notable unfortunate incidents. This should hence give the confidence to continue using and building software applications with LLMs.
+    \tab The safe use of LLMs and security of LLMs are a major concern when deploying them as part of an application. However, it can be seen that most attacks on LLMs post training are variations of data extraction attacks which can be neutralized by training the LLM on diverse data with noise included and strict input and output guardrails.
+    LLM performance evaluation is also consistently evolving, however metrics like BERTScore can help overcome any syntactic or semantic differences and help obtain human-like evaluation of text. With these mechanisms in place, we can safely proceed with the deployment of the LLMs since they cover the most probable issues as understood by the Pigeonhole principle.
 
+    \section*{References}
+    \begin{enumerate}
+        \item Guardrails AI - \href{https://www.guardrailsai.com/docs}{Documentation}
+        \item Wang et.al,(2024).\href{https://arxiv.org/pdf/2308.11432}{A Survey on Large Language Model based Autonomous Agents}
+        \item Chandra Das et.al,(2024). \href{https://arxiv.org/pdf/2402.00888}{Security and Privacy Challenges of Large Language Models}
+        \item Zhou et.al,(2024). \href{https://arxiv.org/pdf/2403.12171}{EasyJailbreak: A Unified Framework for Jailbreaking Large Language
+        Models}
+        \item Rohit.(2024). \href{https://x.com/krishnanrohit/status/1755122786014724125}{ChatGPT System Prompt leakage}
+        \item Shokri et.al,(2016).\href{https://arxiv.org/pdf/1610.05820}{Membership Inference Attacks Against Machine Learning Models}
+        \item Mattern et. al, (2023). \href{https://arxiv.org/pdf/2305.18462}{Membership Inference Attacks against Language Models via Neighbourhood Comparison}
+        \item Bastian. (2024). \href{https://the-decoder.com/openai-claims-new-york-times-prompting-strategy-violates-its-terms-of-service/}{OpenAI VS NY Times Lawsuit details}
+        \item Duan et. al,(2024). \href{https://arxiv.org/pdf/2402.07841}{Do Membership Inference Attacks Work on Large Language Models?}
+        \item Carlini et.al,(2021). \href{https://arxiv.org/pdf/2012.07805}{Extracting Training Data from Large Language Models}
+        \item Li et.al,(2024). \href{https://arxiv.org/pdf/2408.12798}{BACKDOOR LLM: A Comprehensive Benchmark for Backdoor Attacks on LLMs}
+        \item Zhu et.al, (2019). \href{https://arxiv.org/pdf/1906.08935}{Deep Leakage from gradients}
+        \item Berger et.al, (1996). \href{https://aclanthology.org/J96-1002.pdf}{A Maximum Entropy Approach to Natural Language Processing}
+        \item Papineni et.al, (2002). \href{https://aclanthology.org/P02-1040.pdf}{BLEU: a Method for Automatic Evaluation of Machine Translation}
+        \item Lin et.al, (2004). \href{https://aclanthology.org/W04-1013.pdf}{ROUGE: A Package for Automatic Evaluation of Summaries}
+        \item Zhang et.al, (2020). \href{https://arxiv.org/pdf/1904.09675}{BERTSCORE: EVALUATING TEXT GENERATION WITH BERT}
+    \end{enumerate}
 \end{document}
