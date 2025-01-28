@@ -1,0 +1,9 @@
+https://martinfowler.com/eaaDev/EventSourcing.html
+https://martinfowler.com/tags/domain%20driven%20design.html
+https://www.youtube.com/watch?v=VZePNGQojfA
+https://www.youtube.com/watch?v=fU9hR3kiOK0
+https://www.youtube.com/watch?v=pMuiVlnGqjk
+https://www.youtube.com/watch?v=PFQnNFe27kU
+https://www.youtube.com/watch?v=7EmboKQH8lM
+https://www.youtube.com/watch?v=1Z_h55jMe-M
+https://www.youtube.com/watch?v=zzAdEt3xZ1M
