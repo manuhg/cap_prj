@@ -135,7 +135,7 @@ cmake-build-debug/
 # Spyder project settings
 .spyderproject
 .spyproject
-
+.DS_Store
 # Rope project settings
 .ropeproject
 
