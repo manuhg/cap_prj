@@ -5,40 +5,51 @@ project(tldr_cpp)
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/c++)
 include_directories(${SOURCE_DIR})
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(JSON_BuildTests OFF CACHE INTERNAL "")
-add_subdirectory(dependencies/json)
+#set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 # Find required packages
-find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
-#find_package(PDFIO REQUIRED)
+find_package(PostgreSQL REQUIRED)
 
-pkg_check_modules(SQLITE3 REQUIRED sqlite3)
-#pkg_check_modules(PDFIO REQUIRED pdfio)
+
+find_package(PkgConfig)
+if(PkgConfig_FOUND)
+    pkg_check_modules(PQXX IMPORTED_TARGET libpqxx)
+    pkg_check_modules(POPPLER REQUIRED poppler-cpp)
+endif()
+
+# Include directories
+include_directories()
 
 # Add the executable
-#add_executable(tldr_cpp file-watcher.cpp)
 file(GLOB_RECURSE SRC_FILES ${SOURCE_DIR}/*.cpp ${SOURCE_DIR}/*.h)
-add_executable(tldr_cpp ${SRC_FILES})
+add_executable(tldr_cpp ${SRC_FILES}
+        src/c++/main.cpp
+        src/c++/main.h)
 
 
 
 # Include directories
 target_include_directories(tldr_cpp PRIVATE
-        ${OPENSSL_INCLUDE_DIR}
-        ${SQLITE3_INCLUDE_DIRS}
-#        ${PDFIO_INCLUDE_DIRS}
+        ${PostgreSQL_INCLUDE_DIRS}
+        ${PQXX_INCLUDE_DIRS}
+        /opt/homebrew/opt/libpq/include
+        /opt/homebrew/opt/libpqxx/include
+        /opt/homebrew/opt/poppler/include
 )
 
-# Link libraries
+target_link_options(tldr_cpp PRIVATE
+        -L/opt/homebrew/opt/libpq/lib/
+        -L/opt/homebrew/opt/libpqxx/lib/
+        -L/opt/homebrew/opt/poppler/lib/
+        -lpq
+        -lpoppler-cpp
+)
+## Link libraries
 target_link_libraries(tldr_cpp PRIVATE
-        ${OPENSSL_LIBRARIES}
-        ${SQLITE3_LIBRARIES}
-#        ${PDFIO_LIBRARIES}
-        nlohmann_json::nlohmann_json
-        stdc++fs
+        ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES}
 )
 
