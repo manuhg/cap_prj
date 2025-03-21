@@ -9,7 +9,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #set(JSON_BuildTests OFF CACHE INTERNAL "")
-#add_subdirectory(dependencies/json)
 
 # Find required packages
 find_package(PkgConfig REQUIRED)
