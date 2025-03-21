@@ -11,3 +11,9 @@
 	path = ref_projects/pgvector
 	url = git@github.com:pgvector/pgvector.git
 	branch = v0.8.0
+[submodule "ref_projects/ggml"]
+	path = ref_projects/ggml
+	url = git@github.com:ggml-org/ggml.git
+[submodule "ref_projects/llama.cpp"]
+	path = ref_projects/llama.cpp
+	url = git@github.com:manuhg/llama.cpp.git
