@@ -7,6 +7,7 @@
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-page.h>
 
+#include <main.h>
 #define PAGE_DELIMITER "\n\n"
 
 // Simple function to extract text from a PDF file
@@ -76,13 +77,14 @@ void deleteCorpus(const std::string &corpusId) {
 
 int main() {
     std::string input;
-    std::map<std::string, std::function<void(const std::string &)>> actions = {
-            {"do-rag",        doRag},
-            {"add-corpus",    addCorpus},
-            {"delete-corpus", deleteCorpus}
+    std::map<std::string, std::function<void(const std::string &)> > actions = {
+        {"do-rag", doRag},
+        {"add-corpus", addCorpus},
+        {"delete-corpus", deleteCorpus}
     };
-
-    while (true) {
+    test_extractTextFromPDF();
+    bool loop = false;
+    while (loop) {
         std::cout << "Enter command: ";
         std::getline(std::cin, input);
         std::istringstream iss(input);
@@ -99,4 +101,16 @@ int main() {
         }
     }
     return 0;
+}
+
+void test_extractTextFromPDF() {
+    std::string testFile = "../../corpus/current/97-things-every-software-architect-should-know.pdf";
+
+    std::string extractedText = extractTextFromPDF(testFile);
+    std::cout << extractedText.length() << std::endl;
+
+    assert(extractedText.length()==268979);
+    std::cout << "test_extractTextFromPDF passed!" << std::endl;
+    std::cout << "Extracted text (first 100 chars): \n=========" << extractedText.substr(0, 100) << "\n=========" <<
+            std::endl;
 }

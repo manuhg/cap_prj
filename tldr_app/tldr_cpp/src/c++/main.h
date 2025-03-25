@@ -4,9 +4,5 @@
 #ifndef TLDR_CPP_MAIN_H
 #define TLDR_CPP_MAIN_H
 
-
-int main() {
-    test_extractTextFromPDF();
-    return 0;
-}
+void test_extractTextFromPDF();
 #endif //TLDR_CPP_MAIN_H
