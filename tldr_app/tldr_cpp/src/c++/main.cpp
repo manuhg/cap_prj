@@ -10,6 +10,22 @@
 #include <main.h>
 #define PAGE_DELIMITER "\n\n"
 
+
+////tests
+
+void test_extractTextFromPDF() {
+    std::string testFile = "../../corpus/current/97-things-every-software-architect-should-know.pdf";
+
+    std::string extractedText = extractTextFromPDF(testFile);
+    std::cout << extractedText.length() << std::endl;
+
+    assert(extractedText.length()==268979);
+    std::cout << "test_extractTextFromPDF passed!" << std::endl;
+    std::cout << "Extracted text (first 100 chars): \n=========" << extractedText.substr(0, 100) << "\n=========" <<
+            std::endl;
+}
+
+//////
 // Simple function to extract text from a PDF file
 std::string extractTextFromPDF(const std::string &filename) {
     // Load the PDF document
@@ -75,16 +91,15 @@ void deleteCorpus(const std::string &corpusId) {
     std::cout << "DELETE_CORPUS action with corpus_id: " << corpusId << std::endl;
 }
 
-int main() {
+void command_loop() {
     std::string input;
     std::map<std::string, std::function<void(const std::string &)> > actions = {
         {"do-rag", doRag},
         {"add-corpus", addCorpus},
         {"delete-corpus", deleteCorpus}
     };
-    test_extractTextFromPDF();
-    bool loop = false;
-    while (loop) {
+
+    while (true) {
         std::cout << "Enter command: ";
         std::getline(std::cin, input);
         std::istringstream iss(input);
@@ -100,17 +115,12 @@ int main() {
             std::cout << "Unknown command: " << command << std::endl;
         }
     }
+}
+
+
+int main() {
+    test_extractTextFromPDF();
+    // command_loop();
     return 0;
 }
 
-void test_extractTextFromPDF() {
-    std::string testFile = "../../corpus/current/97-things-every-software-architect-should-know.pdf";
-
-    std::string extractedText = extractTextFromPDF(testFile);
-    std::cout << extractedText.length() << std::endl;
-
-    assert(extractedText.length()==268979);
-    std::cout << "test_extractTextFromPDF passed!" << std::endl;
-    std::cout << "Extracted text (first 100 chars): \n=========" << extractedText.substr(0, 100) << "\n=========" <<
-            std::endl;
-}
