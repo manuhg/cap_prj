@@ -8,10 +8,11 @@
 #include <poppler/cpp/poppler-page.h>
 
 #include <main.h>
-#define PAGE_DELIMITER "\n\n"
-
+#include <regex>
+#include <curl/curl.h>
 
 ////tests
+using json = nlohmann::json;
 
 void test_extractTextFromPDF() {
     std::string testFile = "../../corpus/current/97-things-every-software-architect-should-know.pdf";
@@ -59,6 +60,81 @@ std::string extractTextFromPDF(const std::string &filename) {
     return text;
 }
 
+// function to split text paragraphs into chunks with 20 characters overlap at the start and end
+std::vector<std::string> splitTextIntoChunks(const std::string &text, size_t num_sentences, size_t overlap) {
+    std::vector<std::string> chunks;
+    size_t start = 0;
+    // do regex search to find sentence endings
+    std::regex sentenceEndRegex(R"([\.\!\?]+)");
+    // find locations of next 10 sentence endings
+    std::smatch match;
+    std::string::const_iterator searchStart(text.cbegin());
+    std::vector<size_t> sentences;
+    while (std::regex_search(searchStart, text.cend(), match, sentenceEndRegex)) {
+        sentences.push_back(match.position() + match.length());
+        searchStart = match.suffix().first;
+    }
+    // use sentence locations to split text into chunks based on num_sentences
+    for (size_t i = 0; i < sentences.size(); i += num_sentences) {
+        size_t end = (i + num_sentences < sentences.size()) ? sentences[i + num_sentences] : text.length();
+        std::string chunk = text.substr(start, end - start);
+        if (i > 0) {
+            chunk = text.substr(sentences[i - 1] - overlap, end - start + overlap);
+        }
+        chunks.push_back(chunk);
+        start = end;
+    }
+
+    return chunks;
+}
+
+
+void sendEmbeddingsRequest(const std::vector<std::string> &chunks) {
+    CURL *curl;
+    CURLcode res;
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl = curl_easy_init();
+
+    if (curl) {
+        std::string url = LLM_EMBEDDINGS_URL;
+        // convert chunks into json data
+        embeddings_request request =  {chunks};
+        json request_json = request;
+
+
+        std::string jsonData = request_json.dump(2);
+        std::cout <<"\njsonData:\n"<< jsonData << std::endl;
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonData.c_str());
+
+        //parse response
+        std::string response;
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        res = curl_easy_perform(curl);
+
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        } else {
+            // Parse the response
+            json response_json = json::parse(response);
+            std::cout << "Response: " << response_json.dump(2) << std::endl;
+        }
+        // Clean up
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+    }
+
+    curl_global_cleanup();
+}
+
 void doRag(const std::string &conversationId) {
     // Implement the function
     std::cout << "DO_RAG action with conversation_id: " << conversationId << std::endl;
@@ -82,8 +158,17 @@ void doRag(const std::string &conversationId) {
 }
 
 void addCorpus(const std::string &sourcePath) {
-    // Implement the function
-    std::cout << "ADD_CORPUS action with source_path: " << sourcePath << std::endl;
+    std::string doc_text = extractTextFromPDF(sourcePath);
+    if (doc_text.empty()) {
+        std::cerr << "Error: No text extracted from PDF." << std::endl;
+        return;
+    }
+    // print text length
+    std::cout << "Extracted text length: " << doc_text.length() << std::endl;
+    const std::vector<std::string> chunks = splitTextIntoChunks(doc_text, CHUNK_N_SENTENCES, CHUNK_N_OVERLAP);
+    std::cout << "Number of chunks: " << chunks.size() << std::endl;
+    sendEmbeddingsRequest(chunks);
+    //TODO save the json to database and return the id
 }
 
 void deleteCorpus(const std::string &corpusId) {

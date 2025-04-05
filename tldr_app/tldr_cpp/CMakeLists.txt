@@ -13,13 +13,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find required packages
 find_package(PkgConfig REQUIRED)
 find_package(PostgreSQL REQUIRED)
-
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(CURL REQUIRED)
 
 find_package(PkgConfig)
-if(PkgConfig_FOUND)
+if (PkgConfig_FOUND)
     pkg_check_modules(PQXX IMPORTED_TARGET libpqxx)
     pkg_check_modules(POPPLER REQUIRED poppler-cpp)
-endif()
+endif ()
 
 # Include directories
 include_directories()
@@ -31,7 +32,6 @@ add_executable(tldr_cpp ${SRC_FILES}
         src/c++/main.h)
 
 
-
 # Include directories
 target_include_directories(tldr_cpp PRIVATE
         ${PostgreSQL_INCLUDE_DIRS}
@@ -39,6 +39,8 @@ target_include_directories(tldr_cpp PRIVATE
         /opt/homebrew/opt/libpq/include
         /opt/homebrew/opt/libpqxx/include
         /opt/homebrew/opt/poppler/include
+        /opt/homebrew/opt/curl/include
+        /opt/homebrew/opt/nlohmann-json/include
 )
 
 target_link_options(tldr_cpp PRIVATE
@@ -47,35 +49,9 @@ target_link_options(tldr_cpp PRIVATE
         -L/opt/homebrew/opt/poppler/lib/
         -lpq
         -lpoppler-cpp
+        -lcurl
 )
 ## Link libraries
 target_link_libraries(tldr_cpp PRIVATE
-        ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES}
-)
-
-
-# Add the test executable
-add_executable(test_pdf tests/test_pdf.cpp)
-
-
-
-# Include directories for the test
-target_include_directories(test_pdf PRIVATE
-        ${PostgreSQL_INCLUDE_DIRS}
-        ${PQXX_INCLUDE_DIRS}
-        /opt/homebrew/opt/libpq/include
-        /opt/homebrew/opt/libpqxx/include
-        /opt/homebrew/opt/poppler/include
-)
-
-# Link libraries for the test
-target_link_options(test_pdf PRIVATE
-        -L/opt/homebrew/opt/libpq/lib/
-        -L/opt/homebrew/opt/libpqxx/lib/
-        -L/opt/homebrew/opt/poppler/lib/
-        -lpq
-        -lpoppler-cpp
-)
-target_link_libraries(test_pdf PRIVATE
         ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES}
 )
