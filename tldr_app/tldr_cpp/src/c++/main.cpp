@@ -10,8 +10,9 @@
 #include <main.h>
 #include <regex>
 #include <curl/curl.h>
+#include <nlohmann/json.hpp>
+#include <memory>
 
-////tests
 using json = nlohmann::json;
 
 void test_extractTextFromPDF() {
@@ -89,7 +90,35 @@ std::vector<std::string> splitTextIntoChunks(const std::string &text, size_t num
 }
 
 
-void sendEmbeddingsRequest(const std::vector<std::string> &chunks) {
+// Global database instance
+std::unique_ptr<tldr::Database> g_db;
+
+bool initializeDatabase(bool use_postgres = false) {
+    if (!g_db) {
+        if (use_postgres) {
+            g_db = std::make_unique<tldr::PostgresDatabase>(PG_CONNECTION);
+        } else {
+            g_db = std::make_unique<tldr::SQLiteDatabase>(DB_PATH);
+        }
+
+        if (!g_db->initialize()) {
+            std::cerr << "Failed to initialize database" << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
+int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) {
+    if (!g_db) {
+        std::cerr << "Database not initialized" << std::endl;
+        return -1;
+    }
+    
+    return g_db->saveEmbeddings(chunks, embeddings_response);
+}
+
+void sendEmbeddingsRequest(const std::vector<std::string> &chunks, bool use_postgres = false) {
     CURL *curl;
     CURLcode res;
 
@@ -125,7 +154,44 @@ void sendEmbeddingsRequest(const std::vector<std::string> &chunks) {
         } else {
             // Parse the response
             json response_json = json::parse(response);
-            std::cout << "Response: " << response_json.dump(2) << std::endl;
+            
+            // Extract embeddings from the data array
+            if (!response_json.contains("data") || !response_json["data"].is_array()) {
+                std::cerr << "Invalid response format: missing 'data' array" << std::endl;
+                return;
+            }
+
+            // Create a new JSON object with just the embeddings array
+            json embeddings_array;
+            embeddings_array["embeddings"] = json::array();
+            
+            // Extract each embedding from the data array
+            for (const auto& item : response_json["data"]) {
+                if (item.contains("embedding") && item["embedding"].is_array()) {
+                    embeddings_array["embeddings"].push_back(item["embedding"]);
+                }
+            }
+            
+            size_t num_embeddings = embeddings_array["embeddings"].size();
+            std::cout << "Processed " << num_embeddings << " embeddings for " << chunks.size() << " chunks" << std::endl;
+            
+            // Verify number of embeddings matches number of chunks
+            if (num_embeddings != chunks.size()) {
+                std::cerr << "Error: Number of embeddings (" << num_embeddings << ") does not match number of chunks (" << chunks.size() << ")" << std::endl;
+                return;
+            }
+            
+            // Initialize and save to database
+            if (initializeDatabase(use_postgres)) {
+                int64_t saved_id = saveEmbeddings(chunks, embeddings_array);
+                if (saved_id != -1) {
+                    std::cout << "Saved embeddings with ID: " << saved_id << std::endl;
+                } else {
+                    std::cerr << "Failed to save embeddings to database" << std::endl;
+                }
+            } else {
+                std::cerr << "Failed to initialize database" << std::endl;
+            }
         }
         // Clean up
         curl_slist_free_all(headers);
@@ -204,8 +270,10 @@ void command_loop() {
 
 
 int main() {
-    test_extractTextFromPDF();
-    // command_loop();
+    std::string testFile = "../../corpus/current/97-things-every-software-architect-should-know.pdf";
+    
+    std::cout << "Testing addCorpus with file: " << testFile << std::endl;
+    addCorpus(testFile);
+    
     return 0;
 }
-

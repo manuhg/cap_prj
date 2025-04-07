@@ -15,6 +15,7 @@ find_package(PkgConfig REQUIRED)
 find_package(PostgreSQL REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(CURL REQUIRED)
+find_package(SQLite3 REQUIRED)
 
 find_package(PkgConfig)
 if (PkgConfig_FOUND)
@@ -26,16 +27,29 @@ endif ()
 include_directories()
 
 # Add the executable
-file(GLOB_RECURSE SRC_FILES ${SOURCE_DIR}/*.cpp ${SOURCE_DIR}/*.h)
+file(GLOB_RECURSE SRC_FILES 
+    ${SOURCE_DIR}/*.cpp 
+    ${SOURCE_DIR}/*.h
+    ${SOURCE_DIR}/db/*.cpp
+    ${SOURCE_DIR}/db/*.h
+)
+
 add_executable(tldr_cpp ${SRC_FILES}
-        src/c++/main.cpp
-        src/c++/main.h)
+    src/c++/main.cpp
+    src/c++/main.h
+    src/c++/db/database.h
+    src/c++/db/sqlite_database.h
+    src/c++/db/sqlite_database.cpp
+    src/c++/db/postgres_database.h
+    src/c++/db/postgres_database.cpp
+)
 
 
 # Include directories
 target_include_directories(tldr_cpp PRIVATE
         ${PostgreSQL_INCLUDE_DIRS}
         ${PQXX_INCLUDE_DIRS}
+        ${SQLite3_INCLUDE_DIRS}
         /opt/homebrew/opt/libpq/include
         /opt/homebrew/opt/libpqxx/include
         /opt/homebrew/opt/poppler/include
@@ -54,4 +68,5 @@ target_link_options(tldr_cpp PRIVATE
 ## Link libraries
 target_link_libraries(tldr_cpp PRIVATE
         ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES}
+        SQLite::SQLite3
 )
