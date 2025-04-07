@@ -23,8 +23,7 @@ void test_extractTextFromPDF() {
 
     assert(extractedText.length()==268979);
     std::cout << "test_extractTextFromPDF passed!" << std::endl;
-    std::cout << "Extracted text (first 100 chars): \n=========" << extractedText.substr(0, 100) << "\n=========" <<
-            std::endl;
+    std::cout << "Extracted text (first 50 chars): \n=========" << extractedText.substr(0, 50) << "\n=========" <<std::endl;
 }
 
 //////
@@ -46,9 +45,15 @@ std::string extractTextFromPDF(const std::string &filename) {
         // Get the current page
         poppler::page *page = doc->create_page(i);
         if (page) {
-            // Extract text from the page and append it to our result
+            // Extract text from the page and sanitize UTF-8
             poppler::byte_array utf8_data = page->text().to_utf8();
-            std::string page_text(utf8_data.begin(), utf8_data.end());
+            std::string page_text;
+            // Only keep ASCII characters for now
+            for (unsigned char c : utf8_data) {
+                if (c < 128) { // ASCII range
+                    page_text += c;
+                }
+            }
 
             text.append(page_text + PAGE_DELIMITER);
             delete page;
@@ -61,31 +66,24 @@ std::string extractTextFromPDF(const std::string &filename) {
     return text;
 }
 
-// function to split text paragraphs into chunks with 20 characters overlap at the start and end
-std::vector<std::string> splitTextIntoChunks(const std::string &text, size_t num_sentences, size_t overlap) {
+// function to split text into fixed-size chunks with overlap
+std::vector<std::string> splitTextIntoChunks(const std::string &text, size_t max_chunk_size = 2000, size_t overlap = 20) {
     std::vector<std::string> chunks;
-    size_t start = 0;
-    // do regex search to find sentence endings
-    std::regex sentenceEndRegex(R"([\.\!\?]+)");
-    // find locations of next 10 sentence endings
-    std::smatch match;
-    std::string::const_iterator searchStart(text.cbegin());
-    std::vector<size_t> sentences;
-    while (std::regex_search(searchStart, text.cend(), match, sentenceEndRegex)) {
-        sentences.push_back(match.position() + match.length());
-        searchStart = match.suffix().first;
-    }
-    // use sentence locations to split text into chunks based on num_sentences
-    for (size_t i = 0; i < sentences.size(); i += num_sentences) {
-        size_t end = (i + num_sentences < sentences.size()) ? sentences[i + num_sentences] : text.length();
-        std::string chunk = text.substr(start, end - start);
-        if (i > 0) {
-            chunk = text.substr(sentences[i - 1] - overlap, end - start + overlap);
-        }
-        chunks.push_back(chunk);
-        start = end;
-    }
+    size_t pos = 0;
+    const size_t text_len = text.length();
 
+    while (pos < text_len) {
+        // Calculate end position for this chunk
+        size_t chunk_end = std::min(pos + max_chunk_size, text_len);
+        
+        // Add the chunk
+        int num_chars = chunk_end - pos;
+        chunks.push_back(text.substr(pos, num_chars));
+        
+        // Move position for next chunk, accounting for overlap
+        pos = num_chars > overlap ? chunk_end - overlap : chunk_end;
+    }
+    
     return chunks;
 }
 
@@ -118,6 +116,82 @@ int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embed
     return g_db->saveEmbeddings(chunks, embeddings_response);
 }
 
+void processChunkBatch(const std::vector<std::string>& batch, size_t batch_num, size_t total_batches) {
+    // Create JSON array of texts
+    json request = {
+        {"input", batch}
+    };
+    
+    std::cout << "Processing batch " << batch_num + 1 
+              << " of " << total_batches << std::endl;
+
+    // Convert JSON to string
+    std::string json_str = request.dump();
+    
+    // Create a cURL handle
+    CURL *curl = curl_easy_init();
+    if (!curl) {
+        throw std::runtime_error("Failed to initialize CURL");
+    }
+    
+    // Set up headers
+    struct curl_slist *headers = nullptr;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    
+    // Response data will be stored here
+    std::string response_data;
+    
+    // Set up cURL options
+    curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:8080/embeddings");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_str.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char *ptr, size_t size, size_t nmemb, void *userdata) {
+                std::string *response = static_cast<std::string*>(userdata);
+                response->append(ptr, size * nmemb);
+                return size * nmemb;
+            });
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+            
+            res = curl_easy_perform(curl);
+            
+            if (res != CURLE_OK) {
+                std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+                return std::vector<std::vector<float>>();
+            }
+            
+            try {
+                json response_json = json::parse(response);
+                
+                if (response_json.contains("error")) {
+                    std::cerr << "API Error: " << response_json["error"]["message"] << std::endl;
+                    return std::vector<std::vector<float>>();
+                }
+                
+                if (!response_json.contains("data") || !response_json["data"].is_array()) {
+                    std::cerr << "Invalid response format: missing 'data' array" << std::endl;
+                    return std::vector<std::vector<float>>();
+                }
+                
+                for (const auto& item : response_json["data"]) {
+                    if (item.contains("embedding") && item["embedding"].is_array()) {
+                        std::vector<float> embedding = item["embedding"].get<std::vector<float>>();
+                        all_embeddings.push_back(embedding);
+                    }
+                }
+            } catch (const json::parse_error& e) {
+                std::cerr << "JSON parse error: " << e.what() << std::endl;
+                return std::vector<std::vector<float>>();
+            }
+            
+            curl_slist_free_all(headers);
+            curl_easy_cleanup(curl);
+        }
+        curl_global_cleanup();
+    }
+    
+    return all_embeddings;
+}
+
 void sendEmbeddingsRequest(const std::vector<std::string> &chunks, bool use_postgres = false) {
     CURL *curl;
     CURLcode res;
@@ -133,7 +207,7 @@ void sendEmbeddingsRequest(const std::vector<std::string> &chunks, bool use_post
 
 
         std::string jsonData = request_json.dump(2);
-        std::cout <<"\njsonData:\n"<< jsonData << std::endl;
+        std::cout <<"\njsonData:\n"<< jsonData.substr(0,100) << std::endl;
 
         struct curl_slist *headers = NULL;
         headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -142,9 +216,13 @@ void sendEmbeddingsRequest(const std::vector<std::string> &chunks, bool use_post
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonData.c_str());
 
-        //parse response
+        // Set up response handling
         std::string response;
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char *ptr, size_t size, size_t nmemb, void *userdata) {
+            std::string *response = static_cast<std::string*>(userdata);
+            response->append(ptr, size * nmemb);
+            return size * nmemb;
+        });
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
         res = curl_easy_perform(curl);
@@ -152,25 +230,17 @@ void sendEmbeddingsRequest(const std::vector<std::string> &chunks, bool use_post
         if (res != CURLE_OK) {
             std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
         } else {
-            // Parse the response
-            json response_json = json::parse(response);
+            // size_t batch_size = MAX_CHARS_PER_BATCH/CHUNK_N_CHARS;
+            std::vector<std::vector<float>> all_embeddings = processChunksInBatches(chunks);
             
-            // Extract embeddings from the data array
-            if (!response_json.contains("data") || !response_json["data"].is_array()) {
-                std::cerr << "Invalid response format: missing 'data' array" << std::endl;
+            if (all_embeddings.empty()) {
+                std::cerr << "Failed to process chunks" << std::endl;
                 return;
             }
-
+            
             // Create a new JSON object with just the embeddings array
             json embeddings_array;
-            embeddings_array["embeddings"] = json::array();
-            
-            // Extract each embedding from the data array
-            for (const auto& item : response_json["data"]) {
-                if (item.contains("embedding") && item["embedding"].is_array()) {
-                    embeddings_array["embeddings"].push_back(item["embedding"]);
-                }
-            }
+            embeddings_array["embeddings"] = all_embeddings;
             
             size_t num_embeddings = embeddings_array["embeddings"].size();
             std::cout << "Processed " << num_embeddings << " embeddings for " << chunks.size() << " chunks" << std::endl;
@@ -229,9 +299,9 @@ void addCorpus(const std::string &sourcePath) {
         std::cerr << "Error: No text extracted from PDF." << std::endl;
         return;
     }
-    // print text length
+    // print text length only
     std::cout << "Extracted text length: " << doc_text.length() << std::endl;
-    const std::vector<std::string> chunks = splitTextIntoChunks(doc_text, CHUNK_N_SENTENCES, CHUNK_N_OVERLAP);
+    const std::vector<std::string> chunks = splitTextIntoChunks(doc_text, 500, 20);
     std::cout << "Number of chunks: " << chunks.size() << std::endl;
     sendEmbeddingsRequest(chunks);
     //TODO save the json to database and return the id
@@ -270,7 +340,7 @@ void command_loop() {
 
 
 int main() {
-    std::string testFile = "../../corpus/current/97-things-every-software-architect-should-know.pdf";
+    std::string testFile = "../corpus/current/97-things-every-software-architect-should-know.pdf";
     
     std::cout << "Testing addCorpus with file: " << testFile << std::endl;
     addCorpus(testFile);
