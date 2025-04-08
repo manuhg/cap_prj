@@ -25,7 +25,7 @@
 #define PG_CONNECTION "dbname=tldr_embeddings user=postgres password=postgres host=localhost port=5432"
 
 // HTTP request constants
-#define EMBEDDINGS_URL "http://localhost:8080/embedding"
+#define EMBEDDINGS_URL "http://localhost:8080/embeddings"
 #define CONNECT_TIMEOUT_SECONDS 5
 #define REQUEST_TIMEOUT_SECONDS 30
 #define MAX_RETRIES 3

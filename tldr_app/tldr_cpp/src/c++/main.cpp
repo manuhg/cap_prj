@@ -173,12 +173,31 @@ std::string sendEmbeddingsRequest(const json &request) {
 json parseEmbeddingsResponse(const std::string &response_data) {
     try {
         json response = json::parse(response_data);
-        if (!response.contains("embedding")) {
-            // Debug print the full response
+        
+        // Validate the response structure
+        if (!response.contains("data") || !response["data"].is_array()) {
             std::cerr << "Full response: " << response.dump(2) << std::endl;
-            throw std::runtime_error("Invalid response format: missing 'embedding' field");
+            throw std::runtime_error("Invalid response format: missing 'data' array");
         }
-        return response;
+
+        // Create a new JSON object to store embeddings
+        json embeddings_json;
+        embeddings_json["embeddings"] = json::array();
+
+        // Extract embeddings from each data item
+        for (const auto& item : response["data"]) {
+            if (item.contains("embedding") && item["embedding"].is_array()) {
+                embeddings_json["embeddings"].push_back(item["embedding"]);
+            }
+        }
+
+        // Verify we extracted embeddings
+        if (embeddings_json["embeddings"].empty()) {
+            std::cerr << "No embeddings found in the response" << std::endl;
+            throw std::runtime_error("No embeddings found in the response");
+        }
+
+        return embeddings_json;
     } catch (const json::parse_error &e) {
         std::cerr << "Raw response data: " << response_data << std::endl;
         throw std::runtime_error(std::string("Failed to parse response: ") + e.what());
@@ -214,10 +233,7 @@ void processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, 
 
             // Prepare request for llama.cpp server
             json request_payload = {
-                {"prompt", batch[0]},  // Use first chunk as prompt
-                {"n_predict", 0},     // No text generation
-                {"stream", false},    // No streaming
-                {"embedding", true}   // Request embeddings
+                {"input", batch}  // Send the entire batch as input
             };
 
             std::string response_data = sendEmbeddingsRequest(request_payload);
