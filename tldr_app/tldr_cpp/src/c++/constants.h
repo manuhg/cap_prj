@@ -8,7 +8,7 @@
 #define AVG_WORDS_PER_SENTENCE 6
 #define AVG_CHARS_PER_WORD 5
 #define CHUNK_N_SENTENCES 10
-#define CHUNK_N_OVERLAP 20 // overlap in characters at start and end
+#define CHUNK_N_OVERLAP 80 // overlap in characters at start and end
 #define CHUNK_N_CHARS ((CHUNK_N_SENTENCES * AVG_WORDS_PER_SENTENCE * AVG_CHARS_PER_WORD)+(CHUNK_N_OVERLAP*2))
 #define MAX_CHARS_PER_BATCH 2048
 #define MAX_CHUNK_SIZE (MAX_CHARS_PER_BATCH-(CHUNK_N_OVERLAP*2))
