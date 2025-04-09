@@ -2,6 +2,7 @@
 #define TLDR_CPP_SQLITE_DATABASE_H
 
 #include "database.h"
+#include "connection_pool.h"
 #include <sqlite3.h>
 
 namespace tldr {
@@ -16,10 +17,10 @@ namespace tldr {
         
     private:
         std::string db_path_;
-        sqlite3* db_;
+        ConnectionPool<sqlite3> conn_pool;
         
-        bool openConnection();
-        void closeConnection();
+        bool openConnection(sqlite3*& db);
+        void closeConnection(sqlite3* db);
     };
 }
 

@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
-
+#include <main.h>
 using json = nlohmann::json;
 
 namespace tldr {

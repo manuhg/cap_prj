@@ -2,6 +2,7 @@
 #define TLDR_CPP_POSTGRES_DATABASE_H
 
 #include "database.h"
+#include "connection_pool.h"
 #include <pqxx/pqxx>
 
 namespace tldr {
@@ -16,10 +17,10 @@ namespace tldr {
         
     private:
         std::string connection_string_;
-        std::unique_ptr<pqxx::connection> conn_;
+        ConnectionPool<pqxx::connection> conn_pool;
         
-        bool openConnection();
-        void closeConnection();
+        bool openConnection(pqxx::connection*& conn);
+        void closeConnection(pqxx::connection* conn);
     };
 }
 

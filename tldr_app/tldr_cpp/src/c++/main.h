@@ -20,12 +20,14 @@
 #define MAX_CHARS_PER_BATCH 2048
 #define MAX_CHUNK_SIZE (MAX_CHARS_PER_BATCH-(CHUNK_N_OVERLAP*2))
 #define BATCH_SIZE 8
+
 #define NUM_THREADS 2
+#define CONN_POOL_SIZE (NUM_THREADS+2)
 
 // Database constants
-#define USE_POSTGRES false  // Set to true to use PostgreSQL, false for SQLite
+#define USE_POSTGRES true  // Set to true to use PostgreSQL, false for SQLite
 #define DB_PATH "~/proj_tldr/datastore/embeddings.db"
-#define PG_CONNECTION "dbname=tldr_embeddings user=postgres password=postgres host=localhost port=5432"
+#define PG_CONNECTION "dbname=tldr user=postgres password=postgres host=localhost port=5432"
 
 // HTTP request constants
 #define EMBEDDINGS_URL "http://localhost:8080/embeddings"

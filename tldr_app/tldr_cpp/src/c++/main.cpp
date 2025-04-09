@@ -21,9 +21,10 @@ using json = nlohmann::json;
 // Global database instance
 std::unique_ptr<tldr::Database> g_db;
 
+#if !USE_POSTGRES
 // Global mutex for thread synchronization
-std::mutex g_mutex;
-
+// std::mutex g_mutex;
+#endif
 std::string translatePath(const std::string& path) {
     std::string result = path;
 
@@ -235,7 +236,9 @@ json parseEmbeddingsResponse(const std::string &response_data) {
 
 // Save embeddings to database with thread safety
 int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const json &embeddings_json) {
-    std::lock_guard<std::mutex> lock(g_mutex);
+#if !USE_POSTGRES
+    // std::lock_guard<std::mutex> lock(g_mutex);
+#endif
     int64_t saved_id = saveEmbeddings(batch, embeddings_json);
     if (saved_id < 0) {
         throw std::runtime_error("Failed to save embeddings to database");
