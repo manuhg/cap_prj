@@ -8,19 +8,19 @@
 namespace tldr {
     class PostgresDatabase : public Database {
     public:
-        explicit PostgresDatabase(const std::string& connection_string);
+        explicit PostgresDatabase(const std::string &connection_string);
         ~PostgresDatabase() override;
-        
+
         bool initialize() override;
-        int64_t saveEmbeddings(const std::vector<std::string>& chunks, const json& embeddings_response) override;
-        bool getEmbeddings(int64_t id, std::vector<std::string>& chunks, json& embeddings) override;
-        
+        int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) override;
+        bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) override;
+
     private:
         std::string connection_string_;
         ConnectionPool<pqxx::connection> conn_pool;
-        
-        bool openConnection(pqxx::connection*& conn);
-        void closeConnection(pqxx::connection* conn);
+
+        bool openConnection(pqxx::connection *&conn);
+        void closeConnection(pqxx::connection *conn);
     };
 }
 

@@ -25,12 +25,12 @@ std::unique_ptr<tldr::Database> g_db;
 // Global mutex for thread synchronization
 // std::mutex g_mutex;
 #endif
-std::string translatePath(const std::string& path) {
+std::string translatePath(const std::string &path) {
     std::string result = path;
 
     // Expand tilde (~)
     if (!result.empty() && result[0] == '~') {
-        const char* home = std::getenv("HOME");
+        const char *home = std::getenv("HOME");
         if (home) {
             result.replace(0, 1, home);
         }
@@ -44,9 +44,9 @@ std::string translatePath(const std::string& path) {
 
     size_t last_pos = 0;
     for (; it != end; ++it) {
-        const std::smatch& match = *it;
+        const std::smatch &match = *it;
         expanded.append(result, last_pos, match.position() - last_pos);
-        const char* val = std::getenv(match[1].str().c_str());
+        const char *val = std::getenv(match[1].str().c_str());
         expanded.append(val ? val : "");
         last_pos = match.position() + match.length();
     }
@@ -60,7 +60,7 @@ int calc_batch_chars(const std::vector<std::string_view> &batch) {
     if (batch.empty()) {
         return 0;
     }
-    for (const auto& c : batch) {
+    for (const auto &c: batch) {
         total_length += c.length();
     }
     return total_length;
@@ -84,7 +84,7 @@ std::string extractTextFromPDF(const std::string &filename) {
         // Get the current page
         poppler::page *page = doc->create_page(i);
         std::string page_text;
-        page_text.reserve(1024*4);
+        page_text.reserve(1024 * 4);
         if (page) {
             page_text.clear();
             // Extract text from the page and sanitize UTF-8
@@ -92,7 +92,8 @@ std::string extractTextFromPDF(const std::string &filename) {
 
             // Only keep ASCII characters for now
             for (unsigned char c: utf8_data) {
-                if (c < 128) {// ASCII range
+                if (c < 128) {
+                    // ASCII range
                     page_text += c;
                 }
             }
@@ -203,7 +204,7 @@ std::string sendEmbeddingsRequest(const json &request) {
 json parseEmbeddingsResponse(const std::string &response_data) {
     try {
         json response = json::parse(response_data);
-        
+
         // Validate the response structure
         if (!response.contains("data") || !response["data"].is_array()) {
             std::cerr << "Full response: " << response.dump(2) << std::endl;
@@ -215,7 +216,7 @@ json parseEmbeddingsResponse(const std::string &response_data) {
         embeddings_json["embeddings"] = json::array();
 
         // Extract embeddings from each data item
-        for (const auto& item : response["data"]) {
+        for (const auto &item: response["data"]) {
             if (item.contains("embedding") && item["embedding"].is_array()) {
                 embeddings_json["embeddings"].push_back(item["embedding"]);
             }
@@ -246,13 +247,14 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const json &
     return saved_id;
 }
 
-void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_num, size_t total_batches, int& result_id) {
+void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_num, size_t total_batches,
+                       int &result_id) {
     // Process each text chunk individually since llama.cpp server expects single text input
     std::vector<json> embeddings_list;
     embeddings_list.reserve(batch.size());
 
     int total_length = 0;
-    for (const auto& chunk : batch) {
+    for (const auto &chunk: batch) {
         total_length += chunk.length();
     }
     result_id = -1;
@@ -266,7 +268,7 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
     for (int retry = 0; retry < MAX_RETRIES; retry++) {
         if (retry > 0) {
             std::cout << "Retrying batch " << batch_num + 1 << " (attempt " << retry + 1
-                      << " of " << MAX_RETRIES << ")" << std::endl;
+                    << " of " << MAX_RETRIES << ")" << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
         }
 
@@ -277,7 +279,7 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
 
             // Prepare request for embeddings service
             json request_payload = {
-                {"input", std::vector<std::string>(batch.begin(), batch.end())}  // Send the entire batch as input
+                {"input", std::vector<std::string>(batch.begin(), batch.end())} // Send the entire batch as input
             };
 
             std::string response_data = sendEmbeddingsRequest(request_payload);
@@ -327,7 +329,7 @@ void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size,
     // System initialization is now handled by initializeSystem()
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
     std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
-              << " batches using " << num_threads << " threads\n";
+            << " batches using " << num_threads << " threads\n";
     std::vector<int> ids(num_threads, -1);
 
     try {
@@ -339,22 +341,23 @@ void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size,
                 size_t start = batch_start + j * batch_size;
                 size_t end = std::min(start + batch_size, chunks.size());
 
-                threads.emplace_back([&chunks, start, end, batch_start, batch_size, total_batches, &ids, j, num_threads]() {
-                    try {
-                        // Process chunks directly without creating a copy
-                        size_t batch_num = batch_start / (batch_size * num_threads) * num_threads + j;
-                        processChunkBatch(std::vector<std::string_view>(
-                            chunks.begin() + start, 
-                            chunks.begin() + end
-                        ), batch_num, total_batches, ids[j]);
-                    } catch (const std::exception &e) {
-                        std::cerr << "Thread " << j << " error: " << e.what() << std::endl;
-                    }
-                });
+                threads.emplace_back(
+                    [&chunks, start, end, batch_start, batch_size, total_batches, &ids, j, num_threads]() {
+                        try {
+                            // Process chunks directly without creating a copy
+                            size_t batch_num = batch_start / (batch_size * num_threads) * num_threads + j;
+                            processChunkBatch(std::vector<std::string_view>(
+                                                  chunks.begin() + start,
+                                                  chunks.begin() + end
+                                              ), batch_num, total_batches, ids[j]);
+                        } catch (const std::exception &e) {
+                            std::cerr << "Thread " << j << " error: " << e.what() << std::endl;
+                        }
+                    });
             }
 
             // Wait for all threads in this group to complete
-            for (auto &thread : threads) {
+            for (auto &thread: threads) {
                 if (thread.joinable()) {
                     thread.join();
                 }
@@ -440,7 +443,8 @@ int main() {
         return 1;
     }
 
-    std::string testFile = translatePath("~/proj_tldr/corpus/current/97-things-every-software-architect-should-know.pdf");
+    std::string testFile = translatePath(
+        "~/proj_tldr/corpus/current/97-things-every-software-architect-should-know.pdf");
 
     std::cout << "Testing addCorpus with file: " << testFile << std::endl;
     addCorpus(testFile);
@@ -464,11 +468,11 @@ json handle_requests(const std::vector<std::string_view> &chunks) {
         return json::object();
     }
     std::string url = EMBEDDINGS_URL;
-    
+
     // Convert chunks to strings only when necessary
     std::vector<std::string> chunk_strings;
     chunk_strings.reserve(chunks.size());
-    for (const auto& chunk : chunks) {
+    for (const auto &chunk: chunks) {
         chunk_strings.push_back(std::string(chunk));
     }
 
@@ -532,10 +536,10 @@ json sendEmbeddingsRequestCustom(CURL *curl, const std::string url, const json r
     //parse response
     std::string response;
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char *ptr, size_t size, size_t nmemb, void *userdata) {
-                std::string *response = static_cast<std::string*>(userdata);
-                response->append(ptr, size * nmemb);
-                return size * nmemb;
-            });
+                     std::string *response = static_cast<std::string*>(userdata);
+                     response->append(ptr, size * nmemb);
+                     return size * nmemb;
+                     });
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
     res = curl_easy_perform(curl);

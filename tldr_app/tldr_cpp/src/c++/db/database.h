@@ -4,22 +4,22 @@
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
-#include <main.h>
+#include "../constants.h"
 using json = nlohmann::json;
 
 namespace tldr {
     class Database {
     public:
         virtual ~Database() = default;
-        
+
         // Initialize the database, create tables if needed
         virtual bool initialize() = 0;
-        
+
         // Save embeddings to the database
-        virtual int64_t saveEmbeddings(const std::vector<std::string>& chunks, const json& embeddings_response) = 0;
-        
+        virtual int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) = 0;
+
         // Get embeddings by ID
-        virtual bool getEmbeddings(int64_t id, std::vector<std::string>& chunks, json& embeddings) = 0;
+        virtual bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) = 0;
     };
 }
 

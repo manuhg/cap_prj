@@ -2,52 +2,53 @@
 #include <iostream>
 
 namespace tldr {
-
-    SQLiteDatabase::SQLiteDatabase(const std::string& db_path) 
-        : db_path_(db_path), 
+    SQLiteDatabase::SQLiteDatabase(const std::string &db_path)
+        : db_path_(db_path),
           conn_pool(
-              db_path, 
+              db_path,
               CONN_POOL_SIZE,
-              [](const std::string& path) { 
-                  sqlite3* db = nullptr;
+              [](const std::string &path) {
+                  sqlite3 *db = nullptr;
                   int rc = sqlite3_open(path.c_str(), &db);
                   if (rc) {
                       throw std::runtime_error("Can't open database: " + std::string(sqlite3_errmsg(db)));
                   }
                   return db;
-              }, 
-              [](sqlite3* db) {
+              },
+              [](sqlite3 *db) {
                   if (db) {
                       sqlite3_close(db);
                   }
               }
-          ) {}
+          ) {
+    }
 
-    SQLiteDatabase::~SQLiteDatabase() {}
+    SQLiteDatabase::~SQLiteDatabase() {
+    }
 
-    bool SQLiteDatabase::openConnection(sqlite3*& db) {
+    bool SQLiteDatabase::openConnection(sqlite3 *&db) {
         try {
             db = conn_pool.acquire();
             return true;
-        } catch (const std::exception& e) {
+        } catch (const std::exception &e) {
             std::cerr << "Failed to acquire connection: " << e.what() << std::endl;
             return false;
         }
     }
 
-    void SQLiteDatabase::closeConnection(sqlite3* db) {
+    void SQLiteDatabase::closeConnection(sqlite3 *db) {
         if (db) {
             conn_pool.release(db);
         }
     }
 
     bool SQLiteDatabase::initialize() {
-        sqlite3* db = nullptr;
+        sqlite3 *db = nullptr;
         if (!openConnection(db)) {
             return false;
         }
 
-        char* errMsg = nullptr;
+        char *errMsg = nullptr;
         int rc;
 
         // Enable WAL mode for better performance and concurrency
@@ -68,11 +69,11 @@ namespace tldr {
             return false;
         }
 
-        const char* sql = "CREATE TABLE IF NOT EXISTS embeddings ("
-                         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                         "chunk_text TEXT NOT NULL,"
-                         "embedding_data TEXT NOT NULL,"
-                         "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)";
+        const char *sql = "CREATE TABLE IF NOT EXISTS embeddings ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "chunk_text TEXT NOT NULL,"
+                "embedding_data TEXT NOT NULL,"
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)";
 
         rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
         if (rc != SQLITE_OK) {
@@ -86,13 +87,13 @@ namespace tldr {
         return true;
     }
 
-    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string>& chunks, const json& embeddings_response) {
-        sqlite3* db = nullptr;
+    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) {
+        sqlite3 *db = nullptr;
         if (!openConnection(db)) {
             return -1;
         }
 
-        char* errMsg = nullptr;
+        char *errMsg = nullptr;
         int rc;
         int64_t last_id = -1;
 
@@ -106,8 +107,8 @@ namespace tldr {
         }
 
         // Prepare the insert statement
-        sqlite3_stmt* stmt;
-        const char* sql = "INSERT INTO embeddings (chunk_text, embedding_data) VALUES (?, ?)";
+        sqlite3_stmt *stmt;
+        const char *sql = "INSERT INTO embeddings (chunk_text, embedding_data) VALUES (?, ?)";
         rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
 
         if (rc != SQLITE_OK) {
@@ -117,7 +118,7 @@ namespace tldr {
         }
 
         // Insert each chunk and its embedding
-        for (const auto& chunk : chunks) {
+        for (const auto &chunk: chunks) {
             sqlite3_bind_text(stmt, 1, chunk.c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, 2, embeddings_response.dump().c_str(), -1, SQLITE_STATIC);
 
@@ -149,15 +150,15 @@ namespace tldr {
         return last_id;
     }
 
-    bool SQLiteDatabase::getEmbeddings(int64_t id, std::vector<std::string>& chunks, json& embeddings) {
-        sqlite3* db = nullptr;
+    bool SQLiteDatabase::getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) {
+        sqlite3 *db = nullptr;
         if (!openConnection(db)) {
             return false;
         }
 
-        sqlite3_stmt* stmt;
-        const char* sql = "SELECT chunk_text, embedding_data FROM embeddings WHERE id = ?";
-        
+        sqlite3_stmt *stmt;
+        const char *sql = "SELECT chunk_text, embedding_data FROM embeddings WHERE id = ?";
+
         int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
         if (rc != SQLITE_OK) {
             std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
@@ -168,12 +169,12 @@ namespace tldr {
         sqlite3_bind_int64(stmt, 1, id);
 
         if (sqlite3_step(stmt) == SQLITE_ROW) {
-            const char* chunk_text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
-            const char* embedding_data = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-            
+            const char *chunk_text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+            const char *embedding_data = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+
             chunks.push_back(chunk_text);
             embeddings = json::parse(embedding_data);
-            
+
             sqlite3_finalize(stmt);
             closeConnection(db);
             return true;

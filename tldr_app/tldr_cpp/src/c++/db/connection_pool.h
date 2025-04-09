@@ -9,14 +9,15 @@
 #include <iostream>
 
 namespace tldr {
-    template <typename ConnectionType>
+    template<typename ConnectionType>
     class ConnectionPool {
     public:
-        using CreateFunc = std::function<ConnectionType*(const std::string&)>;
-        using CloseFunc = std::function<void(ConnectionType*)>;
+        using CreateFunc = std::function<ConnectionType*(const std::string &)>;
+        using CloseFunc = std::function<void(ConnectionType *)>;
 
         // Default constructor
-        ConnectionPool() : create_conn_(nullptr), close_conn_(nullptr) {}
+        ConnectionPool() : create_conn_(nullptr), close_conn_(nullptr) {
+        }
 
         // Constructor takes:
         // - connection string or path
@@ -24,8 +25,8 @@ namespace tldr {
         // - function to create connection
         // - function to close connection
         ConnectionPool(
-            const std::string& conn_str, 
-            size_t pool_size, 
+            const std::string &conn_str,
+            size_t pool_size,
             CreateFunc create_conn,
             CloseFunc close_conn
         ) : conn_str_(conn_str), create_conn_(create_conn), close_conn_(close_conn) {
@@ -33,7 +34,7 @@ namespace tldr {
                 try {
                     auto conn = create_conn(conn_str_);
                     pool_.push(conn);
-                } catch (const std::exception& e) {
+                } catch (const std::exception &e) {
                     std::cerr << "Failed to create connection: " << e.what() << std::endl;
                 }
             }
@@ -51,12 +52,12 @@ namespace tldr {
         }
 
         // Acquire a connection from the pool
-        ConnectionType* acquire() {
+        ConnectionType *acquire() {
             std::unique_lock<std::mutex> lock(mutex_);
-            
+
             // Wait until a connection is available
-            cond_var_.wait(lock, [this] { 
-                return !pool_.empty(); 
+            cond_var_.wait(lock, [this] {
+                return !pool_.empty();
             });
 
             // Get and remove the connection from the pool
@@ -66,7 +67,7 @@ namespace tldr {
         }
 
         // Release a connection back to the pool
-        void release(ConnectionType* conn) {
+        void release(ConnectionType *conn) {
             std::lock_guard<std::mutex> lock(mutex_);
             pool_.push(conn);
             cond_var_.notify_one();
@@ -80,7 +81,7 @@ namespace tldr {
 
     private:
         std::string conn_str_;
-        std::queue<ConnectionType*> pool_;
+        std::queue<ConnectionType *> pool_;
         std::mutex mutex_;
         std::condition_variable cond_var_;
         CreateFunc create_conn_;
