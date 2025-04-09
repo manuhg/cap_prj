@@ -263,8 +263,8 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
         std::cerr << "Error: Empty Batch!" << std::endl;
         return;
     }
+  
     std::cout << "Received text length: " << total_length << "; batch size:" << batch.size() << std::endl;
-
     for (int retry = 0; retry < MAX_RETRIES; retry++) {
         if (retry > 0) {
             std::cout << "Retrying batch " << batch_num + 1 << " (attempt " << retry + 1
