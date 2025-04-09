@@ -8,6 +8,8 @@
 #include <poppler/cpp/poppler-page.h>
 #include <thread>
 #include <mutex>
+#include <cstdlib>
+
 
 #include "main.h"
 #include <regex>
@@ -23,8 +25,40 @@ std::unique_ptr<tldr::Database> g_db;
 // Global mutex for thread synchronization
 std::mutex g_mutex;
 
+
+
+std::string translatePath(const std::string& path) {
+    std::string result = path;
+
+    // Expand tilde (~)
+    if (!result.empty() && result[0] == '~') {
+        const char* home = std::getenv("HOME");
+        if (home) {
+            result.replace(0, 1, home);
+        }
+    }
+
+    // Expand $VARS
+    static const std::regex env_pattern(R"(\$([A-Za-z_]\w*))");
+    std::string expanded;
+    std::sregex_iterator it(result.begin(), result.end(), env_pattern);
+    std::sregex_iterator end;
+
+    size_t last_pos = 0;
+    for (; it != end; ++it) {
+        const std::smatch& match = *it;
+        expanded.append(result, last_pos, match.position() - last_pos);
+        const char* val = std::getenv(match[1].str().c_str());
+        expanded.append(val ? val : "");
+        last_pos = match.position() + match.length();
+    }
+    expanded.append(result, last_pos);
+
+    return expanded;
+}
+
 void test_extractTextFromPDF() {
-    std::string testFile = "../../corpus/current/97-things-every-software-architect-should-know.pdf";
+    std::string testFile = translatePath("~/proj_tldr/corpus/current/97-things-every-software-architect-should-know.pdf");
 
     std::string extractedText = extractTextFromPDF(testFile);
     std::cout << extractedText.length() << std::endl;
@@ -105,7 +139,7 @@ bool initializeDatabase() {
         if (USE_POSTGRES) {
             g_db = std::make_unique<tldr::PostgresDatabase>(PG_CONNECTION);
         } else {
-            g_db = std::make_unique<tldr::SQLiteDatabase>(DB_PATH);
+            g_db = std::make_unique<tldr::SQLiteDatabase>(translatePath(DB_PATH));
         }
 
         if (!g_db->initialize()) {
@@ -121,6 +155,7 @@ int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embed
         std::cerr << "Database not initialized" << std::endl;
         return -1;
     }
+    //TODO add chunk and embedding hash ids via a db function
 
     return g_db->saveEmbeddings(chunks, embeddings_response);
 }
@@ -205,25 +240,26 @@ json parseEmbeddingsResponse(const std::string &response_data) {
 }
 
 // Save embeddings to database with thread safety
-void saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const json &embeddings_json) {
+int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const json &embeddings_json) {
     std::lock_guard<std::mutex> lock(g_mutex);
     int64_t saved_id = saveEmbeddings(batch, embeddings_json);
     if (saved_id < 0) {
         throw std::runtime_error("Failed to save embeddings to database");
     }
+    return saved_id;
 }
 
 // Main function to process a batch of chunks
-void processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, size_t total_batches) {
+int processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, size_t total_batches) {
     // Process each text chunk individually since llama.cpp server expects single text input
     std::vector<json> embeddings_list;
     embeddings_list.reserve(batch.size());
 
     for (int retry = 0; retry < MAX_RETRIES; retry++) {
         if (retry > 0) {
-            std::cout << "Retrying batch " << batch_num + 1 << " (attempt " << retry + 1
-                    << " of " << MAX_RETRIES << ")" << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+        std::cout << "Retrying batch " << batch_num + 1 << " (attempt " << retry + 1
+        << " of " << MAX_RETRIES << ")" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
         }
 
         std::cout << "Processing batch " << batch_num + 1 << " of " << total_batches << std::endl;
@@ -231,25 +267,28 @@ void processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, 
         try {
             embeddings_list.clear();
 
-            // Prepare request for llama.cpp server
+            // // Prepare request for llama.cpp server
             json request_payload = {
-                {"input", batch}  // Send the entire batch as input
+            {"input", batch}  // Send the entire batch as input
             };
+            // json embeddings_json = handle_requests(batch); // handle using custom function
 
             std::string response_data = sendEmbeddingsRequest(request_payload);
             json embeddings_json = parseEmbeddingsResponse(response_data);
-            saveEmbeddingsThreadSafe(batch, embeddings_json);
-            return; // Success
+
+            return saveEmbeddingsThreadSafe(batch, embeddings_json); // Success
         } catch (const std::exception &e) {
             if (retry == MAX_RETRIES - 1) {
-                throw std::runtime_error("Failed after " + std::to_string(MAX_RETRIES) +
-                                         " attempts: " + std::string(e.what()));
+            throw std::runtime_error("Failed after " + std::to_string(MAX_RETRIES) +
+            " attempts: " + std::string(e.what()));
             }
             std::cerr << "Attempt " << retry + 1 << " failed: " << e.what() << std::endl;
+            // std::cerr << "Attempt " <<1 << " failed: " << e.what() << std::endl;
         }
     }
 
-    throw std::runtime_error("Failed to process batch after " + std::to_string(MAX_RETRIES) + " attempts");
+    std::cerr<<"Failed to process batch after " + std::to_string(MAX_RETRIES) + " attempts";
+    return -1;
 }
 
 bool initializeSystem() {
@@ -260,7 +299,7 @@ bool initializeSystem() {
     }
 
     // Initialize CURL globally
-    CURLcode curl_init = curl_global_init(CURL_GLOBAL_DEFAULT); //question: is this efficient or should we use a thread-specific instance? or use protobuf
+    CURLcode curl_init = curl_global_init(CURL_GLOBAL_DEFAULT); //question: is this efficient or should we use protobuf
     if (curl_init != CURLE_OK) {
         std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init) << std::endl;
         return false;
@@ -283,9 +322,10 @@ void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size,
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
     std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
             << " batches using " << num_threads << " threads\n";
+    size_t i =0;
 
     try {
-        for (size_t i = 0; i < chunks.size(); i += batch_size * num_threads) {
+        // for (size_t i = 0; i < chunks.size(); i += batch_size * num_threads) {
             std::vector<std::thread> threads;
             threads.reserve(num_threads);
 
@@ -295,7 +335,9 @@ void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size,
                 size_t end = std::min(start + batch_size, chunks.size());
 
                 std::vector<std::string> batch(chunks.begin() + start, chunks.begin() + end);
-                threads.emplace_back(processChunkBatch, std::ref(batch), start / batch_size, total_batches);
+                // threads.emplace_back(processChunkBatch, std::ref(batch), start / batch_size, total_batches);
+                int id = processChunkBatch( std::ref(batch), start / batch_size, total_batches);
+                std::cout << "Thread " << t << " processed " << batch.size() << " chunks. id:"<<id << std::endl;
             }
 
             // Wait for all threads in this group to complete
@@ -304,7 +346,7 @@ void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size,
                     thread.join();
                 }
             }
-        }
+        // }
     } catch (const std::exception &e) {
         std::cerr << "Error processing chunks: " << e.what() << std::endl;
         throw; // Re-throw to allow proper cleanup
@@ -321,7 +363,7 @@ void addCorpus(const std::string &sourcePath) {
     std::cout << "Extracted text length: " << doc_text.length() << std::endl;
     const std::vector<std::string> chunks = splitTextIntoChunks(doc_text, 500, 20);
     std::cout << "Number of chunks: " << chunks.size() << std::endl;
-    obtainEmbeddings(chunks);
+    obtainEmbeddings(chunks,1,1);
     //TODO save the json to database and return the id
 }
 
@@ -386,7 +428,7 @@ int main() {
         return 1;
     }
 
-    std::string testFile = "../corpus/current/97-things-every-software-architect-should-know.pdf";
+    std::string testFile = translatePath("~/proj_tldr/corpus/current/97-things-every-software-architect-should-know.pdf");
 
     std::cout << "Testing addCorpus with file: " << testFile << std::endl;
     addCorpus(testFile);
@@ -395,4 +437,95 @@ int main() {
     cleanupSystem();
 
     return 0;
+}
+
+json handle_requests(const std::vector<std::string> &chunks) {
+    CURL *curl;
+    if (chunks.size() == 0) {
+        std::cerr << "No chunks provided" << std::endl;
+        return NULL;
+    }
+
+    curl = curl_easy_init();
+    if (!curl) {
+        std::cerr << "Invalid curl object" << std::endl;
+        return NULL;
+    }
+    std::string url = EMBEDDINGS_URL;
+    // convert chunks into json data
+    embeddings_request request = {chunks};
+    json request_json = request;
+    json embeddings_array;
+
+    json embeddings_response = sendEmbeddingsRequestCustom(curl, url, request_json);
+    // validateAndProcessResponses(embeddings_response, chunks, embeddings_array);
+    return embeddings_array;
+}
+
+bool validateAndProcessResponses(json response_json, const std::vector<std::string> &chunks, json &embeddings_array) {
+    // Extract embeddings from the data array
+    if (!response_json.contains("data") || !response_json["data"].is_array()) {
+        std::cerr << "Invalid response format: missing 'data' array" << std::endl;
+        return false;
+    }
+
+    // Create a new JSON object with just the embeddings array
+    embeddings_array["embeddings"] = json::array();
+
+    // Extract each embedding from the data array
+    for (const auto &item: response_json["data"]) {
+        if (item.contains("embedding") && item["embedding"].is_array()) {
+            embeddings_array["embeddings"].push_back(item["embedding"]);
+        }
+    }
+
+    size_t num_embeddings = embeddings_array["embeddings"].size();
+    std::cout << "Processed " << num_embeddings << " embeddings for " << chunks.size() << " chunks" << std::endl;
+
+    // Verify number of embeddings matches number of chunks
+    if (num_embeddings != chunks.size()) {
+        std::cerr << "Error: Number of embeddings (" << num_embeddings << ") does not match number of chunks (" <<
+                chunks.size() << ")" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+json sendEmbeddingsRequestCustom(CURL *curl, const std::string url, const json request_json) {
+    CURLcode res;
+
+    if (!curl) {
+        std::cerr << "Invalid curl object" << std::endl;
+        return NULL;
+    }
+
+    std::string jsonData = request_json.dump(2);
+    std::cout << "\njsonData(0-100):\n" << jsonData.substr(0, 100) << std::endl;
+
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonData.c_str());
+
+    //parse response
+    std::string response;
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char *ptr, size_t size, size_t nmemb, void *userdata) {
+                std::string *response = static_cast<std::string*>(userdata);
+                response->append(ptr, size * nmemb);
+                return size * nmemb;
+            });
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+    res = curl_easy_perform(curl);
+
+    if (res == CURLE_OK) {
+        // Parse the response
+        json response_json = json::parse(response);
+        return response_json;
+    }
+
+    std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+    return NULL;
 }

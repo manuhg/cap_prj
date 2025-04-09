@@ -21,7 +21,7 @@
 
 // Database constants
 #define USE_POSTGRES false  // Set to true to use PostgreSQL, false for SQLite
-#define DB_PATH "datastore/embeddings.db"
+#define DB_PATH "~/proj_tldr/datastore/embeddings.db"
 #define PG_CONNECTION "dbname=tldr_embeddings user=postgres password=postgres host=localhost port=5432"
 
 // HTTP request constants
@@ -55,8 +55,8 @@ bool initializeDatabase();
 int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response);
 std::string sendEmbeddingsRequest(const json& request);
 json parseEmbeddingsResponse(const std::string& response_data);
-void saveEmbeddingsThreadSafe(const std::vector<std::string>& batch, const json& embeddings_json);
-void processChunkBatch(const std::vector<std::string>& batch, size_t batch_num, size_t total_batches);
+int saveEmbeddingsThreadSafe(const std::vector<std::string>& batch, const json& embeddings_json);
+int processChunkBatch(const std::vector<std::string>& batch, size_t batch_num, size_t total_batches);
 bool initializeSystem();
 void cleanupSystem();
 void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size = 2, size_t num_threads = 2);
@@ -65,6 +65,10 @@ void deleteCorpus(const std::string &corpusId);
 void doRag(const std::string &conversationId);
 void command_loop();
 int main();
+
+json handle_requests(const std::vector<std::string> &chunks);
+bool validateAndProcessResponses(json response_json, const std::vector<std::string> &chunks, json &embeddings_array);
+json sendEmbeddingsRequestCustom(CURL *curl, const std::string url, const json request_json);
 
 struct embeddings_request {
     std::vector<std::string> input;
