@@ -56,6 +56,16 @@ std::string translatePath(const std::string& path) {
 
     return expanded;
 }
+int calc_batch_chars(const std::vector<std::string> &batch) {
+    int total_length = 0;
+    if (batch.empty()) {
+        return 0;
+    }
+    for (std::string c:batch) {
+        total_length+=c.length();
+    }
+    return total_length;
+}
 
 void test_extractTextFromPDF() {
     std::string testFile = translatePath("~/proj_tldr/corpus/current/97-things-every-software-architect-should-know.pdf");
@@ -249,22 +259,21 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const json &
     return saved_id;
 }
 
+
 // Main function to process a batch of chunks
 void processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, size_t total_batches, int& result_id) {
     // Process each text chunk individually since llama.cpp server expects single text input
     std::vector<json> embeddings_list;
     embeddings_list.reserve(batch.size());
 
-    int total_length = 0;
+    int total_length = calc_batch_chars(batch);
     result_id=-1;
-    for (std::string c:batch) {
-        total_length+=c.length();
-    }
-    std::cout << "Total text length: " << total_length << std::endl;
-    if (total_length<=0) {
+
+    if (batch.empty() || batch.size() == 0 || total_length<=0) {
         std::cerr << "Error: Empty Batch!" << std::endl;
         return;
     }
+    std::cout << "Received text length: " << total_length <<"; batch is empty:"<<(batch.empty()==0)<<" batch size:"<<batch.size()<< std::endl;
 
     for (int retry = 0; retry < MAX_RETRIES; retry++) {
         if (retry > 0) {
@@ -340,7 +349,7 @@ void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size,
     }
 
     try {
-        for (size_t i = 0; i < 1; i += batch_size * num_threads) {
+        for (size_t i = 0; i < chunks.size(); i += batch_size * num_threads) {
             std::vector<std::thread> threads;
             threads.reserve(num_threads);
 
@@ -350,6 +359,7 @@ void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size,
                 size_t end = std::min(start + batch_size, chunks.size());
 
                 std::vector<std::string> batch(chunks.begin() + start, chunks.begin() + end);
+                std::cout<< "Thread " << t << " processing " << batch.size() << " chunks. Input text length: " << calc_batch_chars(batch) << std::endl;
                 threads.emplace_back(processChunkBatch, std::ref(batch), start / batch_size, total_batches, std::ref(ids[t]));
                 // int id = processChunkBatch( std::ref(batch), start / batch_size, total_batches);
             }
