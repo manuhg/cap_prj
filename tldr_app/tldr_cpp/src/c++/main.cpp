@@ -10,7 +10,6 @@
 #include <mutex>
 #include <cstdlib>
 
-
 #include "main.h"
 #include <regex>
 #include <curl/curl.h>
@@ -24,8 +23,6 @@ std::unique_ptr<tldr::Database> g_db;
 
 // Global mutex for thread synchronization
 std::mutex g_mutex;
-
-
 
 std::string translatePath(const std::string& path) {
     std::string result = path;
@@ -56,6 +53,7 @@ std::string translatePath(const std::string& path) {
 
     return expanded;
 }
+
 int calc_batch_chars(const std::vector<std::string> &batch) {
     int total_length = 0;
     if (batch.empty()) {
@@ -140,9 +138,6 @@ std::vector<std::string> splitTextIntoChunks(const std::string &text, size_t max
 
     return chunks;
 }
-
-
-
 
 bool initializeDatabase() {
     if (!g_db) {
@@ -259,8 +254,52 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const json &
     return saved_id;
 }
 
+void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size_t num_threads) {
+    // System initialization is now handled by initializeSystem()
+    const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
+    std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
+              << " batches using " << num_threads << " threads\n";
+    std::vector<int> ids(num_threads, -1);
 
-// Main function to process a batch of chunks
+    try {
+        for (size_t batch_start = 0; batch_start < chunks.size(); batch_start += batch_size * num_threads) {
+            std::vector<std::thread> threads;
+            std::vector<std::vector<std::string>> thread_batches(num_threads);
+
+            // Prepare batches for each thread
+            for (size_t i = 0; i < num_threads && batch_start + i * batch_size < chunks.size(); ++i) {
+                size_t start = batch_start + i * batch_size;
+                size_t end = std::min(start + batch_size, chunks.size());
+                thread_batches[i] = std::vector<std::string>(chunks.begin() + start, chunks.begin() + end);
+            }
+
+            // Launch threads
+            for (size_t j = 0; j < num_threads && j < thread_batches.size(); ++j) {
+                if (!thread_batches[j].empty()) {
+                    threads.emplace_back([&, j]() {
+                        try {
+                            size_t batch_num = batch_start / (batch_size * num_threads) * num_threads + j;
+                            processChunkBatch(thread_batches[j], batch_num, total_batches, ids[j]);
+                        } catch (const std::exception &e) {
+                            std::cerr << "Thread " << j << " error: " << e.what() << std::endl;
+                        }
+                    });
+                }
+            }
+
+            // Wait for all threads in this group to complete
+            for (auto &thread : threads) {
+                if (thread.joinable()) {
+                    thread.join();
+                }
+            }
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Error processing chunks: " << e.what() << std::endl;
+        throw; // Re-throw to allow proper cleanup
+    }
+}
+
 void processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, size_t total_batches, int& result_id) {
     // Process each text chunk individually since llama.cpp server expects single text input
     std::vector<json> embeddings_list;
@@ -273,7 +312,7 @@ void processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, 
         std::cerr << "Error: Empty Batch!" << std::endl;
         return;
     }
-    std::cout << "Received text length: " << total_length <<"; batch is empty:"<<(batch.empty()==0)<<" batch size:"<<batch.size()<< std::endl;
+    std::cout << "Received text length: " << total_length <<"; batch size:"<<batch.size()<< std::endl;
 
     for (int retry = 0; retry < MAX_RETRIES; retry++) {
         if (retry > 0) {
@@ -335,47 +374,6 @@ void cleanupSystem() {
 
     // Cleanup database
     g_db.reset();
-}
-
-
-void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size_t num_threads) {
-    // System initialization is now handled by initializeSystem()
-    const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
-    std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
-            << " batches using " << num_threads << " threads\n";
-    int ids[num_threads];
-    for (int i=0; i < num_threads; i++){
-        ids[i] = -1;
-    }
-
-    try {
-        for (size_t i = 0; i < chunks.size(); i += batch_size * num_threads) {
-            std::vector<std::thread> threads;
-            threads.reserve(num_threads);
-
-            // Launch threads for each batch in this group
-            for (size_t t = 0; t < num_threads && (i + t * batch_size) < chunks.size(); ++t) {
-                size_t start = i + t * batch_size;
-                size_t end = std::min(start + batch_size, chunks.size());
-
-                std::vector<std::string> batch(chunks.begin() + start, chunks.begin() + end);
-                std::cout<< "Thread " << t << " processing " << batch.size() << " chunks. Input text length: " << calc_batch_chars(batch) << std::endl;
-                threads.emplace_back(processChunkBatch, std::ref(batch), start / batch_size, total_batches, std::ref(ids[t]));
-                // int id = processChunkBatch( std::ref(batch), start / batch_size, total_batches);
-            }
-
-            // Wait for all threads in this group to complete
-            for (int j =0; j < num_threads; j++){
-                if (threads[j].joinable()) {
-                    std::cout << "Thread " << j << " done processing" <<  " chunks. id:"<<ids[j]<< std::endl;
-                    threads[j].join();
-                }
-            }
-        }
-    } catch (const std::exception &e) {
-        std::cerr << "Error processing chunks: " << e.what() << std::endl;
-        throw; // Re-throw to allow proper cleanup
-    }
 }
 
 void addCorpus(const std::string &sourcePath) {
@@ -444,7 +442,6 @@ void command_loop() {
         }
     }
 }
-
 
 int main() {
     // Initialize system
