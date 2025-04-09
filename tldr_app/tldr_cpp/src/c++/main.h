@@ -18,6 +18,9 @@
 #define CHUNK_N_OVERLAP 20 // overlap in characters at start and end
 #define CHUNK_N_CHARS ((CHUNK_N_SENTENCES * AVG_WORDS_PER_SENTENCE * AVG_CHARS_PER_WORD)+(CHUNK_N_OVERLAP*2))
 #define MAX_CHARS_PER_BATCH 2048
+#define MAX_CHUNK_SIZE (MAX_CHARS_PER_BATCH-(CHUNK_N_OVERLAP*2))
+#define BATCH_SIZE 8
+#define NUM_THREADS 1
 
 // Database constants
 #define USE_POSTGRES false  // Set to true to use PostgreSQL, false for SQLite
@@ -28,7 +31,7 @@
 #define EMBEDDINGS_URL "http://localhost:8080/embeddings"
 #define CONNECT_TIMEOUT_SECONDS 5
 #define REQUEST_TIMEOUT_SECONDS 30
-#define MAX_RETRIES 3
+#define MAX_RETRIES 1
 #define RETRY_DELAY_MS 1000
 
 // CURL wrapper class
@@ -56,7 +59,7 @@ int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embed
 std::string sendEmbeddingsRequest(const json& request);
 json parseEmbeddingsResponse(const std::string& response_data);
 int saveEmbeddingsThreadSafe(const std::vector<std::string>& batch, const json& embeddings_json);
-int processChunkBatch(const std::vector<std::string>& batch, size_t batch_num, size_t total_batches);
+void processChunkBatch(const std::vector<std::string>& batch, size_t batch_num, size_t total_batches, int& result_id);
 bool initializeSystem();
 void cleanupSystem();
 void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size = 2, size_t num_threads = 2);
