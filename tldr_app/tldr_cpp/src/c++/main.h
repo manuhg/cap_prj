@@ -20,7 +20,7 @@
 #define MAX_CHARS_PER_BATCH 2048
 #define MAX_CHUNK_SIZE (MAX_CHARS_PER_BATCH-(CHUNK_N_OVERLAP*2))
 #define BATCH_SIZE 8
-#define NUM_THREADS 1
+#define NUM_THREADS 2
 
 // Database constants
 #define USE_POSTGRES false  // Set to true to use PostgreSQL, false for SQLite
