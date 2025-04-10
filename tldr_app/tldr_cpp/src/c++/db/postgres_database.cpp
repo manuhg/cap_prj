@@ -53,7 +53,7 @@ namespace tldr {
         try {
             pqxx::work txn(*conn);
 
-            // Enable pgvector extension
+            // Enable required extensions
             txn.exec("CREATE EXTENSION IF NOT EXISTS vector");
 
             // Create embeddings table with vector column
@@ -61,9 +61,13 @@ namespace tldr {
                 "CREATE TABLE IF NOT EXISTS embeddings ("
                 "id BIGSERIAL PRIMARY KEY,"
                 "chunk_text TEXT NOT NULL,"
+                "text_hash BIGINT NOT NULL,"
                 "embedding vector(" EMBEDDING_SIZE ") NOT NULL,"  // Assuming 2048-dimensional embeddings
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
             );
+
+            // Create unique index on text_hash to prevent duplicates
+            txn.exec("CREATE UNIQUE INDEX IF NOT EXISTS embeddings_text_hash_idx ON embeddings (text_hash)");
 
             // Create index for vector similarity search
             txn.exec("CREATE INDEX IF NOT EXISTS embeddings_vector_idx ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)");
@@ -94,7 +98,10 @@ namespace tldr {
             // Prepare the statement with a unique name
             txn.conn().prepare(
                 stmt_name,
-                "INSERT INTO embeddings (chunk_text, embedding) VALUES ($1, $2) RETURNING id"
+                "INSERT INTO embeddings (chunk_text, text_hash, embedding) "
+                "VALUES ($1, hashtextextended($1::text, 0), $2) "
+                "ON CONFLICT (text_hash) DO NOTHING "
+                "RETURNING id"
             );
 
             int64_t last_id = -1;
