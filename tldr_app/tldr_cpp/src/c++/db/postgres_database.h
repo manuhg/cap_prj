@@ -15,6 +15,9 @@ namespace tldr {
         int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) override;
         bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) override;
 
+        // Perform vector similarity search
+        std::vector<std::pair<std::string, float>> searchSimilarVectors(const std::vector<float>& query_vector, int k = 5) override;
+
     private:
         std::string connection_string_;
         ConnectionPool<pqxx::connection> conn_pool;

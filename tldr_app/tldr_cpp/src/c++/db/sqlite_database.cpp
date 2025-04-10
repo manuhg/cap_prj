@@ -1,5 +1,7 @@
 #include "sqlite_database.h"
+#include <SQLiteCpp/SQLiteCpp.h>
 #include <iostream>
+#include <sstream>
 
 namespace tldr {
     SQLiteDatabase::SQLiteDatabase(const std::string &db_path)
@@ -183,5 +185,44 @@ namespace tldr {
         sqlite3_finalize(stmt);
         closeConnection(db);
         return false;
+    }
+
+    std::vector<std::pair<std::string, float>> SQLiteDatabase::searchSimilarVectors(const std::vector<float>& query_vector, int k) {
+        std::vector<std::pair<std::string, float>> results;
+        
+        try {
+            // Convert vector to string representation
+            std::stringstream ss;
+            for (size_t i = 0; i < query_vector.size(); ++i) {
+                if (i > 0) ss << ",";
+                ss << query_vector[i];
+            }
+            std::string vector_str = ss.str();
+
+            // Create SQLite database object
+            SQLite::Database db(db_path_, SQLite::OPEN_READWRITE);
+
+            // Prepare and execute query
+            std::string query = "SELECT chunk_text, similarity FROM embeddings "
+                              "CROSS JOIN (SELECT embedding_data, "
+                              "cosine_similarity(embedding_data, ?) as similarity "
+                              "FROM embeddings ORDER BY similarity DESC LIMIT ?) AS similar_chunks "
+                              "WHERE embeddings.embedding_data = similar_chunks.embedding_data";
+
+            SQLite::Statement stmt(db, query);
+            stmt.bind(1, vector_str);
+            stmt.bind(2, k);
+
+            // Process results
+            while (stmt.executeStep()) {
+                std::string chunk_text = stmt.getColumn(0).getString();
+                float similarity = stmt.getColumn(1).getDouble();
+                results.emplace_back(chunk_text, similarity);
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Error in searchSimilarVectors: " << e.what() << std::endl;
+        }
+
+        return results;
     }
 }

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <atomic>
 #include <pqxx/pqxx>
-
+#include "../constants.h"
 namespace tldr {
     PostgresDatabase::PostgresDatabase(const std::string &connection_string)
         : connection_string_(connection_string),
@@ -53,14 +53,20 @@ namespace tldr {
         try {
             pqxx::work txn(*conn);
 
-            // Create embeddings table if not exists
+            // Enable pgvector extension
+            txn.exec("CREATE EXTENSION IF NOT EXISTS vector");
+
+            // Create embeddings table with vector column
             txn.exec(
                 "CREATE TABLE IF NOT EXISTS embeddings ("
                 "id BIGSERIAL PRIMARY KEY,"
                 "chunk_text TEXT NOT NULL,"
-                "embedding_data JSONB NOT NULL,"
+                "embedding vector(" EMBEDDING_SIZE ") NOT NULL,"  // Assuming 2048-dimensional embeddings
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
             );
+
+            // Create index for vector similarity search
+            txn.exec("CREATE INDEX IF NOT EXISTS embeddings_vector_idx ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)");
 
             txn.commit();
             closeConnection(conn);
@@ -88,15 +94,27 @@ namespace tldr {
             // Prepare the statement with a unique name
             txn.conn().prepare(
                 stmt_name,
-                "INSERT INTO embeddings (chunk_text, embedding_data) VALUES ($1, $2) RETURNING id"
+                "INSERT INTO embeddings (chunk_text, embedding) VALUES ($1, $2) RETURNING id"
             );
 
             int64_t last_id = -1;
-            for (const auto &chunk: chunks) {
+            // Get the embeddings array from the response
+            const auto& embeddings = embeddings_response["embeddings"];
+            
+            // Insert each chunk and its embedding
+            for (size_t i = 0; i < chunks.size(); ++i) {
+                // Convert embedding vector to PostgreSQL array string
+                std::string vector_str = "[";
+                for (size_t j = 0; j < embeddings[i].size(); ++j) {
+                    if (j > 0) vector_str += ",";
+                    vector_str += std::to_string(embeddings[i][j].get<float>());
+                }
+                vector_str += "]";
+
                 // Execute the prepared statement with parameters
                 pqxx::params params;
-                params.append(chunk);
-                params.append(embeddings_response.dump());
+                params.append(chunks[i]);
+                params.append(vector_str);
                 auto result = txn.exec_prepared(stmt_name, params);
 
                 // Get the last inserted id
@@ -148,6 +166,50 @@ namespace tldr {
             std::cerr << "Retrieval error: " << e.what() << std::endl;
             closeConnection(conn);
             return false;
+        }
+    }
+
+    std::vector<std::pair<std::string, float>> PostgresDatabase::searchSimilarVectors(const std::vector<float>& query_vector, int k) {
+        pqxx::connection *conn = nullptr;
+        if (!openConnection(conn)) {
+            return {};
+        }
+
+        try {
+            pqxx::work txn(*conn);
+            
+            // Convert vector to PostgreSQL array string
+            std::string vector_str = "ARRAY[";
+            for (size_t i = 0; i < query_vector.size(); ++i) {
+                if (i > 0) vector_str += ",";
+                vector_str += std::to_string(query_vector[i]);
+            }
+            vector_str += "]::vector";
+
+            // Perform similarity search using cosine distance
+            std::string query = 
+                "SELECT chunk_text, 1 - (embedding <=> " + vector_str + ") as similarity "
+                "FROM embeddings "
+                "ORDER BY embedding <=> " + vector_str + " "
+                "LIMIT " + std::to_string(k);
+
+            auto result = txn.exec(query);
+            std::vector<std::pair<std::string, float>> results;
+
+            for (const auto& row : result) {
+                results.emplace_back(
+                    row["chunk_text"].as<std::string>(),
+                    row["similarity"].as<float>()
+                );
+            }
+
+            txn.commit();
+            closeConnection(conn);
+            return results;
+        } catch (const std::exception &e) {
+            std::cerr << "Search error: " << e.what() << std::endl;
+            closeConnection(conn);
+            return {};
         }
     }
 }

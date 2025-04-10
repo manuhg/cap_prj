@@ -10,7 +10,7 @@
 #define CHUNK_N_SENTENCES 10
 #define CHUNK_N_OVERLAP 80 // overlap in characters at start and end
 #define CHUNK_N_CHARS ((CHUNK_N_SENTENCES * AVG_WORDS_PER_SENTENCE * AVG_CHARS_PER_WORD)+(CHUNK_N_OVERLAP*2))
-#define MAX_CHARS_PER_BATCH 2048
+#define MAX_CHARS_PER_BATCH 512
 #define MAX_CHUNK_SIZE (MAX_CHARS_PER_BATCH-(CHUNK_N_OVERLAP*2))
 #define BATCH_SIZE 8
 
@@ -28,7 +28,7 @@
 #define REQUEST_TIMEOUT_SECONDS 30
 #define MAX_RETRIES 1
 #define RETRY_DELAY_MS 1000
-
+#define EMBEDDING_SIZE "384" // keep it string so that it can be inserted into create table stmt
 struct embeddings_request {
     std::vector<std::string> input;
 };

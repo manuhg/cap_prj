@@ -410,12 +410,49 @@ void doRag(const std::string &conversationId) {
     }
 }
 
+void queryRag(const std::string& user_query) {
+    if (!g_db) {
+        std::cerr << "Database not initialized" << std::endl;
+        return;
+    }
+
+    try {
+        // Get embeddings for the query
+        json request = {{"input", {user_query}}};
+        std::string response = sendEmbeddingsRequest(request);
+        json embeddings_response = parseEmbeddingsResponse(response);
+
+        if (embeddings_response["embeddings"].empty()) {
+            std::cerr << "No embeddings generated for query" << std::endl;
+            return;
+        }
+
+        // Extract the query vector
+        std::vector<float> query_vector = embeddings_response["embeddings"][0];
+
+        // Search for similar vectors
+        auto results = g_db->searchSimilarVectors(query_vector, 5);
+
+        // Print results
+        std::cout << "\nTop " << results.size() << " most relevant chunks:\n";
+        for (const auto& [chunk, similarity] : results) {
+            std::cout << "\nSimilarity: " << similarity << "\n";
+            std::cout << "Content: " << chunk << "\n";
+            std::cout << "----------------------------------------\n";
+        }
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error during RAG query: " << e.what() << std::endl;
+    }
+}
+
 void command_loop() {
     std::string input;
     std::map<std::string, std::function<void(const std::string &)> > actions = {
         {"do-rag", doRag},
         {"add-corpus", addCorpus},
-        {"delete-corpus", deleteCorpus}
+        {"delete-corpus", deleteCorpus},
+        {"query", [](const std::string& query) { queryRag(query); }}
     };
 
     while (true) {
@@ -445,9 +482,10 @@ int main() {
 
     std::string testFile = translatePath(
         "~/proj_tldr/corpus/current/97-things-every-software-architect-should-know.pdf");
-
     std::cout << "Testing addCorpus with file: " << testFile << std::endl;
+
     addCorpus(testFile);
+    queryRag("What does the book say about the practice of commit-and-run?");
 
     // Cleanup system
     cleanupSystem();

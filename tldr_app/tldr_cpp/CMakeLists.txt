@@ -16,6 +16,7 @@ find_package(PostgreSQL REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(CURL REQUIRED)
 find_package(SQLite3 REQUIRED)
+find_package(SQLiteCpp REQUIRED)
 
 find_package(PkgConfig)
 if (PkgConfig_FOUND)
@@ -69,4 +70,5 @@ target_link_options(tldr_cpp PRIVATE
 target_link_libraries(tldr_cpp PRIVATE
         ${PostgreSQL_LIBRARIES} ${PQXX_LIBRARIES}
         SQLite::SQLite3
+        SQLiteCpp
 )

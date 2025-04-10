@@ -44,6 +44,7 @@ void deleteCorpus(const std::string &corpusId);
 void doRag(const std::string &conversationId);
 void command_loop();
 int main();
+void queryRag(const std::string& user_query);
 
 json handle_requests(const std::vector<std::string> &chunks);
 bool validateAndProcessResponses(json response_json, const std::vector<std::string> &chunks, json &embeddings_array);
