@@ -23,12 +23,14 @@
 #define PG_CONNECTION "dbname=tldr user=postgres password=postgres host=localhost port=5432"
 
 // HTTP request constants
-#define EMBEDDINGS_URL "http://localhost:8080/embeddings"
+#define EMBEDDINGS_URL "http://localhost:8084/embeddings"
+#define CHAT_URL "http://localhost:8088/v1/chat/completions"
 #define CONNECT_TIMEOUT_SECONDS 5
 #define REQUEST_TIMEOUT_SECONDS 30
 #define MAX_RETRIES 1
 #define RETRY_DELAY_MS 1000
 #define EMBEDDING_SIZE "384" // keep it string so that it can be inserted into create table stmt
+#define K_SIMILAR_CHUNKS_TO_RETRIEVAL 5
 struct embeddings_request {
     std::vector<std::string> input;
 };

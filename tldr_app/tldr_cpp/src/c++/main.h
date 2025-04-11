@@ -31,7 +31,7 @@ std::vector<std::string>
 splitTextIntoChunks(const std::string &text, size_t max_chunk_size = 2000, size_t overlap = 20);
 bool initializeDatabase();
 int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response);
-std::string sendEmbeddingsRequest(const json &request);
+std::string sendEmbeddingsRequest(const json &request, const std::string& url);
 json parseEmbeddingsResponse(const std::string &response_data);
 int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const json &embeddings_json);
 void processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, size_t total_batches, int &result_id);
@@ -44,7 +44,7 @@ void deleteCorpus(const std::string &corpusId);
 void doRag(const std::string &conversationId);
 void command_loop();
 int main();
-void queryRag(const std::string& user_query);
+void queryRag(const std::string& user_query, const std::string& embeddings_url = EMBEDDINGS_URL, const std::string& chat_url = CHAT_URL);
 
 json handle_requests(const std::vector<std::string> &chunks);
 bool validateAndProcessResponses(json response_json, const std::vector<std::string> &chunks, json &embeddings_array);

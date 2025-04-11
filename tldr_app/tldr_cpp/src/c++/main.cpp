@@ -175,7 +175,6 @@ CurlHandle::~CurlHandle() {
 }
 
 void CurlHandle::setupEmbeddingsRequest(const std::string &json_str, std::string &response_data) {
-    curl_easy_setopt(curl_, CURLOPT_URL, EMBEDDINGS_URL);
     curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, json_str.c_str());
     curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, headers_);
     curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, WriteCallback);
@@ -185,12 +184,13 @@ void CurlHandle::setupEmbeddingsRequest(const std::string &json_str, std::string
 }
 
 // Send HTTP request to embeddings service
-std::string sendEmbeddingsRequest(const json &request) {
+std::string sendEmbeddingsRequest(const json &request, const std::string& url) {
     CurlHandle curl;
     std::string json_str = request.dump();
     std::string response_data;
 
     curl.setupEmbeddingsRequest(json_str, response_data);
+    curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
 
     CURLcode res = curl_easy_perform(curl.get());
     if (res != CURLE_OK) {
@@ -282,7 +282,7 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
                 {"input", std::vector<std::string>(batch.begin(), batch.end())} // Send the entire batch as input
             };
 
-            std::string response_data = sendEmbeddingsRequest(request_payload);
+            std::string response_data = sendEmbeddingsRequest(request_payload, EMBEDDINGS_URL);
             json embeddings_json = parseEmbeddingsResponse(response_data);
 
             result_id = saveEmbeddingsThreadSafe(std::vector<std::string>(batch.begin(), batch.end()), embeddings_json);
@@ -410,16 +410,52 @@ void doRag(const std::string &conversationId) {
     }
 }
 
-void queryRag(const std::string& user_query) {
+std::string generateLLMResponse(const std::string& context, const std::string& user_query, const std::string& chat_url) {
+    try {
+        // Prepare the request payload
+        json request = {
+            {"messages", {
+                {
+                    {"role", "developer"},
+                    {"content", "You are a helpful AI Assistant. Go through the given context and answer the user's questions."}
+                },
+                {
+                    {"role", "developer"},
+                    {"content", context}
+                },
+                {
+                    {"role", "user"},
+                    {"content", user_query}
+                }
+            }}
+        };
+
+        // Send request to LLM service using chat endpoint
+        std::string response_data = sendEmbeddingsRequest(request, chat_url);
+        json response = json::parse(response_data);
+
+        // Extract and return the generated text
+        if (response.contains("choices") && !response["choices"].empty()) {
+            return response["choices"][0]["message"]["content"].get<std::string>();
+        } else {
+            return "Error: Invalid response from LLM service";
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Generation error: " << e.what() << std::endl;
+        return "Error: " + std::string(e.what());
+    }
+}
+
+void queryRag(const std::string& user_query, const std::string& embeddings_url, const std::string& chat_url) {
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return;
     }
 
     try {
-        // Get embeddings for the query
+        // Get embeddings for the query using embeddings endpoint
         json request = {{"input", {user_query}}};
-        std::string response = sendEmbeddingsRequest(request);
+        std::string response = sendEmbeddingsRequest(request, embeddings_url);
         json embeddings_response = parseEmbeddingsResponse(response);
 
         if (embeddings_response["embeddings"].empty()) {
@@ -431,10 +467,21 @@ void queryRag(const std::string& user_query) {
         std::vector<float> query_vector = embeddings_response["embeddings"][0];
 
         // Search for similar vectors
-        auto results = g_db->searchSimilarVectors(query_vector, 5);
+        auto results = g_db->searchSimilarVectors(query_vector, K_SIMILAR_CHUNKS_TO_RETRIEVAL);
+
+        // Combine retrieved chunks into context
+        std::string context;
+        for (const auto& [chunk, similarity] : results) {
+            context += chunk + "\n\n";
+        }
+
+        // Generate response using the context
+        std::string generated_response = generateLLMResponse(context, user_query, chat_url);
 
         // Print results
-        std::cout << "\nTop " << results.size() << " most relevant chunks:\n";
+        std::cout << "\nGenerated Response:\n";
+        std::cout << generated_response << "\n";
+        std::cout << "\nContext used:\n";
         for (const auto& [chunk, similarity] : results) {
             std::cout << "\nSimilarity: " << similarity << "\n";
             std::cout << "Content: " << chunk << "\n";
@@ -452,7 +499,7 @@ void command_loop() {
         {"do-rag", doRag},
         {"add-corpus", addCorpus},
         {"delete-corpus", deleteCorpus},
-        {"query", [](const std::string& query) { queryRag(query); }}
+        {"query", [](const std::string& query) { queryRag(query, EMBEDDINGS_URL, CHAT_URL); }}
     };
 
     while (true) {
@@ -485,7 +532,7 @@ int main() {
     std::cout << "Testing addCorpus with file: " << testFile << std::endl;
 
     addCorpus(testFile);
-    queryRag("What does the book say about the practice of commit-and-run?");
+    queryRag("What does the book say about the practice of commit-and-run?", EMBEDDINGS_URL, CHAT_URL);
 
     // Cleanup system
     cleanupSystem();
