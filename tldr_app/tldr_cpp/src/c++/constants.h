@@ -14,7 +14,7 @@
 #define MAX_CHUNK_SIZE (MAX_CHARS_PER_BATCH-(CHUNK_N_OVERLAP*2))
 #define BATCH_SIZE 8
 
-#define NUM_THREADS 2
+#define NUM_THREADS 4
 #define CONN_POOL_SIZE NUM_THREADS
 
 // Database constants
