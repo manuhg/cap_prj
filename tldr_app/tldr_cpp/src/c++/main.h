@@ -25,7 +25,6 @@ public:
 };
 
 // Function declarations
-void test_extractTextFromPDF();
 std::string extractTextFromPDF(const std::string &filename);
 std::vector<std::string>
 splitTextIntoChunks(const std::string &text, size_t max_chunk_size = 2000, size_t overlap = 20);
@@ -45,9 +44,5 @@ void doRag(const std::string &conversationId);
 void command_loop();
 int main();
 void queryRag(const std::string& user_query, const std::string& embeddings_url = EMBEDDINGS_URL, const std::string& chat_url = CHAT_URL);
-
-json handle_requests(const std::vector<std::string> &chunks);
-bool validateAndProcessResponses(json response_json, const std::vector<std::string> &chunks, json &embeddings_array);
-json sendEmbeddingsRequestCustom(CURL *curl, const std::string url, const json request_json);
 
 #endif //TLDR_CPP_MAIN_H
