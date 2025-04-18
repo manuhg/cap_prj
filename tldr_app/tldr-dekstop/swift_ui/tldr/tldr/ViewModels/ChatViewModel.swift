@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 
+
 class ChatViewModel: ObservableObject {
     @Published var conversations: [Conversation] = []
     @Published var selectedConversation: Conversation?
@@ -22,13 +23,19 @@ class ChatViewModel: ObservableObject {
     func sendMessage() {
         guard !newMessageText.isEmpty, let conversation = selectedConversation else { return }
         
-        let newMessage = Message(content: newMessageText, sender: .user)
-        let updatedConversation = Conversation(
+        let userMessage = Message(content: newMessageText, sender: .user)
+        var updatedConversation = Conversation(
             id: conversation.id,
             title: conversation.title,
-            messages: conversation.messages + [newMessage],
+            messages: conversation.messages + [userMessage],
             lastUpdated: Date()
         )
+        
+        // Call TLDR backend via native Swift wrapper
+        TLDRWrapper.shared.queryRag(userQuery: newMessageText) // This call may need to be async if the wrapper is updated for async/await
+        let assistantMessage = Message(content: "[TLDR response here]", sender: .assistant) // Replace with actual response if queryRag returns a value
+        updatedConversation.messages.append(assistantMessage)
+        updatedConversation.lastUpdated = Date()
         
         if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
             conversations[index] = updatedConversation

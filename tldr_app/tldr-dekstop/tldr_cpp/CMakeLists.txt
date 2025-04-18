@@ -5,13 +5,14 @@ project(tldr_cpp)
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 include_directories(${SOURCE_DIR})
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 # Find required packages
 find_package(PkgConfig REQUIRED)
+pkg_check_modules(POPPLER REQUIRED poppler-cpp)
 find_package(PostgreSQL REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(CURL REQUIRED)
