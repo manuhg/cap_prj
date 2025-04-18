@@ -1,0 +1,4 @@
+module TLDRBridge {
+    header "tldr_bridge.h"
+    export *
+} 
