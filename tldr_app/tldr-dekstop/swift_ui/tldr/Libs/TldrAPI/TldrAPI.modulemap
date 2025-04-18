@@ -1,0 +1,6 @@
+module TldrAPI {
+    umbrella "."
+    header "TldrAPI.h"
+    requires cplusplus
+    export *
+}
