@@ -69,11 +69,12 @@ int calc_batch_chars(const std::vector<std::string_view> &batch) {
 // Simple function to extract text from a PDF file
 std::string extractTextFromPDF(const std::string &filename) {
     // Load the PDF document
-    poppler::document *doc = poppler::document::load_from_file(filename);
+    std::string expanded_path = translatePath(filename);
+    poppler::document *doc = poppler::document::load_from_file(expanded_path);
 
     // Check if the document loaded successfully
     if (!doc) {
-        std::cerr << "Error opening PDF file." << std::endl;
+        std::cerr << "Error opening PDF file at path: " << expanded_path << std::endl;
         return "";
     }
 

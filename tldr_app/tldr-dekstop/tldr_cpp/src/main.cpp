@@ -8,8 +8,7 @@ int main() {
         return 1;
     }
 
-    std::string testFile = "~/proj_tldr/corpus/current/0.System Design Interview An Insider's Guide by Alex Xu.pdf";
-    std::cout << "Testing addCorpus with file: " << testFile << std::endl;
+    std::string testFile = "~/proj_tldr/corpus/current/0.System Design Interview An Insider’s Guide by Alex Xu.pdf";
 
     tldr::addCorpus(testFile);
     tldr::queryRag("What does the book say about hotspot problem?");
