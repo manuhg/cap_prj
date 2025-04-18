@@ -5,7 +5,7 @@ project(tldr_cpp)
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 include_directories(${SOURCE_DIR})
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #set(JSON_BuildTests OFF CACHE INTERNAL "")
@@ -43,8 +43,8 @@ add_library(lib_tldr STATIC
     ${SOURCE_DIR}/lib_tldr/db/postgres_database.cpp
     ${SOURCE_DIR}/lib_tldr/db/postgres_database.h
     ${SOURCE_DIR}/lib_tldr/db/connection_pool.h
-    ${SOURCE_DIR}/tldr.cpp
-    ${SOURCE_DIR}/tldr.h
+    ${SOURCE_DIR}/lib_tldr/tldr.cpp
+    ${SOURCE_DIR}/lib_tldr/tldr.h
 )
 
 # Include directories for the library
@@ -71,6 +71,7 @@ target_link_libraries(lib_tldr PRIVATE
     pq
     poppler-cpp
 )
+target_include_directories(lib_tldr PUBLIC ${SOURCE_DIR})
 
 # Add the executable
 add_executable(tldr_cpp ${SOURCE_DIR}/main.cpp)

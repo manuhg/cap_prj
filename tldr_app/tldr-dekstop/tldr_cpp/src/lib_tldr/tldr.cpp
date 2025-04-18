@@ -1,5 +1,5 @@
 #include "tldr.h"
-#include "lib_tldr/lib_tldr.h"
+#include "lib_tldr.h"
 
 namespace tldr {
 
