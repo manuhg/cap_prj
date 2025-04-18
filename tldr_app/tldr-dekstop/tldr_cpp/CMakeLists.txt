@@ -33,7 +33,7 @@ link_directories(
 )
 
 # Create static library
-add_library(lib_tldr STATIC
+add_library(tldr STATIC
     ${SOURCE_DIR}/lib_tldr/lib_tldr.cpp
     ${SOURCE_DIR}/lib_tldr/lib_tldr.h
     ${SOURCE_DIR}/lib_tldr/constants.h
@@ -48,7 +48,7 @@ add_library(lib_tldr STATIC
 )
 
 # Include directories for the library
-target_include_directories(lib_tldr PRIVATE
+target_include_directories(tldr PRIVATE
     ${PostgreSQL_INCLUDE_DIRS}
     ${PQXX_INCLUDE_DIRS}
     ${SQLite3_INCLUDE_DIRS}
@@ -60,7 +60,7 @@ target_include_directories(lib_tldr PRIVATE
 )
 
 # Link libraries for the static library
-target_link_libraries(lib_tldr PRIVATE
+target_link_libraries(tldr PRIVATE
     ${PostgreSQL_LIBRARIES}
     ${PQXX_LIBRARIES}
     SQLite::SQLite3
@@ -71,13 +71,13 @@ target_link_libraries(lib_tldr PRIVATE
     pq
     poppler-cpp
 )
-target_include_directories(lib_tldr PUBLIC ${SOURCE_DIR})
+target_include_directories(tldr PUBLIC ${SOURCE_DIR})
 
 # Add the executable
 add_executable(tldr_cpp ${SOURCE_DIR}/main.cpp)
 
 # Link the static library with the executable
-target_link_libraries(tldr_cpp PRIVATE lib_tldr)
+target_link_libraries(tldr_cpp PRIVATE tldr)
 
 # Include directories for the executable
 target_include_directories(tldr_cpp PRIVATE ${SOURCE_DIR})
