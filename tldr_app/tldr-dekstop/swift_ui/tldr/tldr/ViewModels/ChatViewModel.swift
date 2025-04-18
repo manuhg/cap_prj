@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import tldr
+import TldrAPI
 
 
 class ChatViewModel: ObservableObject {
@@ -33,7 +33,7 @@ class ChatViewModel: ObservableObject {
         )
         
         // Call TLDR backend via native Swift wrapper
-        tldr.queryRag(userQuery: newMessageText) // This call may need to be async if the wrapper is updated for async/await
+        TldrAPI.queryRag(userQuery: newMessageText) // This call may need to be async if the wrapper is updated for async/await
         let assistantMessage = Message(content: "[TLDR response here]", sender: .assistant) // Replace with actual response if queryRag returns a value
         updatedConversation.messages.append(assistantMessage)
         updatedConversation.lastUpdated = Date()
