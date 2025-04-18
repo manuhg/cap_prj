@@ -1,7 +1,7 @@
-#include "tldr.h"
+#include "tldr_api.h"
 #include "lib_tldr.h"
 
-namespace tldr {
+namespace TldrAPI {
 
 bool initializeSystem() {
     return ::initializeSystem();

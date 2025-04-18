@@ -43,8 +43,8 @@ add_library(lib_tldr STATIC
     ${SOURCE_DIR}/lib_tldr/db/postgres_database.cpp
     ${SOURCE_DIR}/lib_tldr/db/postgres_database.h
     ${SOURCE_DIR}/lib_tldr/db/connection_pool.h
-    ${SOURCE_DIR}/lib_tldr/tldr.cpp
-    ${SOURCE_DIR}/lib_tldr/tldr.h
+    ${SOURCE_DIR}/lib_tldr/tldr_api.cpp
+    ${SOURCE_DIR}/lib_tldr/tldr_api.h
 )
 
 # Include directories for the library

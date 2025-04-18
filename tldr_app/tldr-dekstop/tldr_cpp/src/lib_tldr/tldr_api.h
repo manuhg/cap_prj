@@ -3,7 +3,7 @@
 
 #include <string>
 
-namespace tldr {
+namespace TldrAPI {
 
 /**
  * @brief Initialize the TLDR system
