@@ -1,0 +1,11 @@
+// Additional libraries and frameworks needed by the C++ code
+OTHER_LDFLAGS = -lcurl -lsqlite3 -lpq -lpqxx -lpoppler-cpp -lstdc++
+
+// Search paths for system libraries
+LIBRARY_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/TldrAPI $(PROJECT_DIR)/TldrAPI/SystemLibs /opt/homebrew/opt/libpqxx/lib /opt/homebrew/opt/libpq/lib /opt/homebrew/opt/poppler/lib
+
+// Framework search paths
+FRAMEWORK_SEARCH_PATHS = $(inherited)
+
+// Header search paths
+HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/TldrAPI /opt/homebrew/opt/libpqxx/include /opt/homebrew/opt/libpq/include /opt/homebrew/opt/poppler/include

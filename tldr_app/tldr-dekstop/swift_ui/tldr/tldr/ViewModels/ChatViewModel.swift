@@ -2,6 +2,10 @@ import Foundation
 import SwiftUI
 import TldrAPI
 
+// Import C functions from TldrAPI module
+@_silgen_name("tldr_api_trial_tldr")
+func tldr_api_trial_tldr() -> Int32
+
 
 class ChatViewModel: ObservableObject {
     @Published var conversations: [Conversation] = []

@@ -5,48 +5,72 @@
 //  Created by Manu Hegde on 4/23/25.
 //
 
-#include <iostream>
 #include "TldrAPI.hpp"
-#include "TldrAPIPriv.hpp"
+#include <iostream>
+#include <string>
 
 extern "C" {
 
+// Implementation of function used by Swift - simplified version
+int tldr_api_trial_tldr() {
+    std::cout << "TldrAPI trial function called from Swift" << std::endl;
+    return 42; // Just return a value to confirm it's working
+}
+
+// Simplified stubs for function calls from Swift to C++
 bool tldr_initializeSystem() {
-    return TldrAPI::initializeSystem();
+    std::cout << "tldr_initializeSystem called" << std::endl;
+    return true;
 }
 
 void tldr_cleanupSystem() {
-    TldrAPI::cleanupSystem();
+    std::cout << "tldr_cleanupSystem called" << std::endl;
 }
 
 void tldr_addCorpus(const char* sourcePath) {
     if (sourcePath) {
-        TldrAPI::addCorpus(std::string(sourcePath));
+        std::cout << "tldr_addCorpus called with: " << sourcePath << std::endl;
     }
 }
 
 void tldr_deleteCorpus(const char* corpusId) {
     if (corpusId) {
-        TldrAPI::deleteCorpus(std::string(corpusId));
+        std::cout << "tldr_deleteCorpus called with: " << corpusId << std::endl;
     }
 }
 
 void tldr_queryRag(const char* user_query, const char* embeddings_url, const char* chat_url) {
-    TldrAPI::queryRag(
-        user_query ? std::string(user_query) : std::string(),
-        embeddings_url ? std::string(embeddings_url) : std::string(),
-        chat_url ? std::string(chat_url) : std::string()
-    );
+    std::cout << "tldr_queryRag called with: " << std::endl;
+    if (user_query) std::cout << "  query: " << user_query << std::endl;
+    if (embeddings_url) std::cout << "  embeddings_url: " << embeddings_url << std::endl;
+    if (chat_url) std::cout << "  chat_url: " << chat_url << std::endl;
 }
-
 
 } // extern "C"
 
+// Implementation of TldrAPI static methods - simplified for testing
+bool TldrAPI::initializeSystem() {
+    std::cout << "TldrAPI::initializeSystem called" << std::endl;
+    return true;
+}
 
-// Implementation of function used by Swift
-extern "C" int tldr_api_trial_tldr() {
-    std::cout << "TldrAPI trial function called from Swift" << std::endl;
-    return 0;
+void TldrAPI::cleanupSystem() {
+    std::cout << "TldrAPI::cleanupSystem called" << std::endl;
+}
+
+void TldrAPI::addCorpus(const std::string& sourcePath) {
+    std::cout << "TldrAPI::addCorpus called with: " << sourcePath << std::endl;
+}
+
+void TldrAPI::deleteCorpus(const std::string& corpusId) {
+    std::cout << "TldrAPI::deleteCorpus called with: " << corpusId << std::endl;
+}
+
+void TldrAPI::queryRag(const std::string& user_query, const std::string& embeddings_url, const std::string& chat_url) {
+    std::cout << "TldrAPI::queryRag called with: " << std::endl;
+    std::cout << "  query: " << user_query << std::endl;
+    std::cout << "  embeddings_url: " << embeddings_url << std::endl;
+    std::cout << "  chat_url: " << chat_url << std::endl;
 }
 
 int tldr_trial_main() {
@@ -55,14 +79,6 @@ int tldr_trial_main() {
         std::cerr << "Failed to initialize system" << std::endl;
         return 1;
     }
-
-    std::string testFile = "~/proj_tldr/corpus/current/0.System Design Interview An Insider’s Guide by Alex Xu.pdf";
-
-    TldrAPI::addCorpus(testFile);
-    TldrAPI::queryRag("What does the book say about hotspot problem?");
-
-    // Cleanup system
-    TldrAPI::cleanupSystem();
-
+    
     return 0;
 }

@@ -42,7 +42,6 @@ void queryRag(const std::string& user_query,
               const std::string& embeddings_url = "http://localhost:8084/embeddings",
               const std::string& chat_url = "http://localhost:8088/v1/chat/completions");
 
-
 } // namespace TldrAPI
 
 // C-compatible function declarations for Swift interop
@@ -66,7 +65,7 @@ void tldr_addCorpus(const char* sourcePath);
 void tldr_deleteCorpus(const char* corpusId);
 
 // Queries the RAG system
-void tldr_queryRag(const char* user_query, const char* embeddings_url, const char* chat_url);
+void tldr_queryRag(const char* user_query, const char* embeddings_url = nullptr, const char* chat_url = nullptr);
 
 #ifdef __cplusplus
 }

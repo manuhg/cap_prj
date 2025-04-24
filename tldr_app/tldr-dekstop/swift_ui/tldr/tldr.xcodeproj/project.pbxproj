@@ -359,6 +359,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/TldrAPI/**",
 					"$(PROJECT_DIR)/TldrAPI",
+					"$(PROJECT_DIR)/TldrAPI/SystemLibs",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -376,6 +377,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/TldrAPI/**",
 					"$(PROJECT_DIR)/TldrAPI",
+					"$(PROJECT_DIR)/TldrAPI/SystemLibs",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
