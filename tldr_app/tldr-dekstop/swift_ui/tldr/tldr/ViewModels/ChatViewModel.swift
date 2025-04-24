@@ -11,6 +11,8 @@ class ChatViewModel: ObservableObject {
     init() {
         // Load sample data for testing
         loadSampleData()
+//        tldr_api_trial()
+        TldrAPI.initializeSystem()
     }
     
     private func loadSampleData() {
@@ -33,7 +35,7 @@ class ChatViewModel: ObservableObject {
         )
         
         // Call TLDR backend via native Swift wrapper
-        TldrAPI.queryRag(userQuery: newMessageText) // This call may need to be async if the wrapper is updated for async/await
+//        TldrAPI.queryRag("what is cache", "http://localhost:8084/embeddings", "http://localhost:8088/v1/chat/completions") // This call may need to be async if the wrapper is updated for async/await
         let assistantMessage = Message(content: "[TLDR response here]", sender: .assistant) // Replace with actual response if queryRag returns a value
         updatedConversation.messages.append(assistantMessage)
         updatedConversation.lastUpdated = Date()

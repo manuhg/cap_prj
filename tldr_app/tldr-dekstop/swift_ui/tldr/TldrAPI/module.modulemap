@@ -1,0 +1,5 @@
+// In module.modulemap
+module TldrAPI {
+    header "TldrAPI.hpp"
+    requires cplusplus
+}

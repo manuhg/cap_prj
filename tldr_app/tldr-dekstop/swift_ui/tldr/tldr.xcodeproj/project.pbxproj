@@ -6,11 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		32D644542DB31071004FCDD5 /* libTldrAPI.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 32D644522DB31070004FCDD5 /* libTldrAPI.a */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
+		32C778FE2DBADFDD0042389E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 32D334FF2DB1EC9800DCF3BD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 32C7789F2DB9C5A70042389E;
+			remoteInfo = TldrAPI;
+		};
 		32D335162DB1EC9B00DCF3BD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 32D334FF2DB1EC9800DCF3BD /* Project object */;
@@ -28,15 +31,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		32C778A02DB9C5A70042389E /* libTldrAPI.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libTldrAPI.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		32D335072DB1EC9800DCF3BD /* tldr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = tldr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		32D335152DB1EC9B00DCF3BD /* tldrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = tldrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		32D3351F2DB1EC9B00DCF3BD /* tldrUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = tldrUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		32D6444F2DB31070004FCDD5 /* TldrAPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TldrAPI.h; sourceTree = "<group>"; };
-		32D644502DB31070004FCDD5 /* TldrAPI.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = TldrAPI.modulemap; sourceTree = "<group>"; };
-		32D644522DB31070004FCDD5 /* libTldrAPI.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libTldrAPI.a; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		32C778A12DB9C5A70042389E /* TldrAPI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TldrAPI;
+			sourceTree = "<group>";
+		};
 		32D335092DB1EC9800DCF3BD /* tldr */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = tldr;
@@ -55,11 +61,17 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		32C7789E2DB9C5A70042389E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		32D335042DB1EC9800DCF3BD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				32D644542DB31071004FCDD5 /* libTldrAPI.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,13 +92,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		32C778952DB9BC3B0042389E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		32D334FE2DB1EC9800DCF3BD = {
 			isa = PBXGroup;
 			children = (
-				32D644532DB31070004FCDD5 /* Libs */,
 				32D335092DB1EC9800DCF3BD /* tldr */,
 				32D335182DB1EC9B00DCF3BD /* tldrTests */,
 				32D335222DB1EC9B00DCF3BD /* tldrUITests */,
+				32C778A12DB9C5A70042389E /* TldrAPI */,
+				32C778952DB9BC3B0042389E /* Frameworks */,
 				32D335082DB1EC9800DCF3BD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -97,31 +117,46 @@
 				32D335072DB1EC9800DCF3BD /* tldr.app */,
 				32D335152DB1EC9B00DCF3BD /* tldrTests.xctest */,
 				32D3351F2DB1EC9B00DCF3BD /* tldrUITests.xctest */,
+				32C778A02DB9C5A70042389E /* libTldrAPI.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		32D644512DB31070004FCDD5 /* TldrAPI */ = {
-			isa = PBXGroup;
-			children = (
-				32D6444F2DB31070004FCDD5 /* TldrAPI.h */,
-				32D644502DB31070004FCDD5 /* TldrAPI.modulemap */,
-			);
-			path = TldrAPI;
-			sourceTree = "<group>";
-		};
-		32D644532DB31070004FCDD5 /* Libs */ = {
-			isa = PBXGroup;
-			children = (
-				32D644512DB31070004FCDD5 /* TldrAPI */,
-				32D644522DB31070004FCDD5 /* libTldrAPI.a */,
-			);
-			path = Libs;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
+/* Begin PBXHeadersBuildPhase section */
+		32C7789C2DB9C5A70042389E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
 /* Begin PBXNativeTarget section */
+		32C7789F2DB9C5A70042389E /* TldrAPI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 32C778A82DB9C5A70042389E /* Build configuration list for PBXNativeTarget "TldrAPI" */;
+			buildPhases = (
+				32C7789C2DB9C5A70042389E /* Headers */,
+				32C7789D2DB9C5A70042389E /* Sources */,
+				32C7789E2DB9C5A70042389E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				32C778A12DB9C5A70042389E /* TldrAPI */,
+			);
+			name = TldrAPI;
+			packageProductDependencies = (
+			);
+			productName = TldrAPI;
+			productReference = 32C778A02DB9C5A70042389E /* libTldrAPI.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		32D335062DB1EC9800DCF3BD /* tldr */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 32D335292DB1EC9B00DCF3BD /* Build configuration list for PBXNativeTarget "tldr" */;
@@ -133,6 +168,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				32C778FF2DBADFDD0042389E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				32D335092DB1EC9800DCF3BD /* tldr */,
@@ -200,6 +236,9 @@
 				LastSwiftUpdateCheck = 1630;
 				LastUpgradeCheck = 1630;
 				TargetAttributes = {
+					32C7789F2DB9C5A70042389E = {
+						CreatedOnToolsVersion = 16.3;
+					};
 					32D335062DB1EC9800DCF3BD = {
 						CreatedOnToolsVersion = 16.3;
 					};
@@ -230,6 +269,7 @@
 				32D335062DB1EC9800DCF3BD /* tldr */,
 				32D335142DB1EC9B00DCF3BD /* tldrTests */,
 				32D3351E2DB1EC9B00DCF3BD /* tldrUITests */,
+				32C7789F2DB9C5A70042389E /* TldrAPI */,
 			);
 		};
 /* End PBXProject section */
@@ -259,6 +299,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		32C7789D2DB9C5A70042389E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		32D335032DB1EC9800DCF3BD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -283,6 +330,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		32C778FF2DBADFDD0042389E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 32C7789F2DB9C5A70042389E /* TldrAPI */;
+			targetProxy = 32C778FE2DBADFDD0042389E /* PBXContainerItemProxy */;
+		};
 		32D335172DB1EC9B00DCF3BD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 32D335062DB1EC9800DCF3BD /* tldr */;
@@ -296,6 +348,38 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		32C778A92DB9C5A70042389E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				GCC_ENABLE_CPP_RTTI = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/TldrAPI/**",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		32C778AA2DB9C5A70042389E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_CPP_EXCEPTIONS = YES;
+				GCC_ENABLE_CPP_RTTI = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/TldrAPI/**",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
 		32D335272DB1EC9B00DCF3BD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -419,13 +503,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
+				CLANG_MODULES_DISABLE_PRIVATE_WARNING = YES;
+				CLANG_WARN__EXIT_TIME_DESTRUCTORS = YES;
 				CODE_SIGN_ENTITLEMENTS = tldr/tldr.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/Libs/TldrAPI";
+				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/TldrAPI/**";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -433,11 +522,11 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Libs/TldrAPI",
-					"$(PROJECT_DIR)/Libs",
+					"$(PROJECT_DIR)/TldrAPI",
 				);
 				MARKETING_VERSION = 1.0;
-				MODULEMAP_FILE = "$(PROJECT_DIR)/Libs/TldrAPI/TldrAPI.modulemap";
+				MODULEMAP_FILE = "$(PROJECT_DIR)/tldr/TldrAPI/TldrAPI.modulemap";
+				PRELINK_LIBS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.manuhg.tldr;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -452,13 +541,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
+				CLANG_MODULES_DISABLE_PRIVATE_WARNING = YES;
+				CLANG_WARN__EXIT_TIME_DESTRUCTORS = YES;
 				CODE_SIGN_ENTITLEMENTS = tldr/tldr.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/Libs/TldrAPI";
+				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/TldrAPI/**";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -466,11 +560,11 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Libs/TldrAPI",
-					"$(PROJECT_DIR)/Libs",
+					"$(PROJECT_DIR)/TldrAPI",
 				);
 				MARKETING_VERSION = 1.0;
-				MODULEMAP_FILE = "$(PROJECT_DIR)/Libs/TldrAPI/TldrAPI.modulemap";
+				MODULEMAP_FILE = "$(PROJECT_DIR)/tldr/TldrAPI/TldrAPI.modulemap";
+				PRELINK_LIBS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.manuhg.tldr;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -547,6 +641,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		32C778A82DB9C5A70042389E /* Build configuration list for PBXNativeTarget "TldrAPI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				32C778A92DB9C5A70042389E /* Debug */,
+				32C778AA2DB9C5A70042389E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		32D335022DB1EC9800DCF3BD /* Build configuration list for PBXProject "tldr" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
