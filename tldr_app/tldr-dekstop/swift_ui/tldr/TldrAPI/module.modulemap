@@ -1,5 +1,6 @@
-// In module.modulemap
 module TldrAPI {
-    header "TldrAPI.hpp"
+    umbrella header "TldrAPI.hpp"
+    export *
+    link "tldr"
     requires cplusplus
 }

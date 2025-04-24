@@ -3,6 +3,10 @@
 
 #include <string>
 
+// Forward declaration of C++ functions
+int tldr_trial_main();
+
+// C++ namespace for the TldrAPI
 namespace TldrAPI {
 
 /**
@@ -38,21 +42,19 @@ void queryRag(const std::string& user_query,
               const std::string& embeddings_url = "http://localhost:8084/embeddings",
               const std::string& chat_url = "http://localhost:8088/v1/chat/completions");
 
-int tldr_api_trial();
+
 } // namespace TldrAPI
 
-int tldr_api_trial_tldr();
-
-
+// C-compatible function declarations for Swift interop
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/**
- * C-compatible wrappers for Swift/ObjC interop
- */
+// Test function that can be called from Swift
+int tldr_api_trial_tldr();
+
 // Returns 1 if initialization was successful, 0 otherwise
- bool tldr_initializeSystem();
+bool tldr_initializeSystem();
 
 // Cleans up the system
 void tldr_cleanupSystem();
@@ -65,6 +67,7 @@ void tldr_deleteCorpus(const char* corpusId);
 
 // Queries the RAG system
 void tldr_queryRag(const char* user_query, const char* embeddings_url, const char* chat_url);
+
 #ifdef __cplusplus
 }
 #endif

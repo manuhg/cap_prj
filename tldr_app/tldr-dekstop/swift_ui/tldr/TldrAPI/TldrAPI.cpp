@@ -40,10 +40,16 @@ void tldr_queryRag(const char* user_query, const char* embeddings_url, const cha
 }
 
 
-} extern "C"
+} // extern "C"
 
 
-int main() {
+// Implementation of function used by Swift
+extern "C" int tldr_api_trial_tldr() {
+    std::cout << "TldrAPI trial function called from Swift" << std::endl;
+    return 0;
+}
+
+int tldr_trial_main() {
     // Initialize system
     if (!TldrAPI::initializeSystem()) {
         std::cerr << "Failed to initialize system" << std::endl;

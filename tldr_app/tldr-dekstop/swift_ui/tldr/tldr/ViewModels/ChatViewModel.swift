@@ -12,7 +12,8 @@ class ChatViewModel: ObservableObject {
         // Load sample data for testing
         loadSampleData()
 //        tldr_api_trial()
-        TldrAPI.initializeSystem()
+//        TldrAPI.initializeSystem()
+        tldr_api_trial_tldr()
     }
     
     private func loadSampleData() {

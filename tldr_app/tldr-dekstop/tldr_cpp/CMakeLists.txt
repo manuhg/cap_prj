@@ -59,18 +59,19 @@ target_include_directories(tldr PRIVATE
     /opt/homebrew/opt/nlohmann-json/include
 )
 
-# Link libraries for the static library
-target_link_libraries(tldr PRIVATE
+# Set POSITION_INDEPENDENT_CODE to allow linking into Swift
+set_property(TARGET tldr PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+# Link libraries for the static library - using specific paths for static libraries where available
+target_link_libraries(tldr PUBLIC
+    ${CURL_LIBRARIES}
+    ${SQLite3_LIBRARIES}
     ${PostgreSQL_LIBRARIES}
-    ${PQXX_LIBRARIES}
-    SQLite::SQLite3
-    SQLiteCpp
+    /opt/homebrew/opt/libpqxx/lib/libpqxx.a
+    /opt/homebrew/opt/poppler/lib/libpoppler-cpp.a
     nlohmann_json::nlohmann_json
-    CURL::libcurl
-    pqxx
-    pq
-    poppler-cpp
 )
+
 target_include_directories(tldr PUBLIC ${SOURCE_DIR})
 
 # Add the executable
