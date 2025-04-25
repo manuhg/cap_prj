@@ -2,6 +2,7 @@
 #define TLDR_CPP_TLDR_H
 
 #include <string>
+#include "include/tldr_api.h"
 
 // Forward declaration of C++ functions
 int tldr_trial_main();
@@ -13,7 +14,7 @@ namespace TldrAPI {
  * @brief Initialize the TLDR system
  * @return true if initialization was successful, false otherwise
  */
-bool initializeSystem();
+bool wrapper_initializeSystem();
 
 /**
  * @brief Clean up the TLDR system

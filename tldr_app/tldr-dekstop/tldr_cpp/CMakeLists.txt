@@ -8,6 +8,12 @@ include_directories(${SOURCE_DIR})
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Force static libraries
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
+
+# Set position independent code globally
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 #set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 # Find required packages
@@ -62,14 +68,36 @@ target_include_directories(tldr PRIVATE
 # Set POSITION_INDEPENDENT_CODE to allow linking into Swift
 set_property(TARGET tldr PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-# Link libraries for the static library - using specific paths for static libraries where available
+# Always prefer static libraries
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" CACHE STRING "Library suffixes")
+
+# Link libraries for the static library with explicit static library paths
 target_link_libraries(tldr PUBLIC
-    ${CURL_LIBRARIES}
-    ${SQLite3_LIBRARIES}
-    ${PostgreSQL_LIBRARIES}
+    # Explicitly specify static libraries with absolute paths
+    /opt/homebrew/opt/curl/lib/libcurl.a
+    /opt/homebrew/opt/sqlite/lib/libsqlite3.a
+    /opt/homebrew/opt/libpq/lib/libpq.a
     /opt/homebrew/opt/libpqxx/lib/libpqxx.a
     /opt/homebrew/opt/poppler/lib/libpoppler-cpp.a
+    /opt/homebrew/opt/poppler/lib/libpoppler.a
+    
+    # Other libraries
     nlohmann_json::nlohmann_json
+    
+    # Add SSL libraries that curl depends on
+    /opt/homebrew/opt/openssl/lib/libssl.a
+    /opt/homebrew/opt/openssl/lib/libcrypto.a
+    
+    # Add zlib for compression dependencies
+    /opt/homebrew/opt/zlib/lib/libz.a
+    
+    # ICU libraries poppler may depend on
+    /opt/homebrew/opt/icu4c/lib/libicuuc.a
+    /opt/homebrew/opt/icu4c/lib/libicudata.a
+    
+    # System libraries that we can't statically link
+    -framework CoreFoundation
+    -framework Security
 )
 
 target_include_directories(tldr PUBLIC ${SOURCE_DIR})

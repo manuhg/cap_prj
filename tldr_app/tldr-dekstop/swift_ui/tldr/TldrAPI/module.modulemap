@@ -1,21 +1,5 @@
 module TldrAPI {
-    // C++ API
-    module CPP {
-        umbrella header "TldrAPI.hpp"
-        export *
-        requires cplusplus
-    }
-    
-    // C API for Swift
-    module C {
-        header "TldrAPI_C.h"
-        export *
-    }
-    
-    // Link with the main implementation
-    link "TldrAPI"
-    
-    // Link with system dependencies
-    link "stdc++"
-    link framework "Foundation"
+    header "TldrAPI.hpp"
+    link "tldr"
+    export *
 }

@@ -3,7 +3,7 @@
 
 #include <string>
 
-namespace TldrAPI {
+namespace tldr_cpp_api {
 
 /**
  * @brief Initialize the TLDR system
@@ -38,6 +38,6 @@ void queryRag(const std::string& user_query,
               const std::string& embeddings_url = "http://localhost:8084/embeddings",
               const std::string& chat_url = "http://localhost:8088/v1/chat/completions");
 
-} // namespace tldr
+} // namespace tldr_cpp_api
 
 #endif // TLDR_CPP_TLDR_H 

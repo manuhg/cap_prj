@@ -1,7 +1,7 @@
 #include "tldr_api.h"
 #include "lib_tldr.h"
 
-namespace TldrAPI {
+namespace tldr_cpp_api {
 
 bool initializeSystem() {
     return ::initializeSystem();
@@ -25,4 +25,4 @@ void queryRag(const std::string& user_query,
     ::queryRag(user_query, embeddings_url, chat_url);
 }
 
-} // namespace tldr 
+} // namespace tldr_cpp_api 
