@@ -40,13 +40,13 @@ with torch.no_grad():
     similarity = model(orthogonal1, orthogonal2)
     print(f"Similarity between orthogonal vectors: {similarity.item()}")
 
-
+# Attempt to convert to CoreML
 try:
     import coremltools as ct
-
+    
     # Trace the model
     traced_model = torch.jit.trace(model, (example_input1, example_input2))
-
+    
     # Convert to Core ML
     mlmodel = ct.convert(
         traced_model,
@@ -57,10 +57,9 @@ try:
         convert_to="mlprogram",  # Use ML Program to allow running on Neural Engine
         compute_units=ct.ComputeUnit.ALL,
     )
-
-    # Save the model
-    mlmodel.save("CosineSimilarity.mlmodel")
-    print("CoreML model saved as CosineSimilarity.mlmodel")
+    
+    # Save the model with the correct extension
+    mlmodel.save("CosineSimilarity.mlpackage")
+    print("CoreML model saved as CosineSimilarity.mlpackage")
 except Exception as e:
     print(f"Error converting to CoreML: {e}")
-    print("CoreML conversion skipped, but PyTorch model works correctly.")
