@@ -3,7 +3,7 @@ import Foundation
 
 
 // Define the input type for the model
-class CosineSimilarityInput: MLFeatureProvider {
+class CosineSimilarityInputCustom: MLFeatureProvider {
     var input1: MLMultiArray
     var input2: MLMultiArray
 
@@ -40,7 +40,7 @@ class CosineSimilarityModel {
 
     func predict(input1: MLMultiArray, input2: MLMultiArray) throws -> Double {
         // Prepare inputs
-        let inputs = CosineSimilarityInput(input1: input1, input2: input2)
+        let inputs = CosineSimilarityInputCustom(input1: input1, input2: input2)
         
         // Make prediction
         let prediction = try model.prediction(from: inputs)
