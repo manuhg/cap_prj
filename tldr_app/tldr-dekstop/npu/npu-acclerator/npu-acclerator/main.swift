@@ -55,21 +55,24 @@ class CosineSimilarityModel {
 
 // Function to generate random MLMultiArray
 func randomVector(size: Int) -> MLMultiArray {
-    let array = try! MLMultiArray(shape: [NSNumber(value: size)], dataType: .double)
+    // Shape should be [1, size] for rank 2
+    let array = try! MLMultiArray(shape: [1, NSNumber(value: size)], dataType: .double)
     for i in 0..<size {
-        array[i] = NSNumber(value: Double.random(in: 0...1))
+        // Access element using [0, i] for rank 2 array, ensuring i is NSNumber
+        array[[0, NSNumber(value: i)]] = NSNumber(value: Double.random(in: 0...1))
     }
     return array
 }
 
 // Main function to compare a vector with 100 other vectors
 func main() {
-    let vectorSize = 10
+    let vectorSize = 128 // Changed from 10 to match model
     let baseVector = randomVector(size: vectorSize)
     let model = try! CosineSimilarityModel()
     
     for i in 1...100 {
         let comparisonVector = randomVector(size: vectorSize)
+        // Use the custom wrapper's predict method which handles input provider and output name "var_5"
         let similarity = try! model.predict(input1: baseVector, input2: comparisonVector)
         print("Similarity with vector \(i): \(similarity)")
     }
