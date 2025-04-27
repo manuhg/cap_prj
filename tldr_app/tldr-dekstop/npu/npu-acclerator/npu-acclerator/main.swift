@@ -35,7 +35,7 @@ class CosineSimilarityModel {
         // Load the CoreML model
         let config = MLModelConfiguration()
         config.computeUnits = .cpuAndNeuralEngine //.all // Use all available compute units, including NPU
-        self.model = try MLModel(contentsOf: URL(fileURLWithPath: "CosineSimilarity.mlpackage"), configuration: config)
+        self.model = try MLModel(contentsOf: URL(fileURLWithPath: "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/npu/npu-acclerator/npu-acclerator/CosineSimilarity.mlpackage"), configuration: config)
     }
 
     func predict(input1: MLMultiArray, input2: MLMultiArray) throws -> Double {
@@ -52,3 +52,27 @@ class CosineSimilarityModel {
         return similarity
     }
 }
+
+// Function to generate random MLMultiArray
+func randomVector(size: Int) -> MLMultiArray {
+    let array = try! MLMultiArray(shape: [NSNumber(value: size)], dataType: .double)
+    for i in 0..<size {
+        array[i] = NSNumber(value: Double.random(in: 0...1))
+    }
+    return array
+}
+
+// Main function to compare a vector with 100 other vectors
+func main() {
+    let vectorSize = 10
+    let baseVector = randomVector(size: vectorSize)
+    let model = try! CosineSimilarityModel()
+    
+    for i in 1...100 {
+        let comparisonVector = randomVector(size: vectorSize)
+        let similarity = try! model.predict(input1: baseVector, input2: comparisonVector)
+        print("Similarity with vector \(i): \(similarity)")
+    }
+}
+
+main()
