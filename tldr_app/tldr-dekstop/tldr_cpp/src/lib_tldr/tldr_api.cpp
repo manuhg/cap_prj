@@ -1,5 +1,6 @@
 #include "tldr_api.h"
 #include "lib_tldr.h"
+#include <iostream>
 
 namespace tldr_cpp_api {
 
@@ -26,3 +27,12 @@ void queryRag(const std::string& user_query,
 }
 
 } // namespace tldr_cpp_api 
+
+// C linkage function for Swift to call
+extern "C" {
+    int tldr_api_trial_tldr() {
+        std::cout << "TldrAPI trial function called from Swift" << std::endl;
+        tldr_cpp_api::initializeSystem();
+        return 42;
+    }
+}

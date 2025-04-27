@@ -1,8 +1,19 @@
 // Link flags for the self-contained static library
-OTHER_LDFLAGS = -lstdc++ -framework CoreFoundation -framework Security
+OTHER_LDFLAGS = -lstdc++ -framework CoreFoundation -framework Security \
+                -lcurl -lsqlite3 -lpq -lpqxx -lz -lssl -lcrypto \
+                -licuuc -licudata -licui18n
 
 // Search paths for the library
-LIBRARY_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/TldrAPI
+LIBRARY_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/TldrAPI \
+                      /opt/homebrew/lib \
+                      /opt/homebrew/opt/curl/lib \
+                      /opt/homebrew/opt/sqlite/lib \
+                      /opt/homebrew/opt/libpq/lib \
+                      /opt/homebrew/opt/libpqxx/lib \
+                      /opt/homebrew/opt/openssl/lib \
+                      /opt/homebrew/opt/icu4c/lib \
+                      /opt/homebrew/opt/zlib/lib \
+                      /usr/lib
 
 // Header search paths
 HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/TldrAPI $(PROJECT_DIR)/TldrAPI/include \
