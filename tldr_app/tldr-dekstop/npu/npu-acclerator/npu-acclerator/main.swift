@@ -35,7 +35,7 @@ class CosineSimilarityModel {
         // Load the CoreML model
         let config = MLModelConfiguration()
         config.computeUnits = .cpuAndNeuralEngine //.all // Use all available compute units, including NPU
-        self.model = try MLModel(contentsOf: URL(fileURLWithPath: "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/npu/npu-acclerator/npu-acclerator/CosineSimilarity.mlpackage"), configuration: config)
+        self.model = try MLModel(contentsOf: URL(fileURLWithPath: "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/npu/npu-acclerator/npu-acclerator/CosineSimilarity.mlmodelc"), configuration: config)
     }
 
     func predict(input1: MLMultiArray, input2: MLMultiArray) throws -> Double {
