@@ -1,59 +1,68 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import sys
 
-# Define the PyTorch model
+# Constants
+VECTOR_DIM = 128
+BATCH_SIZE = 10 # Example batch size for testing
+
+# Define the PyTorch model for batched cosine similarity
 class CosineSimilarityModel(nn.Module):
     def __init__(self):
-        super(CosineSimilarityModel, self).__init__()
-        self.cos = nn.CosineSimilarity(dim=1)  # Compare across the feature dimension (D)
+        super().__init__()
+        # Epsilon for numerical stability is handled by F.cosine_similarity
 
     def forward(self, input1, input2):
-        # input1 shape: (1, D)
-        # input2 shape: (M, D)
-        # Expand input1 to match batch size M of input2
-        m = input2.shape[0]  # Get batch size M
-        input1_expanded = input1.expand(m, -1) # Shape becomes (M, D)
-        # Calculate similarity between expanded input1 and input2
-        # Output shape: (M,)
-        return self.cos(input1_expanded, input2)
+        # input1: (1, D) # Base vector
+        # input2: (M, D) # Batch of comparison vectors
+        
+        # Use F.cosine_similarity. It handles broadcasting between (1, D) and (M, D)
+        # when dim=1 is specified.
+        # It computes the similarity between input1 and each row of input2.
+        similarity = F.cosine_similarity(input1, input2, dim=1) # Output shape (M,)
+        
+        return similarity
 
-# --- Test the model with sample data ---
+# --- Create dummy data and test the PyTorch model ---
+
+# Example usage:
 model = CosineSimilarityModel()
 model.eval()
 
-VECTOR_DIM = 128
-BATCH_SIZE = 10 # Example batch size for input2
+# Example input tensors (batch size = BATCH_SIZE)
+example_input1 = torch.randn(1, VECTOR_DIM)
+example_input2 = torch.randn(BATCH_SIZE, VECTOR_DIM)
 
-# Dummy inputs to test the model
-example_input1 = torch.randn(1, VECTOR_DIM)  # Base vector (1, D)
-example_input2 = torch.randn(BATCH_SIZE, VECTOR_DIM) # Batch of vectors (M, D)
+print(f"Input1 shape: {example_input1.shape}")
+print(f"Input2 shape: {example_input2.shape}")
 
-# Run a simple test
+# Run inference
 with torch.no_grad():
-    similarities = model(example_input1, example_input2)
-    print(f"Input1 shape: {example_input1.shape}")
-    print(f"Input2 shape: {example_input2.shape}")
-    print(f"Output similarities shape: {similarities.shape}")
-    print(f"Sample similarities: {similarities[:5].tolist()}...") # Print first 5
+    output_similarities = model(example_input1, example_input2)
 
-# Run test with identical vectors (should be 1.0)
-identical_test_input1 = torch.ones(1, VECTOR_DIM)
-identical_test_input2 = torch.ones(BATCH_SIZE, VECTOR_DIM)
-with torch.no_grad():
-    similarities = model(identical_test_input1, identical_test_input2)
-    print(f"\nSimilarity between identical vectors (all should be 1.0): {similarities.tolist()}")
+print(f"Output similarities shape: {output_similarities.shape}")
+print(f"Sample similarities: {output_similarities.numpy()[:5]}...")
 
-# Run test with orthogonal vectors (first vector in batch should be 0.0)
-orthogonal_input1 = torch.zeros(1, VECTOR_DIM)
-orthogonal_input1[0, 0] = 1.0
-orthogonal_input2 = torch.zeros(BATCH_SIZE, VECTOR_DIM)
-orthogonal_input2[0, 1] = 1.0 # Make first vector orthogonal
-orthogonal_input2[1:, 0] = 1.0 # Make others identical to input1
+# Test cases
+# 1. Identical vectors (similarity should be 1.0)
+vec1 = torch.ones(1, VECTOR_DIM)
+vec2_batch = torch.ones(BATCH_SIZE, VECTOR_DIM)
 with torch.no_grad():
-    similarities = model(orthogonal_input1, orthogonal_input2)
-    print(f"\nSimilarity with mixed batch (first should be 0.0, others 1.0): {similarities.tolist()}")
+    sim_identical = model(vec1, vec2_batch)
+print(f"\nSimilarity between identical vectors (all should be 1.0): {sim_identical.numpy()}")
+
+# 2. Orthogonal vector (similarity should be 0.0)
+# Create an orthogonal vector for the first element in the batch
+vec1_ortho = torch.zeros(1, VECTOR_DIM)
+vec1_ortho[0, 0] = 1.0 # Example: [1, 0, 0, ...]
+vec2_batch_mixed = torch.ones(BATCH_SIZE, VECTOR_DIM) # Base is all ones
+vec2_batch_mixed[0, :] = 0.0 # First comparison vector is all zeros
+vec2_batch_mixed[0, 1] = 1.0 # Make it orthogonal to [1, 0, 0, ...], e.g. [0, 1, 0, ...]
+with torch.no_grad():
+    sim_mixed = model(vec1_ortho, vec2_batch_mixed)
+print(f"\nSimilarity with mixed batch (first should be 0.0, others near 0): {sim_mixed.numpy()}")
 
 # --- Attempt to convert to CoreML ---
 try:
@@ -63,26 +72,25 @@ try:
     traced_model = torch.jit.trace(model, (example_input1, example_input2))
     
     # Define input shapes for CoreML conversion
-    # For '.mlmodel', we might need fixed shapes or specific enumerations
-    input1_shape_fixed = ct.TensorType(name="input1", shape=example_input1.shape) # Shape (1, 128)
-    input2_shape_fixed = ct.TensorType(name="input2", shape=example_input2.shape) # Shape (10, 128) for this example
+    # Use RangeDim for flexible batch size M (1 to 1024)
+    input1_shape = ct.TensorType(name="input1", shape=(1, VECTOR_DIM))
+    input2_shape = ct.TensorType(name="input2", shape=(ct.RangeDim(1, 1024), VECTOR_DIM)) # Set max batch size
     
-    print(f"\nConverting to .mlmodel (neuralnetwork) with fixed input shapes:")
+    print(f"\nConverting to .mlpackage (mlprogram) with flexible input shapes:")
     print(f"  input1: {example_input1.shape}")
     print(f"  input2: {example_input2.shape}")
 
-    # Convert to Core ML (.mlmodel format)
+    # Convert to Core ML
     mlmodel = ct.convert(
         traced_model,
-        # Use fixed shapes derived from example inputs for neuralnetwork format
-        inputs=[input1_shape_fixed, input2_shape_fixed],
+        inputs=[input1_shape, input2_shape],
         # outputs=[ct.TensorType(name="similarities")], # Optional: name output
-        convert_to="neuralnetwork",  # Use older, potentially more stable format
-        # compute_units=ct.ComputeUnit.ALL, # Not applicable for neuralnetwork format
+        convert_to="mlprogram",  # Use ML Program for NPU
+        compute_units=ct.ComputeUnit.ALL,
     )
     
     # Save the model
-    output_filename = "CosineSimilarityBatched.mlmodel" # Change extension
+    output_filename = "CosineSimilarityBatched.mlpackage"
     mlmodel.save(output_filename)
     print(f"CoreML model saved as {output_filename}")
 
