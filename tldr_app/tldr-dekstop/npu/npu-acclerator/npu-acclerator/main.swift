@@ -33,27 +33,26 @@ func main() {
         // Ensure the new model is targeted in Xcode and the old one removed/untargeted
         let model = try CosineSimilarityBatched()
 
-        print("Testing Batched Cosine Similarity (batch size: \(BATCH_SIZE)) with identical vectors (all 1.0)")
+        print("Testing Batched Cosine Similarity (batch size: \(BATCH_SIZE)) with random vectors")
 
-        // Create base vector (input1: shape [1, VECTOR_DIM]) - All 1.0s
-        let baseVector = try createVector(shape: [1, NSNumber(value: VECTOR_DIM)], value: 1.0)
+        // Create base vector (input1: shape [1, VECTOR_DIM]) - Random
+        let baseVector = try createRandomVector(shape: [1, NSNumber(value: VECTOR_DIM)])
         print("Base Vector (input1) shape: \(baseVector.shape)")
 
-        // Create batch of comparison vectors (input2: shape [BATCH_SIZE, VECTOR_DIM]) - All 1.0s
-        let comparisonVectors = try createVector(shape: [NSNumber(value: BATCH_SIZE), NSNumber(value: VECTOR_DIM)], value: 1.0)
+        // Create batch of comparison vectors (input2: shape [BATCH_SIZE, VECTOR_DIM]) - Random
+        let comparisonVectors = try createRandomVector(shape: [NSNumber(value: BATCH_SIZE), NSNumber(value: VECTOR_DIM)])
         print("Comparison Vectors (input2) shape: \(comparisonVectors.shape)")
 
         // Perform prediction
         let predictionOutput = try model.prediction(input1: baseVector, input2: comparisonVectors)
 
-        // Extract the result (output name is likely 'var_13' based on conversion log)
-        // Adjust "var_13" if the actual output name is different
-        guard let similarityScores = predictionOutput.featureValue(for: "var_13")?.multiArrayValue else {
+        // Extract the result (output name is 'var_5' based on latest conversion log)
+        guard let similarityScores = predictionOutput.featureValue(for: "var_5")?.multiArrayValue else {
             print("Error: Could not extract similarity scores multiArrayValue from output.")
             return
         }
 
-        print("Output Similarities (var_13) shape: \(similarityScores.shape)")
+        print("Output Similarities (var_5) shape: \(similarityScores.shape)")
 
         // Process the output similarity scores (shape [BATCH_SIZE])
         let count = similarityScores.count
