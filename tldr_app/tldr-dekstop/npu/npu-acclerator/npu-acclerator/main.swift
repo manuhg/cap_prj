@@ -1,80 +1,74 @@
-import CoreML
 import Foundation
+import CoreML
 
+// Constants
+let VECTOR_DIM = 128
+let BATCH_SIZE = 10 // Example batch size (must be <= 1024)
 
-// Define the input type for the model
-class CosineSimilarityInputCustom: MLFeatureProvider {
-    var input1: MLMultiArray
-    var input2: MLMultiArray
-
-    var featureNames: Set<String> {
-        return ["input1", "input2"]
-    }
-
-    func featureValue(for featureName: String) -> MLFeatureValue? {
-        switch featureName {
-        case "input1":
-            return MLFeatureValue(multiArray: input1)
-        case "input2":
-            return MLFeatureValue(multiArray: input2)
-        default:
-            return nil
-        }
-    }
-
-    init(input1: MLMultiArray, input2: MLMultiArray) {
-        self.input1 = input1
-        self.input2 = input2
-    }
-}
-
-class CosineSimilarityModel {
-    private let model: MLModel
-
-    init() throws {
-        // Load the CoreML model
-        let config = MLModelConfiguration()
-        config.computeUnits = .cpuAndNeuralEngine //.all // Use all available compute units, including NPU
-        self.model = try MLModel(contentsOf: URL(fileURLWithPath: "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/npu/npu-acclerator/npu-acclerator/CosineSimilarity.mlmodelc"), configuration: config)
-    }
-
-    func predict(input1: MLMultiArray, input2: MLMultiArray) throws -> Double {
-        // Prepare inputs
-        let inputs = CosineSimilarityInputCustom(input1: input1, input2: input2)
-        
-        // Make prediction
-        let prediction = try model.prediction(from: inputs)
-        
-        // Extract the similarity score
-        guard let similarity = prediction.featureValue(for: "var_5")?.doubleValue else {
-            throw NSError(domain: "CosineSimilarityModel", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to extract similarity"])
-        }
-        return similarity
-    }
-}
-
-// Function to generate random MLMultiArray
-func randomVector(size: Int) -> MLMultiArray {
-    // Shape should be [1, size] for rank 2
-    let array = try! MLMultiArray(shape: [1, NSNumber(value: size)], dataType: .double)
-    for i in 0..<size {
-        // Access element using [0, i] for rank 2 array, ensuring i is NSNumber
-        array[[0, NSNumber(value: i)]] = NSNumber(value: Double.random(in: 0...1))
+// Helper function to create MLMultiArray with specific shape and fill value
+func createVector(shape: [NSNumber], value: Float) throws -> MLMultiArray {
+    let array = try MLMultiArray(shape: shape, dataType: .float32)
+    let count = array.count
+    let pointer = array.dataPointer.bindMemory(to: Float32.self, capacity: count)
+    for i in 0..<count {
+        pointer[i] = value
     }
     return array
 }
 
-// Main function to compare a vector with 100 other vectors
+// Helper function to create MLMultiArray with random values
+func createRandomVector(shape: [NSNumber]) throws -> MLMultiArray {
+    let array = try MLMultiArray(shape: shape, dataType: .float32)
+    let count = array.count
+    let pointer = array.dataPointer.bindMemory(to: Float32.self, capacity: count)
+    for i in 0..<count {
+        pointer[i] = Float.random(in: -1.0...1.0) // Example random range
+    }
+    return array
+}
+
+// Main function to test batched cosine similarity
 func main() {
-    let vectorSize = 128 // Changed from 10 to match model
-    let baseVector = randomVector(size: vectorSize)
-    let model = try! CosineSimilarityModel()
-    
-    for i in 1...100 {
-        let comparisonVector = randomVector(size: vectorSize)
-        // Use the custom wrapper's predict method which handles input provider and output name "var_5"
-        let similarity = try! model.predict(input1: baseVector, input2: comparisonVector)
-        print("Similarity with vector \(i): \(similarity)")
+    do {
+        // Ensure the new model is targeted in Xcode and the old one removed/untargeted
+        let model = try CosineSimilarityBatched()
+
+        print("Testing Batched Cosine Similarity (batch size: \(BATCH_SIZE)) with identical vectors (all 1.0)")
+
+        // Create base vector (input1: shape [1, VECTOR_DIM]) - All 1.0s
+        let baseVector = try createVector(shape: [1, NSNumber(value: VECTOR_DIM)], value: 1.0)
+        print("Base Vector (input1) shape: \(baseVector.shape)")
+
+        // Create batch of comparison vectors (input2: shape [BATCH_SIZE, VECTOR_DIM]) - All 1.0s
+        let comparisonVectors = try createVector(shape: [NSNumber(value: BATCH_SIZE), NSNumber(value: VECTOR_DIM)], value: 1.0)
+        print("Comparison Vectors (input2) shape: \(comparisonVectors.shape)")
+
+        // Perform prediction
+        let predictionOutput = try model.prediction(input1: baseVector, input2: comparisonVectors)
+
+        // Extract the result (output name is likely 'var_13' based on conversion log)
+        // Adjust "var_13" if the actual output name is different
+        guard let similarityScores = predictionOutput.featureValue(for: "var_13")?.multiArrayValue else {
+            print("Error: Could not extract similarity scores multiArrayValue from output.")
+            return
+        }
+
+        print("Output Similarities (var_13) shape: \(similarityScores.shape)")
+
+        // Process the output similarity scores (shape [BATCH_SIZE])
+        let count = similarityScores.count
+        if count == BATCH_SIZE {
+            let pointer = similarityScores.dataPointer.bindMemory(to: Float32.self, capacity: count)
+            print("Calculated Similarities:")
+            for i in 0..<count {
+                print("  Similarity with vector \(i): \(pointer[i])")
+            }
+        } else {
+            print("Error: Output similarity count (\(count)) does not match BATCH_SIZE (\(BATCH_SIZE))")
+        }
+
+    } catch {
+        print("Error during model loading or prediction: \(error)")
     }
 }
 
