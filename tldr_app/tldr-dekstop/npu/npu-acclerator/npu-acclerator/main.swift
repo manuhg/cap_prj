@@ -2,8 +2,8 @@ import Foundation
 import CoreML
 
 // Constants
-let VECTOR_DIM = 128
-let BATCH_SIZE = 10 // Example batch size (must be <= 1024)
+let VECTOR_DIM = 384
+let BATCH_SIZE = 1024*128 // Example batch size (must be <= 1024)
 
 // Helper function to create MLMultiArray with specific shape and fill value
 func createVector(shape: [NSNumber], value: Float) throws -> MLMultiArray {
@@ -31,7 +31,11 @@ func createRandomVector(shape: [NSNumber]) throws -> MLMultiArray {
 func main() {
     do {
         // Ensure the new model is targeted in Xcode and the old one removed/untargeted
-        let model = try CosineSimilarityBatched()
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = .cpuAndNeuralEngine // use cpu and neural engine but not the GPU
+
+        let model = try CosineSimilarityBatched(configuration: configuration)
+        let startTime0 = Date()
 
         print("Testing Batched Cosine Similarity (batch size: \(BATCH_SIZE)) with random vectors")
 
@@ -42,9 +46,16 @@ func main() {
         // Create batch of comparison vectors (input2: shape [BATCH_SIZE, VECTOR_DIM]) - Random
         let comparisonVectors = try createRandomVector(shape: [NSNumber(value: BATCH_SIZE), NSNumber(value: VECTOR_DIM)])
         print("Comparison Vectors (input2) shape: \(comparisonVectors.shape)")
+        let elapsedTime0 = Date().timeIntervalSince(startTime0) * 1000
+           print("Data prep time: \(elapsedTime0) milliseconds\n\n")
+        
+        let startTime = Date()
 
         // Perform prediction
         let predictionOutput = try model.prediction(input1: baseVector, input2: comparisonVectors)
+        
+        let elapsedTime = Date().timeIntervalSince(startTime) * 1000
+           print("Execution time: \(elapsedTime) milliseconds")
 
         // Extract the result (output name is 'var_5' based on latest conversion log)
         guard let similarityScores = predictionOutput.featureValue(for: "var_5")?.multiArrayValue else {
@@ -57,11 +68,11 @@ func main() {
         // Process the output similarity scores (shape [BATCH_SIZE])
         let count = similarityScores.count
         if count == BATCH_SIZE {
-            let pointer = similarityScores.dataPointer.bindMemory(to: Float32.self, capacity: count)
+//            let pointer = similarityScores.dataPointer.bindMemory(to: Float32.self, capacity: count)
             print("Calculated Similarities:")
-            for i in 0..<count {
-                print("  Similarity with vector \(i): \(pointer[i])")
-            }
+//            for i in 0..<count {
+//                print("  Similarity with vector \(i): \(pointer[i])")
+//            }
         } else {
             print("Error: Output similarity count (\(count)) does not match BATCH_SIZE (\(BATCH_SIZE))")
         }

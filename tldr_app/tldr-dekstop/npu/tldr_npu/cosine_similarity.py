@@ -5,9 +5,9 @@ import numpy as np
 import sys
 
 # Constants
-VECTOR_DIM = 128
+VECTOR_DIM = 384 # embedding size
 BATCH_SIZE = 10 # Example batch size for testing
-
+MAX_BATCH_SIZE = 1048576
 # Define the PyTorch model for batched cosine similarity
 class CosineSimilarityModel(nn.Module):
     def __init__(self):
@@ -72,9 +72,9 @@ try:
     traced_model = torch.jit.trace(model, (example_input1, example_input2))
     
     # Define input shapes for CoreML conversion
-    # Use RangeDim for flexible batch size M (1 to 1024)
+    # Use RangeDim for flexible batch size M (1 to MAX_BATCH_SIZE)
     input1_shape = ct.TensorType(name="input1", shape=(1, VECTOR_DIM))
-    input2_shape = ct.TensorType(name="input2", shape=(ct.RangeDim(1, 1024), VECTOR_DIM)) # Set max batch size
+    input2_shape = ct.TensorType(name="input2", shape=(ct.RangeDim(1, MAX_BATCH_SIZE), VECTOR_DIM)) # Set max batch size
     
     print(f"\nConverting to .mlpackage (mlprogram) with flexible input shapes:")
     print(f"  input1: {example_input1.shape}")
