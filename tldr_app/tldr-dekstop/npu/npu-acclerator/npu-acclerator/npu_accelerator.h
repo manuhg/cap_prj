@@ -5,8 +5,9 @@
 extern "C" {
 #endif
 
-// Declaration of the Swift function exposed to C/C++
-int perform_similarity_check();
+// Declare the Swift function callable from C/C++
+// Returns 0 on success, -1 on failure.
+int perform_similarity_check(const char* modelPath);
 
 #ifdef __cplusplus
 }
