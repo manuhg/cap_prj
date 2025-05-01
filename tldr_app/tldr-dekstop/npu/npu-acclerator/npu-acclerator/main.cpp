@@ -12,8 +12,8 @@
 int main() {
     std::cout << "Calling Swift function from C++..." << std::endl;
 
-    // Define the path to the compiled Core ML model
-    const char* modelPath = "/Users/manu/Library/Developer/Xcode/DerivedData/npu-acclerator-cbqfdeuzktkdvlakyxvzovhfsdak/Build/Products/Release/CosineSimilarityBatched.mlmodelc";
+    // Define the path to the compiled Core ML model relative to the executable
+    const char* modelPath = "CosineSimilarityBatched.mlmodelc";
     std::cout << "C++: Using model path: " << modelPath << std::endl;
 
     // Call the Swift function and pass the path

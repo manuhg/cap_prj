@@ -88,9 +88,9 @@ public func perform_similarity_check(modelPathCStr: UnsafePointer<CChar>) -> Int
         if count == BATCH_SIZE {
             let pointer = similarityScores.dataPointer.bindMemory(to: Float32.self, capacity: count)
             print("Calculated Similarities:")
-            for i in 0..<count {
-                print("  Similarity with vector \(i): \(pointer[i])")
-            }
+            // for i in 0..<count {
+                // print("  Similarity with vector \(i): \(pointer[i])")
+            // }
         } else {
             print("Error: Output similarity count (\(count)) does not match BATCH_SIZE (\(BATCH_SIZE))")
         }

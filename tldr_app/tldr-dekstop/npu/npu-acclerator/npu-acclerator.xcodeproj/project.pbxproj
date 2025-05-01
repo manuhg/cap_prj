@@ -162,6 +162,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				COREML_CODEGEN_LANGUAGE = Swift;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -188,6 +189,7 @@
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SYMROOT = "/Users/manu/proj_tldr/tldr-dekstop/release-products/temp";
 			};
 			name = Debug;
 		};
@@ -225,6 +227,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				COREML_CODEGEN_LANGUAGE = Swift;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -243,6 +246,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SYMROOT = "/Users/manu/proj_tldr/tldr-dekstop/release-products/temp";
 			};
 			name = Release;
 		};
@@ -251,10 +255,12 @@
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = "/Users/manu/proj_tldr/tldr-dekstop/release-products";
 				MACH_O_TYPE = staticlib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+				SYMROOT = "/Users/manu/proj_tldr/tldr-dekstop/release-products";
 			};
 			name = Debug;
 		};
@@ -263,9 +269,11 @@
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
+				INSTALL_PATH = "/Users/manu/proj_tldr/tldr-dekstop/release-products";
 				MACH_O_TYPE = staticlib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
+				SYMROOT = "/Users/manu/proj_tldr/tldr-dekstop/release-products";
 			};
 			name = Release;
 		};
