@@ -27,8 +27,8 @@ func createRandomVector(shape: [NSNumber]) throws -> MLMultiArray {
     return array
 }
 
-// Main function to test batched cosine similarity
-func main() {
+@_cdecl("perform_similarity_check")
+public func perform_similarity_check() -> Int {
     do {
         // Ensure the new model is targeted in Xcode and the old one removed/untargeted
         let configuration = MLModelConfiguration()
@@ -60,7 +60,7 @@ func main() {
         // Extract the result (output name is 'var_5' based on latest conversion log)
         guard let similarityScores = predictionOutput.featureValue(for: "var_5")?.multiArrayValue else {
             print("Error: Could not extract similarity scores multiArrayValue from output.")
-            return
+            return -1
         }
 
         print("Output Similarities (var_5) shape: \(similarityScores.shape)")
@@ -76,10 +76,9 @@ func main() {
         } else {
             print("Error: Output similarity count (\(count)) does not match BATCH_SIZE (\(BATCH_SIZE))")
         }
-
+        return 0 // Indicate success
     } catch {
         print("Error during model loading or prediction: \(error)")
+        return -1 // Indicate failure
     }
 }
-
-main()
