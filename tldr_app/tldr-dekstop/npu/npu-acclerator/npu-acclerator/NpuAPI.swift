@@ -45,8 +45,7 @@ public func perform_similarity_check(modelPathCStr: UnsafePointer<CChar>) -> Int
         // --- Load model explicitly using URL ---
         let modelDirURL = URL(fileURLWithPath: modelPath) // Use the path argument
         print("Swift: Using model URL: \(modelDirURL.path)") // Added print for confirmation
-        let mlModel = try MLModel(contentsOf: modelDirURL, configuration: configuration)
-        let model = try CosineSimilarityBatched(model: mlModel) // Initialize with the loaded MLModel
+        let model = try CosineSimilarityBatched(contentsOf: modelDirURL, configuration: configuration) // Initialize directly with URL
         // --- End explicit loading ---
         print("Swift: Model loaded successfully.") // Added print
         let startTime0 = Date()
