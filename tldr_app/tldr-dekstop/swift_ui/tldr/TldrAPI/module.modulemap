@@ -1,5 +1,5 @@
 module TldrAPI {
     header "TldrAPI.hpp"
-    link "tldr"
+    // Link directive removed - library linking is handled by the main application target.
     export *
 }
