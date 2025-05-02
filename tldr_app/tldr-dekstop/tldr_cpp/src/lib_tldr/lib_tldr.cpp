@@ -132,6 +132,7 @@ std::vector<std::string> splitTextIntoChunks(const std::string &text, size_t max
 }
 
 bool initializeDatabase() {
+    std::cout << "Initialize the database" << std::endl;
     if (!g_db) {
         if (USE_POSTGRES) {
             g_db = std::make_unique<tldr::PostgresDatabase>(PG_CONNECTION);
@@ -303,6 +304,7 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
 
 bool initializeSystem() {
     // Initialize database
+    std::cout<<"Intializing the system";
     if (!initializeDatabase()) {
         std::cerr << "Failed to initialize database" << std::endl;
         return false;

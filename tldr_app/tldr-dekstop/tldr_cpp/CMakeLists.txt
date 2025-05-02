@@ -25,18 +25,6 @@ find_package(CURL REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_package(SQLiteCpp REQUIRED)
 
-find_package(PkgConfig)
-if (PkgConfig_FOUND)
-    pkg_check_modules(PQXX IMPORTED_TARGET libpqxx)
-    pkg_check_modules(POPPLER REQUIRED poppler-cpp)
-endif ()
-
-# Add linker flags for library paths
-link_directories(
-    /opt/homebrew/opt/libpq/lib
-    /opt/homebrew/opt/libpqxx/lib
-    /opt/homebrew/opt/poppler/lib
-)
 
 # Create static library
 add_library(tldr STATIC
@@ -86,7 +74,20 @@ target_include_directories(tldr PUBLIC ${SOURCE_DIR})
 add_executable(tldr_cpp ${SOURCE_DIR}/main.cpp)
 
 # Link the static library with the executable
-target_link_libraries(tldr_cpp PRIVATE tldr)
+target_link_libraries(tldr_cpp PUBLIC tldr
+        /opt/homebrew/opt/libpq/lib/libpq.a
+        /opt/homebrew/opt/libpqxx/lib/libpqxx.a
+        /opt/homebrew/opt/poppler/lib/libpoppler.a
+        /opt/homebrew/opt/curl/lib/libcurl.a
+)
 
+target_link_options(tldr_cpp PUBLIC
+        -L/opt/homebrew/opt/libpq/lib/
+        -L/opt/homebrew/opt/libpqxx/lib/
+        -L/opt/homebrew/opt/poppler/lib/
+        -lpq
+        -lpoppler-cpp
+        -lcurl
+)
 # Include directories for the executable
 target_include_directories(tldr_cpp PRIVATE ${SOURCE_DIR})
