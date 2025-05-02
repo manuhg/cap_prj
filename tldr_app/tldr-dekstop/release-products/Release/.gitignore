@@ -1,0 +1,2 @@
+# Ignore Swift module files - not needed for C++ runtime
+npu_acclerator.swiftmodule/
