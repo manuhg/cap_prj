@@ -355,11 +355,10 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_CPP_EXCEPTIONS = YES;
 				GCC_ENABLE_CPP_RTTI = YES;
+				HEADER_SEARCH_PATHS = "/Users/manu/proj_tldr/tldr-dekstop/tldr_cpp/src/lib_tldr";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/TldrAPI/**",
-					"$(PROJECT_DIR)/TldrAPI",
-					"$(PROJECT_DIR)/TldrAPI/SystemLibs",
 					"/Users/manu/proj_tldr/tldr-dekstop/tldr_cpp/src/lib_tldr",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -374,11 +373,10 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_CPP_EXCEPTIONS = YES;
 				GCC_ENABLE_CPP_RTTI = YES;
+				HEADER_SEARCH_PATHS = "/Users/manu/proj_tldr/tldr-dekstop/tldr_cpp/src/lib_tldr";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/TldrAPI/**",
-					"$(PROJECT_DIR)/TldrAPI",
-					"$(PROJECT_DIR)/TldrAPI/SystemLibs",
 					"/Users/manu/proj_tldr/tldr-dekstop/tldr_cpp/src/lib_tldr",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -540,6 +538,7 @@
 					/opt/homebrew/opt/openssl/lib,
 					/opt/homebrew/opt/icu4c/lib,
 					/opt/homebrew/opt/zlib/lib,
+					"/Users/manu/proj_tldr/tldr-dekstop/tldr_cpp/cmake-build-debug",
 					/opt/homebrew/opt/curl/lib,
 				);
 				MARKETING_VERSION = 1.0;
@@ -608,6 +607,7 @@
 					/opt/homebrew/opt/openssl/lib,
 					/opt/homebrew/opt/icu4c/lib,
 					/opt/homebrew/opt/zlib/lib,
+					"/Users/manu/proj_tldr/tldr-dekstop/tldr_cpp/cmake-build-debug",
 					/opt/homebrew/opt/curl/lib,
 				);
 				MARKETING_VERSION = 1.0;
