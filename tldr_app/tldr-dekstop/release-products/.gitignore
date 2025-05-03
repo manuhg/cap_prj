@@ -1,0 +1,9 @@
+# Ignore everything in this directory
+*
+
+# Except the Release directory and its contents
+!Release/
+!libnpu-acclerator.a
+!CosineSimilarityBatched.mlmodelc
+# Keep this .gitignore file
+!.gitignore
