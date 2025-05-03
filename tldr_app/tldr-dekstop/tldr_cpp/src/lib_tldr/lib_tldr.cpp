@@ -16,6 +16,7 @@
 
 #include "lib_tldr.h"
 #include "llama.h"
+#include "npu_accelerator.h"
 
 using json = nlohmann::json;
 
@@ -309,6 +310,8 @@ bool initializeSystem() {
     auto * chat_model = llama_model_load_from_file(CHAT_MODEL_PATH, llama_model_default_params());
     auto * embeds_ctx = llama_init_from_model(embeds_model, llama_context_default_params());
     auto * chat_ctx = llama_init_from_model(chat_model, llama_context_default_params());
+
+    perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/CosineSimilarityBatched.mlmodelc");
 
     // Initialize database
     std::cout<<"Intializing the system";

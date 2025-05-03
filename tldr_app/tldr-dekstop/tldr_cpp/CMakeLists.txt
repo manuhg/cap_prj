@@ -77,6 +77,7 @@ target_link_libraries(tldr PUBLIC
          /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml.a
          /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libllama.a
          /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libllava_static.a
+        /Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/release-products/libnpu-acclerator.a
         "-framework Accelerate"
         "-framework Metal"
         "-framework Foundation"
