@@ -1,0 +1,47 @@
+[
+    {
+        "path": "../../../corpus/complete/Martin Fowler - Refactoring - Improving the Design of Existing Code (2018).pdf",
+        "title": "Refactoring: Improving the Design of Existing Code, 2/e ",
+        "shasum": "4c95426002b0c157978f54a0f38bdcc01b5e6d24293aa3f43b9a5e007c031ec9"
+    },
+    {
+        "path": "../../../corpus/complete/Fundamentals of Software Architecture - An Engineering Approach (2020).pdf",
+        "title": "Fundamentals of Software Architecture",
+        "shasum": "5008352574b214d08e4e831288a4e628355557fb73a927f91eda411c2ba1a546"
+    },
+    {
+        "path": "../../../corpus/complete/Clean Architecture - A Craftsman's Guide to Software Structure and Design.pdf",
+        "title": "Clean Architecture: A Craftsman's Guide to Software Structure and Design",
+        "shasum": "776661ad97d31525977d351dd2ac522f46ca4ca6772ab93e7279436bb9f8fe43"
+    },
+    {
+        "path": "../../../corpus/complete/Head First Design Patterns - [Freeman].pdf",
+        "title": "215479-01",
+        "shasum": "3fa78cef314646fbe3f2399ee200424b24dbe15901ea6948b09f6a476f24ba32"
+    },
+    {
+        "path": "../../../corpus/complete/97-things-every-software-architect-should-know.pdf",
+        "title": "",
+        "shasum": "6d5c694a5190f3595c1299601bed7e2b179fb28b67ef8975bac56c609b20953f"
+    },
+    {
+        "path": "../../../corpus/complete/Martin Fowler - Patterns of Enterprise Application Architecture.pdf",
+        "title": "Trial version",
+        "shasum": "419338b68b6c3137f71add27ba204c2e56fb519a6446a3de51fb05107a728fef"
+    },
+    {
+        "path": "../../../corpus/complete/The Algorithm Design Manual (2020).pdf",
+        "title": "",
+        "shasum": "5b8ae96f7c6c8907c28213a197e77398b0941857a9cecf28232d6006563c7d18"
+    },
+    {
+        "path": "../../../corpus/complete/GOF Design Patterns.pdf",
+        "title": "Design Patterns Elements of Reusable Object-Oriented Software",
+        "shasum": "d5315985d958dfa74e5cca10c3f640d9246e4ef06e0eb8981f52fe9672dfa75c"
+    },
+    {
+        "path": "../../../corpus/current/97-things-every-software-architect-should-know.pdf",
+        "title": "",
+        "shasum": "6d5c694a5190f3595c1299601bed7e2b179fb28b67ef8975bac56c609b20953f"
+    }
+]
