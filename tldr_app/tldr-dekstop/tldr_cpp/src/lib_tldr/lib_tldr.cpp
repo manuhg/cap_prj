@@ -15,6 +15,7 @@
 #include <memory>
 
 #include "lib_tldr.h"
+#include "llama.h"
 
 using json = nlohmann::json;
 
@@ -303,6 +304,12 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
 }
 
 bool initializeSystem() {
+    llama_backend_init();
+    auto * embeds_model = llama_model_load_from_file(EMBEDDINGS_MODEL_PATH, llama_model_default_params());
+    auto * chat_model = llama_model_load_from_file(CHAT_MODEL_PATH, llama_model_default_params());
+    auto * embeds_ctx = llama_init_from_model(embeds_model, llama_context_default_params());
+    auto * chat_ctx = llama_init_from_model(chat_model, llama_context_default_params());
+
     // Initialize database
     std::cout<<"Intializing the system";
     if (!initializeDatabase()) {

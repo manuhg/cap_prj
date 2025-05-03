@@ -52,6 +52,8 @@ target_include_directories(tldr PRIVATE
     /opt/homebrew/opt/curl/include
     /opt/homebrew/opt/nlohmann-json/include
     /opt/homebrew/opt/sqlitecpp/include
+    /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/include
+    /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/ggml/include
 )
 
 # Set POSITION_INDEPENDENT_CODE to allow linking into Swift
@@ -66,6 +68,17 @@ target_link_libraries(tldr PUBLIC
         /opt/homebrew/opt/libpqxx/lib/libpqxx.a
         /opt/homebrew/opt/poppler/lib/libpoppler.a
         /opt/homebrew/opt/curl/lib/libcurl.a
+         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libcommon.a
+         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml-base.a
+         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml-blas.a
+         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml-cpu.a
+         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml-metal.a
+         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml.a
+         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libllama.a
+         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libllava_static.a
+        "-framework Accelerate"
+        "-framework Metal"
+        "-framework Foundation"
 )
 
 target_include_directories(tldr PUBLIC ${SOURCE_DIR})

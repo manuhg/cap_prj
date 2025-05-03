@@ -25,6 +25,10 @@
 // HTTP request constants
 #define EMBEDDINGS_URL "http://localhost:8084/embeddings"
 #define CHAT_URL "http://localhost:8088/v1/chat/completions"
+
+#define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf"
+#define CHAT_MODEL_PATH "/Users/manu/llm-weights/embedding/all-MiniLM-L6-v2-ggml-model-f16.gguf"
+
 #define CONNECT_TIMEOUT_SECONDS 5
 #define REQUEST_TIMEOUT_SECONDS 30
 #define MAX_RETRIES 1
