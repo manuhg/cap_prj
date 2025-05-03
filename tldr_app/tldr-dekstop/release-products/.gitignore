@@ -3,7 +3,7 @@
 
 # Except the Release directory and its contents
 !Release/
-!libnpu-acclerator.a
+!*.a
 !CosineSimilarityBatched.mlmodelc
 # Keep this .gitignore file
 !.gitignore

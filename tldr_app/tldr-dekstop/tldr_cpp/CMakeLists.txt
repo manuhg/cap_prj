@@ -54,6 +54,7 @@ target_include_directories(tldr PRIVATE
     /opt/homebrew/opt/sqlitecpp/include
     /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/include
     /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/ggml/include
+    /Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/npu/npu-acclerator/npu-acclerator
 )
 
 # Set POSITION_INDEPENDENT_CODE to allow linking into Swift
