@@ -52,7 +52,8 @@ target_include_directories(tldr PRIVATE
     /opt/homebrew/opt/curl/include
     /opt/homebrew/opt/nlohmann-json/include
     /opt/homebrew/opt/sqlitecpp/include
-    ../release-products/include
+    /Users/manu/proj_tldr/tldr-dekstop/release-products/include
+    /Users/manu/proj_tldr/tldr-dekstop/release-products/include/llama.cpp/
 )
 
 # Set POSITION_INDEPENDENT_CODE to allow linking into Swift
@@ -67,15 +68,16 @@ target_link_libraries(tldr PUBLIC
         /opt/homebrew/opt/libpqxx/lib/libpqxx.a
         /opt/homebrew/opt/poppler/lib/libpoppler.a
         /opt/homebrew/opt/curl/lib/libcurl.a
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libcommon.a
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml-base.a
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml-blas.a
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml-cpu.a
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml-metal.a
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml.a
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libllama.a
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libllava_static.a
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libnpu-acclerator.a
+
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/lib-npu_accelerator.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libcommon.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libggml-base.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libggml-blas.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libggml-cpu.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libggml-metal.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libggml.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libllama.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libllava_static.a
         "-framework Accelerate"
         "-framework Metal"
         "-framework Foundation"
@@ -104,3 +106,6 @@ target_link_options(tldr_cpp PUBLIC
 )
 # Include directories for the executable
 target_include_directories(tldr_cpp PRIVATE ${SOURCE_DIR})
+
+# Copy the output file to a custom directory after build
+add_custom_command(TARGET tldr POST_BUILD COMMAND ../copy-release-products.sh)
