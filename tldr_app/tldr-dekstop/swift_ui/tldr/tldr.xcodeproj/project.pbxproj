@@ -6,14 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		32D6ADC62DC739A2008108B3 /* libTldrAPI.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 32C778A02DB9C5A70042389E /* libTldrAPI.a */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
-		32C778FE2DBADFDD0042389E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 32D334FF2DB1EC9800DCF3BD /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 32C7789F2DB9C5A70042389E;
-			remoteInfo = TldrAPI;
-		};
 		32D335162DB1EC9B00DCF3BD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 32D334FF2DB1EC9800DCF3BD /* Project object */;
@@ -28,6 +25,13 @@
 			remoteGlobalIDString = 32D335062DB1EC9800DCF3BD;
 			remoteInfo = tldr;
 		};
+		32D6ADBD2DC73444008108B3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 32D334FF2DB1EC9800DCF3BD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 32C7789F2DB9C5A70042389E;
+			remoteInfo = TldrAPI;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +39,9 @@
 		32D335072DB1EC9800DCF3BD /* tldr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = tldr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		32D335152DB1EC9B00DCF3BD /* tldrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = tldrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		32D3351F2DB1EC9B00DCF3BD /* tldrUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = tldrUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		32D6ADBF2DC7344A008108B3 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
+		32D6ADC12DC73466008108B3 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		32D6ADC32DC73470008108B3 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -72,6 +79,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				32D6ADC62DC739A2008108B3 /* libTldrAPI.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -95,6 +103,9 @@
 		32C778952DB9BC3B0042389E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				32D6ADC32DC73470008108B3 /* Foundation.framework */,
+				32D6ADC12DC73466008108B3 /* Metal.framework */,
+				32D6ADBF2DC7344A008108B3 /* Accelerate.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -168,7 +179,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				32C778FF2DBADFDD0042389E /* PBXTargetDependency */,
+				32D6ADBE2DC73444008108B3 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				32D335092DB1EC9800DCF3BD /* tldr */,
@@ -330,11 +341,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		32C778FF2DBADFDD0042389E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 32C7789F2DB9C5A70042389E /* TldrAPI */;
-			targetProxy = 32C778FE2DBADFDD0042389E /* PBXContainerItemProxy */;
-		};
 		32D335172DB1EC9B00DCF3BD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 32D335062DB1EC9800DCF3BD /* tldr */;
@@ -344,6 +350,11 @@
 			isa = PBXTargetDependency;
 			target = 32D335062DB1EC9800DCF3BD /* tldr */;
 			targetProxy = 32D335202DB1EC9B00DCF3BD /* PBXContainerItemProxy */;
+		};
+		32D6ADBE2DC73444008108B3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 32C7789F2DB9C5A70042389E /* TldrAPI */;
+			targetProxy = 32D6ADBD2DC73444008108B3 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -514,6 +525,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEPLOYMENT_LOCATION = NO;
+				EMBED_ASSET_PACKS_IN_PRODUCT_BUNDLE = YES;
 				ENABLE_PREVIEWS = YES;
 				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
 				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
@@ -591,6 +604,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEPLOYMENT_LOCATION = NO;
+				EMBED_ASSET_PACKS_IN_PRODUCT_BUNDLE = YES;
 				ENABLE_PREVIEWS = YES;
 				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
 				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
@@ -611,6 +626,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				MODULEMAP_FILE = "$(PROJECT_DIR)/tldr/TldrAPI/TldrAPI.modulemap";
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"-lnpu-accelerator",
 					"-ltldr",
