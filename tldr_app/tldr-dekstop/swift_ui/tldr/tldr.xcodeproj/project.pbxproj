@@ -359,15 +359,6 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/TldrAPI/**",
-					/opt/homebrew/opt/libpq/lib,
-					/opt/homebrew/opt/libpqxx/lib,
-					/opt/homebrew/opt/poppler/lib,
-					/opt/homebrew/opt/openssl/lib,
-					/opt/homebrew/opt/sqlite/lib,
-					/opt/homebrew/opt/icu4c/lib,
-					/opt/homebrew/opt/zlib/lib,
-					/opt/homebrew/opt/curl/lib,
-					"$(PROJECT_DIR)/TldrAPI",
 					"$(PROJECT_DIR)/../../release-products/libs/**",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -386,15 +377,6 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/TldrAPI/**",
-					/opt/homebrew/opt/libpq/lib,
-					/opt/homebrew/opt/libpqxx/lib,
-					/opt/homebrew/opt/poppler/lib,
-					/opt/homebrew/opt/openssl/lib,
-					/opt/homebrew/opt/sqlite/lib,
-					/opt/homebrew/opt/icu4c/lib,
-					/opt/homebrew/opt/zlib/lib,
-					/opt/homebrew/opt/curl/lib,
-					"$(PROJECT_DIR)/TldrAPI",
 					"$(PROJECT_DIR)/../../release-products/libs/**",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -547,16 +529,8 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/TldrAPI",
+					"$(PROJECT_DIR)/TldrAPI/**",
 					"$(PROJECT_DIR)/../../release-products/libs/**",
-					/opt/homebrew/opt/libpq/lib,
-					/opt/homebrew/opt/libpqxx/lib,
-					/opt/homebrew/opt/poppler/lib,
-					/opt/homebrew/opt/openssl/lib,
-					/opt/homebrew/opt/sqlite/lib,
-					/opt/homebrew/opt/icu4c/lib,
-					/opt/homebrew/opt/zlib/lib,
-					/opt/homebrew/opt/curl/lib,
 				);
 				MARKETING_VERSION = 1.0;
 				MODULEMAP_FILE = "$(PROJECT_DIR)/tldr/TldrAPI/TldrAPI.modulemap";
@@ -593,6 +567,7 @@
 					Metal,
 					"-framework",
 					Foundation,
+					"-lTldrAPI",
 				);
 				PRELINK_LIBS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.manuhg.tldr;
@@ -601,7 +576,6 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_VERSION = 5.0;
-				SYMROOT = "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/release-products/tldr-swift-app-build";
 			};
 			name = Debug;
 		};
@@ -632,16 +606,8 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/TldrAPI",
+					"$(PROJECT_DIR)/TldrAPI/**",
 					"$(PROJECT_DIR)/../../release-products/libs/**",
-					/opt/homebrew/opt/libpq/lib,
-					/opt/homebrew/opt/libpqxx/lib,
-					/opt/homebrew/opt/poppler/lib,
-					/opt/homebrew/opt/openssl/lib,
-					/opt/homebrew/opt/sqlite/lib,
-					/opt/homebrew/opt/icu4c/lib,
-					/opt/homebrew/opt/zlib/lib,
-					/opt/homebrew/opt/curl/lib,
 				);
 				MARKETING_VERSION = 1.0;
 				MODULEMAP_FILE = "$(PROJECT_DIR)/tldr/TldrAPI/TldrAPI.modulemap";
@@ -678,6 +644,7 @@
 					Metal,
 					"-framework",
 					Foundation,
+					"-lTldrAPI",
 				);
 				PRELINK_LIBS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.manuhg.tldr;
@@ -686,7 +653,6 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_VERSION = 5.0;
-				SYMROOT = "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/release-products/tldr-swift-app-build";
 			};
 			name = Release;
 		};
