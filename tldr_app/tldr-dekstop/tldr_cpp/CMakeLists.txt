@@ -69,7 +69,7 @@ target_link_libraries(tldr PUBLIC
         /opt/homebrew/opt/poppler/lib/libpoppler.a
         /opt/homebrew/opt/curl/lib/libcurl.a
 
-        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/lib-npu_accelerator.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libnpu-accelerator.a
         /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libcommon.a
         /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libggml-base.a
         /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libggml-blas.a

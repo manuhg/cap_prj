@@ -10,5 +10,7 @@ ln -s /opt/homebrew/opt/zlib/lib /Users/manu/proj_tldr/tldr-dekstop/release-prod
 ln -s /opt/homebrew/opt/curl/lib /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/system/curl
 
 
+/Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libllama.a
+
 cp -v libtldr.a /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/
 cp -v ../src/lib_tldr/tldr_api.h /Users/manu/proj_tldr/tldr-dekstop/release-products/include/

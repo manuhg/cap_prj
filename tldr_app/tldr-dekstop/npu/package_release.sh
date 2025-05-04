@@ -25,7 +25,7 @@ echo "Build script completed successfully."
 # Step 2: Run the artifact preparation script
 echo "Executing artifact release preparation: $PWD"
 cp npu-acclerator/npu-acclerator/npu_accelerator.h $RELEASE_PRODUCTS_DIR/include
-cd $RELEASE_PRODUCTS_DIR && cp -v Release/npu-acclerator libs/lib-npu_accelerator.a && cp -rv Release/*.mlmodelc artefacts/.
+cd $RELEASE_PRODUCTS_DIR && cp -v Release/npu-acclerator libs/libnpu-accelerator.a && cp -rv Release/*.mlmodelc artefacts/.
 
 echo "Artifact preparation script completed successfully."
 
