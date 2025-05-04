@@ -2,8 +2,10 @@
 *
 
 # Except the Release directory and its contents
-!Release/
-!*.a
-!CosineSimilarityBatched.mlmodelc
-# Keep this .gitignore file
+!libs
+!include
+!artefacts
+!libs/**
+!include/**
+!artefacts/**
 !.gitignore

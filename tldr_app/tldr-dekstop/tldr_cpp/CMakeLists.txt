@@ -52,9 +52,7 @@ target_include_directories(tldr PRIVATE
     /opt/homebrew/opt/curl/include
     /opt/homebrew/opt/nlohmann-json/include
     /opt/homebrew/opt/sqlitecpp/include
-    /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/include
-    /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/ggml/include
-    /Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/npu/npu-acclerator/npu-acclerator
+    ../release-products/include
 )
 
 # Set POSITION_INDEPENDENT_CODE to allow linking into Swift
@@ -69,15 +67,15 @@ target_link_libraries(tldr PUBLIC
         /opt/homebrew/opt/libpqxx/lib/libpqxx.a
         /opt/homebrew/opt/poppler/lib/libpoppler.a
         /opt/homebrew/opt/curl/lib/libcurl.a
-         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libcommon.a
-         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml-base.a
-         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml-blas.a
-         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml-cpu.a
-         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml-metal.a
-         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libggml.a
-         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libllama.a
-         /Users/manu/dev/UW/cap_prj/ref_projects/llama.cpp/build/libs/libllava_static.a
-        /Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/release-products/libnpu-acclerator.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libcommon.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml-base.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml-blas.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml-cpu.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml-metal.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libggml.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libllama.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libllava_static.a
+        /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libnpu-acclerator.a
         "-framework Accelerate"
         "-framework Metal"
         "-framework Foundation"
