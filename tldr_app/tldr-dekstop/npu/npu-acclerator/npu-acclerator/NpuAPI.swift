@@ -233,9 +233,22 @@ func findTopResults(
 
 // MARK: - C Exported Function
 
+/// A C-compatible function for performing vector similarity search
+/// - Parameters:
+///   - modelPathCStr: Path to the CoreML model (.mlmodelc directory)
+///   - vectorDumpPathCStr: Path to the vector dump file
+///   - queryVectorPtr: Optional pointer to query vector (Float32 array). If nil, first vector from dump is used
+///   - queryVectorDimensions: Number of dimensions in the query vector (ignored if queryVectorPtr is nil)
+///   - resultCountPtr: Pointer to store the number of results
+/// - Returns: Pointer to an array of SimilarityResult structures (must be freed by caller)
 @_cdecl("perform_similarity_check")
-public func perform_similarity_check(modelPathCStr: UnsafePointer<CChar>, vectorDumpPathCStr: UnsafePointer<CChar>, 
-                                    resultCountPtr: UnsafeMutablePointer<Int32>) -> UnsafeMutablePointer<SimilarityResult>? {
+public func perform_similarity_check(
+    modelPathCStr: UnsafePointer<CChar>, 
+    vectorDumpPathCStr: UnsafePointer<CChar>,
+    queryVectorPtr: UnsafePointer<Float32>? = nil,
+    queryVectorDimensions: Int32 = 0,
+    resultCountPtr: UnsafeMutablePointer<Int32>
+) -> UnsafeMutablePointer<SimilarityResult>? {
     // Convert C strings to Swift strings
     let modelPath = String(cString: modelPathCStr)
     let vectorDumpPath = String(cString: vectorDumpPathCStr)
@@ -246,6 +259,13 @@ public func perform_similarity_check(modelPathCStr: UnsafePointer<CChar>, vector
     
     // Initialize result count to 0 by default
     resultCountPtr.pointee = 0
+    
+    // Log if we received an external query vector
+    if let queryPtr = queryVectorPtr, queryVectorDimensions > 0 {
+        print("Swift: Using provided query vector with \(queryVectorDimensions) dimensions")
+    } else {
+        print("Swift: No query vector provided, will use first vector from dump file")
+    }
 
     do {
         // Step 1: Initialize vector reader and load vectors
@@ -259,8 +279,24 @@ public func perform_similarity_check(modelPathCStr: UnsafePointer<CChar>, vector
         // Print vector dump info
         reader.printInfo()
         
-        // Step 2: Create query vector from first vector in dump
-        let queryVector = try createQueryVector(from: reader)
+        // Step 2: Create or use provided query vector
+        let queryVector: MLMultiArray
+        
+        if let queryPtr = queryVectorPtr, queryVectorDimensions > 0 {
+            // Use the provided query vector
+            queryVector = try MLMultiArray(shape: [1, NSNumber(value: queryVectorDimensions)], dataType: .float32)
+            let queryDstPtr = queryVector.dataPointer.bindMemory(to: Float32.self, capacity: Int(queryVectorDimensions))
+            
+            // Copy data from the provided pointer
+            for i in 0..<Int(queryVectorDimensions) {
+                queryDstPtr[i] = queryPtr.advanced(by: i).pointee
+            }
+            
+            print("Query vector created from provided data, shape: \(queryVector.shape)")
+        } else {
+            // Use the first vector from the dump file
+            queryVector = try createQueryVector(from: reader)
+        }
         
         // Step 3: Load the similarity model
         print("Swift: Loading cosine similarity model...")
