@@ -12,7 +12,9 @@ namespace tldr {
         ~PostgresDatabase() override;
 
         bool initialize() override;
-        int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) override;
+        int64_t saveEmbeddings(const std::vector<std::string> &chunks, 
+                               const json &embeddings_response,
+                               const std::vector<size_t> &embedding_hashes = {}) override;
         bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) override;
 
         // Perform vector similarity search

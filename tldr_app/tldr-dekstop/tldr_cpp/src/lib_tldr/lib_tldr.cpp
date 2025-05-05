@@ -13,6 +13,7 @@
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <memory>
+#include <functional> // Include for std::hash
 
 #include "lib_tldr.h"
 #include "llama.h"
@@ -153,14 +154,13 @@ bool initializeDatabase() {
     return true;
 }
 
-int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) {
+int64_t saveEmbeddingsToDb(const std::vector<std::string> &chunks, const json &embeddings_response, const std::vector<size_t> &embeddings_hash) {
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return -1;
     }
-    //TODO add chunk and embedding hash ids via a db function
-
-    return g_db->saveEmbeddings(chunks, embeddings_response);
+    // Pass the computed embeddings_hash to the database
+    return g_db->saveEmbeddings(chunks, embeddings_response, embeddings_hash);
 }
 
 size_t WriteCallback(char *contents, size_t size, size_t nmemb, void *userp) {
@@ -242,8 +242,30 @@ json parseEmbeddingsResponse(const std::string &response_data) {
     }
 }
 
+// Helper: Compute hash for each embedding
+static std::vector<size_t> computeEmbeddingHashes(const std::vector<std::vector<float>>& embeddings_list) {
+    std::vector<size_t> hashes;
+    hashes.reserve(embeddings_list.size());
+
+    std::hash<float> float_hasher;
+    for (const auto& emb : embeddings_list) {
+        size_t seed = 0;
+        for (float v : emb) {
+            // Combine hash (similar to boost::hash_combine)
+            seed ^= float_hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        hashes.push_back(seed);
+    }
+    return hashes;
+}
+
 // Save embeddings to database with thread safety
-int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const std::vector<std::vector<float>> &batch_embeddings) {
+int saveEmbeddingsThreadSafe(const std::vector<std::string>& batch, const std::vector<std::vector<float>>& batch_embeddings) {
+    // --- Generate hashes for embeddings ---
+    std::vector<size_t> embeddings_hash = computeEmbeddingHashes(batch_embeddings);
+    // (Currently unused – will be forwarded to DB layer once schema is ready)
+
+
     json embeddings_json;
     embeddings_json["embeddings"] = json::array();
     for(const auto& emb : batch_embeddings) {
@@ -257,7 +279,8 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const std::v
 #if !USE_POSTGRES
     // std::lock_guard<std::mutex> lock(g_mutex);
 #endif
-    int64_t saved_id = saveEmbeddings(batch, embeddings_json);
+    // Pass the computed hashes to the database
+    int64_t saved_id = saveEmbeddingsToDb(batch, embeddings_json, embeddings_hash);
     if (saved_id < 0) {
         throw std::runtime_error("Failed to save embeddings to database");
     }

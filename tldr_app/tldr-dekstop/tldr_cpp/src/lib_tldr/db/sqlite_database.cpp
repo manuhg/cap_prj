@@ -74,6 +74,7 @@ namespace tldr {
         const char *sql = "CREATE TABLE IF NOT EXISTS embeddings ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                 "chunk_text TEXT NOT NULL,"
+                "embedding_hash INTEGER,"
                 "embedding_data TEXT NOT NULL,"
                 "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)";
 
@@ -89,7 +90,7 @@ namespace tldr {
         return true;
     }
 
-    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) {
+    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response, const std::vector<size_t> &embedding_hashes) {
         sqlite3 *db = nullptr;
         if (!openConnection(db)) {
             return -1;
@@ -110,7 +111,7 @@ namespace tldr {
 
         // Prepare the insert statement
         sqlite3_stmt *stmt;
-        const char *sql = "INSERT INTO embeddings (chunk_text, embedding_data) VALUES (?, ?)";
+        const char *sql = "INSERT INTO embeddings (chunk_text, embedding_hash, embedding_data) VALUES (?, ?, ?)";
         rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
 
         if (rc != SQLITE_OK) {
@@ -120,9 +121,13 @@ namespace tldr {
         }
 
         // Insert each chunk and its embedding
-        for (const auto &chunk: chunks) {
+        for (size_t i = 0; i < chunks.size(); ++i) {
+            const auto &chunk = chunks[i];
+            size_t hash = i < embedding_hashes.size() ? embedding_hashes[i] : 0;
+
             sqlite3_bind_text(stmt, 1, chunk.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_text(stmt, 2, embeddings_response.dump().c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_int64(stmt, 2, static_cast<sqlite3_int64>(hash));
+            sqlite3_bind_text(stmt, 3, embeddings_response.dump().c_str(), -1, SQLITE_STATIC);
 
             rc = sqlite3_step(stmt);
             if (rc != SQLITE_DONE) {

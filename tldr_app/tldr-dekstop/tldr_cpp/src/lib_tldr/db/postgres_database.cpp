@@ -62,6 +62,7 @@ namespace tldr {
                 "id BIGSERIAL PRIMARY KEY,"
                 "chunk_text TEXT NOT NULL,"
                 "text_hash BIGINT NOT NULL,"
+                "embedding_hash BIGINT,"
                 "embedding vector(" EMBEDDING_SIZE ") NOT NULL,"  // Assuming 2048-dimensional embeddings
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
             );
@@ -82,7 +83,7 @@ namespace tldr {
         }
     }
 
-    int64_t PostgresDatabase::saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) {
+    int64_t PostgresDatabase::saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response, const std::vector<size_t> &embedding_hashes) {
         pqxx::connection *conn = nullptr;
         if (!openConnection(conn)) {
             return -1;
@@ -98,8 +99,8 @@ namespace tldr {
             // Prepare the statement with a unique name
             txn.conn().prepare(
                 stmt_name,
-                "INSERT INTO embeddings (chunk_text, text_hash, embedding) "
-                "VALUES ($1, hashtextextended($1::text, 0), $2) "
+                "INSERT INTO embeddings (chunk_text, text_hash, embedding_hash, embedding) "
+                "VALUES ($1, hashtextextended($1::text, 0), $2, $3) "
                 "ON CONFLICT (text_hash) DO NOTHING "
                 "RETURNING id"
             );
@@ -118,9 +119,13 @@ namespace tldr {
                 }
                 vector_str += "]";
 
+                // Get hash if available, or use 0 as default
+                size_t hash = i < embedding_hashes.size() ? embedding_hashes[i] : 0;
+                
                 // Execute the prepared statement with parameters
                 pqxx::params params;
                 params.append(chunks[i]);
+                params.append(static_cast<long long>(hash));  // Cast to long long for PostgreSQL bigint
                 params.append(vector_str);
                 auto result = txn.exec_prepared(stmt_name, params);
 
