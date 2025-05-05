@@ -39,6 +39,8 @@ add_library(tldr STATIC
     ${SOURCE_DIR}/lib_tldr/db/connection_pool.h
     ${SOURCE_DIR}/lib_tldr/tldr_api.cpp
     ${SOURCE_DIR}/lib_tldr/tldr_api.h
+    ${SOURCE_DIR}/lib_tldr/llm-wrapper.cpp
+    ${SOURCE_DIR}/lib_tldr/llm-wrapper.h
 )
 
 # Include directories for the library

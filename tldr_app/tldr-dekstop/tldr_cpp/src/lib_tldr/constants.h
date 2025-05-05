@@ -34,7 +34,7 @@
 #define MAX_RETRIES 1
 #define RETRY_DELAY_MS 1000
 #define EMBEDDING_SIZE "384" // keep it string so that it can be inserted into create table stmt
-#define K_SIMILAR_CHUNKS_TO_RETRIEVAL 5
+#define K_SIMILAR_CHUNKS_TO_RETRIEVE 5
 struct embeddings_request {
     std::vector<std::string> input;
 };

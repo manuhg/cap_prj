@@ -17,16 +17,21 @@
 #include "lib_tldr.h"
 #include "llama.h"
 #include "npu_accelerator.h"
+#include "lib_tldr/llm-wrapper.h"
+#include "lib_tldr/constants.h"
 
 using json = nlohmann::json;
 
 // Global database instance
 std::unique_ptr<tldr::Database> g_db;
+// Global LLM Manager instance
+tldr::LlmManager g_llm_manager;
 
 #if !USE_POSTGRES
 // Global mutex for thread synchronization
 // std::mutex g_mutex;
 #endif
+
 std::string translatePath(const std::string &path) {
     std::string result = path;
 
@@ -240,7 +245,17 @@ json parseEmbeddingsResponse(const std::string &response_data) {
 }
 
 // Save embeddings to database with thread safety
-int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const json &embeddings_json) {
+int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const std::vector<std::vector<float>> &batch_embeddings) {
+    json embeddings_json;
+    embeddings_json["embeddings"] = json::array();
+    for(const auto& emb : batch_embeddings) {
+        embeddings_json["embeddings"].push_back(emb);
+    }
+
+    if (embeddings_json["embeddings"].empty()) {
+        std::cerr << "  No embeddings generated for this batch." << std::endl;
+        return -1;
+    }
 #if !USE_POSTGRES
     // std::lock_guard<std::mutex> lock(g_mutex);
 #endif
@@ -279,17 +294,15 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
         std::cout << "Processing batch " << batch_num + 1 << " of " << total_batches << std::endl;
 
         try {
-            embeddings_list.clear();
+            std::vector<std::vector<float>> batch_embeddings = g_llm_manager.get_embeddings(batch);
+            if (batch_embeddings.size() != batch.size()) {
+                std::cerr << "  Warning: Mismatch between input chunks (" << batch.size()
+                          << ") and generated embeddings (" << batch_embeddings.size()
+                          << ") for this batch. " << std::endl;
+            }
 
-            // Prepare request for embeddings service
-            json request_payload = {
-                {"input", std::vector<std::string>(batch.begin(), batch.end())} // Send the entire batch as input
-            };
 
-            std::string response_data = sendEmbeddingsRequest(request_payload, EMBEDDINGS_URL);
-            json embeddings_json = parseEmbeddingsResponse(response_data);
-
-            result_id = saveEmbeddingsThreadSafe(std::vector<std::string>(batch.begin(), batch.end()), embeddings_json);
+            result_id = saveEmbeddingsThreadSafe(std::vector<std::string>(batch.begin(), batch.end()), batch_embeddings);
             return; // Success
         } catch (const std::exception &e) {
             if (retry == MAX_RETRIES - 1) {
@@ -305,37 +318,63 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
 }
 
 bool initializeSystem() {
-    llama_backend_init();
-    auto * embeds_model = llama_model_load_from_file(EMBEDDINGS_MODEL_PATH, llama_model_default_params());
-    auto * chat_model = llama_model_load_from_file(CHAT_MODEL_PATH, llama_model_default_params());
-    auto * embeds_ctx = llama_init_from_model(embeds_model, llama_context_default_params());
-    auto * chat_ctx = llama_init_from_model(chat_model, llama_context_default_params());
+    std::cout << "Initialize the system" << std::endl;
+
+    // Initialize llama.cpp backend (required before model loading)
+    // TODO: Consider where backend init/free should ideally live
+    llama_backend_init(); 
 
     perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/CosineSimilarityBatched.mlmodelc");
 
-    // Initialize database
-    std::cout<<"Intializing the system";
     if (!initializeDatabase()) {
         std::cerr << "Failed to initialize database" << std::endl;
+        llama_backend_free(); // Clean up backend if db fails
         return false;
     }
 
-    // Initialize CURL globally
-    CURLcode curl_init = curl_global_init(CURL_GLOBAL_DEFAULT); //question: is this efficient or should we use protobuf
-    if (curl_init != CURLE_OK) {
-        std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init) << std::endl;
+    // Initialize LLM models via the manager
+    if (!g_llm_manager.initialize_chat_model(CHAT_MODEL_PATH)) {
+        std::cerr << "Failed to initialize chat model" << std::endl;
+        // Database is initialized, but models failed. Cleanup backend.
+        llama_backend_free();
         return false;
     }
 
+    if (!g_llm_manager.initialize_embeddings_model(EMBEDDINGS_MODEL_PATH)) {
+        std::cerr << "Failed to initialize embeddings model" << std::endl;
+        // Chat model initialized, embeddings failed. Cleanup backend.
+        // LlmManager destructor will handle chat model cleanup.
+        llama_backend_free();
+        return false;
+    }
+
+    // Initialize CURL globally (Restored)
+    CURLcode curl_init_ret = curl_global_init(CURL_GLOBAL_DEFAULT);
+    if (curl_init_ret != CURLE_OK) {
+        std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
+        // Cleanup already initialized components
+        llama_backend_free();
+        // LlmManager destructor handles models/contexts
+        // Database unique_ptr handles db connection
+        return false;
+    }
+
+    std::cout << "System initialized successfully." << std::endl;
     return true;
 }
 
 void cleanupSystem() {
-    // Cleanup CURL
+    // Cleanup CURL (If it was ever initialized - check initializeSystem)
     curl_global_cleanup();
 
-    // Cleanup database
-    g_db.reset();
+    // Database is managed by unique_ptr, will clean up automatically.
+    // g_db.reset();
+
+    // LLM Manager cleans up models/contexts in its destructor when g_llm_manager goes out of scope.
+
+    // Clean up llama.cpp backend
+    llama_backend_free();
+    std::cout << "System cleaned up." << std::endl;
 }
 
 void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size_t num_threads) {
@@ -423,86 +462,53 @@ void doRag(const std::string &conversationId) {
     }
 }
 
-std::string generateLLMResponse(const std::string& context, const std::string& user_query, const std::string& chat_url) {
-    try {
-        // Prepare the request payload
-        json request = {
-            {"messages", {
-                {
-                    {"role", "developer"},
-                    {"content", "You are a helpful AI Assistant. Go through the given context and answer the user's questions."}
-                },
-                {
-                    {"role", "developer"},
-                    {"content", context}
-                },
-                {
-                    {"role", "user"},
-                    {"content", user_query}
-                }
-            }}
-        };
-
-        // Send request to LLM service using chat endpoint
-        std::string response_data = sendEmbeddingsRequest(request, chat_url);
-        json response = json::parse(response_data);
-
-        // Extract and return the generated text
-        if (response.contains("choices") && !response["choices"].empty()) {
-            return response["choices"][0]["message"]["content"].get<std::string>();
-        } else {
-            return "Error: Invalid response from LLM service";
-        }
-    } catch (const std::exception &e) {
-        std::cerr << "Generation error: " << e.what() << std::endl;
-        return "Error: " + std::string(e.what());
-    }
-}
-
-void queryRag(const std::string& user_query, const std::string& embeddings_url, const std::string& chat_url) {
+void queryRag(const std::string& user_query) {
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return;
     }
 
     try {
-        // Get embeddings for the query using embeddings endpoint
-        json request = {{"input", {user_query}}};
-        std::string response = sendEmbeddingsRequest(request, embeddings_url);
-        json embeddings_response = parseEmbeddingsResponse(response);
+        // Get embeddings for the user query using LlmManager
+        std::vector<std::string_view> query_vec = {user_query};
+        std::vector<std::vector<float>> query_embeddings = g_llm_manager.get_embeddings(query_vec);
 
-        if (embeddings_response["embeddings"].empty()) {
-            std::cerr << "No embeddings generated for query" << std::endl;
-            return;
+        if (query_embeddings.empty() || query_embeddings[0].empty()) {
+            std::cerr << "Failed to get embeddings for the query." << std::endl;
+            // Handle error - maybe return or throw
+            return; 
         }
 
-        // Extract the query vector
-        std::vector<float> query_vector = embeddings_response["embeddings"][0];
+        // Find similar chunks in the database
+        auto similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
 
-        // Search for similar vectors
-        auto results = g_db->searchSimilarVectors(query_vector, K_SIMILAR_CHUNKS_TO_RETRIEVAL);
-
-        // Combine retrieved chunks into context
-        std::string context;
-        for (const auto& [chunk, similarity] : results) {
-            context += chunk + "\n\n";
+        // 3. Prepare context from similar chunks
+        std::string context_str;
+        for (const auto& [chunk, similarity] : similar_chunks) {
+            context_str += chunk + "\n\n"; // Simple concatenation
         }
 
-        // Generate response using the context
-        std::string generated_response = generateLLMResponse(context, user_query, chat_url);
+        if (context_str.empty()) {
+            context_str = "No relevant context found.";
+        }
 
-        // Print results
+        // 4. Generate response using LlmManager's chat model
+        std::string final_response = g_llm_manager.get_chat_response(context_str, user_query);
+        // Old way:
+
+        // 5. Print results
         std::cout << "\nGenerated Response:\n";
-        std::cout << generated_response << "\n";
+        std::cout << final_response << "\n";
         std::cout << "\nContext used:\n";
-        for (const auto& [chunk, similarity] : results) {
+        for (const auto& [chunk, similarity] : similar_chunks) {
             std::cout << "\nSimilarity: " << similarity << "\n";
             std::cout << "Content: " << chunk << "\n";
             std::cout << "----------------------------------------\n";
         }
 
-    } catch (const std::exception& e) {
-        std::cerr << "Error during RAG query: " << e.what() << std::endl;
+    } catch (const std::exception &e) {
+        std::cerr << "RAG Query error: " << e.what() << std::endl;
+        // Handle error appropriately
     }
 }
 
@@ -512,7 +518,7 @@ void command_loop() {
         {"do-rag", doRag},
         {"add-corpus", addCorpus},
         {"delete-corpus", deleteCorpus},
-        {"query", [](const std::string& query) { queryRag(query, EMBEDDINGS_URL, CHAT_URL); }}
+        {"query", [](const std::string& query) { queryRag(query); }}
     };
 
     while (true) {
