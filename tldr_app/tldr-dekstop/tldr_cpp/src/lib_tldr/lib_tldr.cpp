@@ -150,6 +150,7 @@ bool initializeDatabase() {
             return false;
         }
     }
+    tldr::initialize_llm_manager_once();
     return true;
 }
 
@@ -320,7 +321,7 @@ bool initializeSystem() {
 
     // Initialize llama.cpp backend (required before model loading)
     // TODO: Consider where backend init/free should ideally live
-    llama_backend_init(); 
+
 
     perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/CosineSimilarityBatched.mlmodelc");
 

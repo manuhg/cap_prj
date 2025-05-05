@@ -2,7 +2,7 @@
 // Modified version of llama.cpp/examples/embedding.cpp/.h
 //
 
-#include "llm_embedding.h"
+#include "LlmEmbeddings.h"
 
 #include "common.h"
 #include "llama.h"
@@ -52,12 +52,12 @@ static void batch_decode(llama_context *ctx, llama_batch &batch, float *output, 
     if (llama_model_has_encoder(model) && !llama_model_has_decoder(model)) {
         // encoder-only model
         if (llama_encode(ctx, batch) < 0) {
-            std::cerr<<"failed to encode :"<< __func__<<std::endl;
+            std::cerr << "failed to encode :" << __func__ << std::endl;
         }
     } else if (!llama_model_has_encoder(model) && llama_model_has_decoder(model)) {
         // decoder-only model
         if (llama_decode(ctx, batch) < 0) {
-            std::cerr<<"failed to decode :"<< __func__<<std::endl;
+            std::cerr << "failed to decode :" << __func__ << std::endl;
         }
     }
 
@@ -86,14 +86,17 @@ static void batch_decode(llama_context *ctx, llama_batch &batch, float *output, 
     }
 }
 
-llm_embedding::llm_embedding(std::string chat_model_path) {
+LlmEmbeddings::LlmEmbeddings(std::string model_path) {
+    this->model_path = model_path;
+}
+
+bool LlmEmbeddings::initialize_model() {
     common_init();
-    this->params.model = chat_model_path;
+    this->params.model = this->model_path;
     params.embedding = true;
     // For non-causal models, batch size must be equal to ubatch size
     params.n_ubatch = params.n_batch;
 
-    llama_backend_init();
     llama_numa_init(params.numa);
 
     // load the model
@@ -103,7 +106,7 @@ llm_embedding::llm_embedding(std::string chat_model_path) {
     this->ctx = llama_init.context.get();
 
     if (model == NULL) {
-        throw "unable to load embdedding model at "+chat_model_path;
+        throw "unable to load embdedding model at " + this->model_path + "\n";
     }
 
     this->vocab = llama_model_get_vocab(model);
@@ -113,16 +116,17 @@ llm_embedding::llm_embedding(std::string chat_model_path) {
 
 
     if (llama_model_has_encoder(model) && llama_model_has_decoder(model)) {
-        std::cerr<<" computing embeddings in encoder-decoder models is not supported :"<< __func__<<std::endl;
+        std::cerr << " computing embeddings in encoder-decoder models is not supported :" << __func__ << std::endl;
         throw "Computing embeddings in encoder-decoder models is not supported";
     }
 
     if (n_ctx > n_ctx_train) {
-        std::cerr<<"warning: model was trained on only "<<n_ctx_train<<" context tokens ("<<n_ctx<<" specified): "<<__func__<<std::endl;
+        std::cerr << "warning: model was trained on only " << n_ctx_train << " context tokens (" << n_ctx <<
+                " specified): " << __func__ << std::endl;
     }
 }
 
-std::vector<float> llm_embedding::llm_get_embeddings(std::vector<std::string_view> input_batch) {
+std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<std::string_view> input_batch) {
     // max batch size
     const uint64_t n_batch = params.n_batch;
     GGML_ASSERT(params.n_batch >= params.n_ctx);
@@ -134,10 +138,10 @@ std::vector<float> llm_embedding::llm_get_embeddings(std::vector<std::string_vie
     for (const auto &prompt: input_batch) {
         auto inp = common_tokenize(ctx, std::string(prompt), true, true);
         if (inp.size() > n_batch) {
-            std::cerr<<
-                "number of tokens in input line ("<< (long long int) inp.size()<<") exceeds batch size ("
-            <<(long long int) n_batch<<"), increase batch size and re-run: "<<__func__<< std::endl;
-            return std::vector<float>();
+            std::cerr <<
+                    "number of tokens in input line (" << (long long int) inp.size() << ") exceeds batch size ("
+                    << (long long int) n_batch << "), increase batch size and re-run: " << __func__ << std::endl;
+            return std::vector<std::vector<float>>();
         }
         inputs.push_back(inp);
     }
@@ -146,8 +150,9 @@ std::vector<float> llm_embedding::llm_get_embeddings(std::vector<std::string_vie
     // it should be automatically added by the tokenizer when 'tokenizer.ggml.add_eos_token' is set to 'true'
     for (auto &inp: inputs) {
         if (inp.empty() || inp.back() != llama_vocab_sep(vocab)) {
-            std::cerr<<"warn: last token in the prompt is not SEP: "<< __func__<<std::endl;
-            std::cerr<<"warn: 'tokenizer.ggml.add_eos_token' should be set to 'true' in the GGUF header: "<< __func__<<std::endl;
+            std::cerr << "warn: last token in the prompt is not SEP: " << __func__ << std::endl;
+            std::cerr << "warn: 'tokenizer.ggml.add_eos_token' should be set to 'true' in the GGUF header: " << __func__
+                    << std::endl;
         }
     }
 
@@ -201,9 +206,20 @@ std::vector<float> llm_embedding::llm_get_embeddings(std::vector<std::string_vie
     // clean up
     llama_batch_free(batch);
 
-    return embeddings;
+    // convert to 2D vector
+    std::vector<std::vector<float>> embeddings_vec;
+    embeddings_vec.reserve(n_embd_count);  // Optional but more efficient
+
+    for (size_t i = 0; i < n_embd; ++i) {
+        embeddings_vec.emplace_back(
+            embeddings.begin() + i * n_embd,
+            embeddings.begin() + (i + 1) * n_embd
+        );
+    }
+
+    return embeddings_vec;
 }
 
-llm_embedding::~llm_embedding() {
+LlmEmbeddings::~LlmEmbeddings() {
     llama_backend_free();
 }

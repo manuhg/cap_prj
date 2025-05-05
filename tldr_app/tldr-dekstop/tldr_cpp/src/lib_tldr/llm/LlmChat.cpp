@@ -2,21 +2,32 @@
 // Modified version of llama.cpp/examples/simple.cpp/.h
 //
 
-#include "llm_chat.h"
+#include "LlmChat.h"
 
-llm_chat::llm_chat(std::string model_path, int n_gpu_layers) {
-    ggml_backend_load_all();
+#include <iostream>
 
-    // initialize the model
-
-    llama_model_params model_params = llama_model_default_params();
-    model_params.n_gpu_layers = n_gpu_layers;
-
-    this->model = llama_model_load_from_file(model_path.c_str(), model_params);
-    this->vocab = llama_model_get_vocab(model);
+LlmChat::LlmChat(std::string model_path, int n_gpu_layers) {
+    this->model_path = model_path;
+    this->n_gpu_layers = n_gpu_layers;
 }
 
-llm_result llm_chat::chat_with_llm(std::string prompt, int n_predict) {
+bool LlmChat::initialize_model() {
+    try {
+        ggml_backend_load_all();
+
+        llama_model_params model_params = llama_model_default_params();
+        model_params.n_gpu_layers = n_gpu_layers;
+
+        this->model = llama_model_load_from_file(model_path.c_str(), model_params);
+        this->vocab = llama_model_get_vocab(model);
+        return true;
+    } catch (const std::exception &e) {
+        std::cerr << "Exception initializing chat model: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+llm_result LlmChat::chat_with_llm(std::string prompt, int n_predict) {
     if (model == NULL) {
         fprintf(stderr, "%s: error: unable to load model\n", __func__);
         return {true, "unable to load model\n"};

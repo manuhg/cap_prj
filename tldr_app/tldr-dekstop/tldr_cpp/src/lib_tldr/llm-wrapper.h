@@ -5,9 +5,9 @@
 #include <vector>
 #include <string_view>
 
-// Include llama.h directly for full type definitions
-#include "llama.h" 
-// #include "common.h" // common.h likely included by llama.h or only needed in cpp
+
+#include "llm/LlmChat.h"
+#include "llm/LlmEmbeddings.h"
 
 namespace tldr {
 
@@ -30,39 +30,25 @@ namespace tldr {
 
     class LlmManager {
     public:
-        LlmManager();
+        LlmManager(const std::string &chat_model_path, const std::string &embeddings_model_path);
         ~LlmManager();
 
         // Initialization methods
-        bool initialize_chat_model(const std::string& model_path, const LLMConfig& config);
-        bool initialize_embeddings_model(const std::string& model_path, const LLMConfig& config);
+        bool initialize_chat_model();
+        bool initialize_embeddings_model();
 
         // Core functionalities
         std::vector<std::vector<float>> get_embeddings(const std::vector<std::string_view>& texts);
         std::string get_chat_response(const std::string& context, const std::string& user_prompt);
 
-        // TODO: Add getter methods if contexts/models need to be accessed externally
-        // llama_context* get_chat_context() const { return chat_ctx_; }
-        // llama_context* get_embeddings_context() const { return embeddings_ctx_; }
 
     private:
-        // Disallow copy and assign
-        LlmManager(const LlmManager&) = delete;
-        LlmManager& operator=(const LlmManager&) = delete;
-
-        void cleanup_chat_model();
-        void cleanup_embeddings_model();
-
-        llama_model* chat_model_ = nullptr;
-        llama_context* chat_ctx_ = nullptr;
-        llama_model* embeddings_model_ = nullptr;
-        llama_context* embeddings_ctx_ = nullptr;
-        LLMConfig chat_config_; // Store config used for chat model
-        LLMConfig embeddings_config_; // Store config used for embeddings model
+        LlmChat chat;
+        LlmEmbeddings embedding;
     };
 
     // Initialization function (call once)
-    void initialize_llm_manager_once(const std::string& chat_model_path, const std::string& embeddings_model_path);
+    void initialize_llm_manager_once();
 
     // Accessor for the global manager instance (after initialization)
     LlmManager& get_llm_manager();

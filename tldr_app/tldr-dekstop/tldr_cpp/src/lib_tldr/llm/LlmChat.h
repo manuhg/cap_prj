@@ -16,17 +16,22 @@
 struct llm_result {
     bool error;
     std::string error_message;
-    std::string result;
+    std::string chat_response;
 };
 
-class llm_chat {
-    llm_chat(std::string model_path, int n_gpu_layers=99);
-    ~llm_chat();
-    llm_result chat_with_llm(std::string prompt, int n_predict);
+class LlmChat {
+public:
+    LlmChat(std::string model_path, int n_gpu_layers = 99);
+    ~LlmChat();
+    bool initialize_model();
+    llm_result chat_with_llm(std::string prompt, int n_predict=128);
+
 private:
-    llama_context * ctx;
-    llama_model * model;
-    const llama_vocab * vocab;
+    std::string model_path;
+    int n_gpu_layers;
+    llama_context *ctx;
+    llama_model *model;
+    const llama_vocab *vocab;
     common_params params;
 };
 

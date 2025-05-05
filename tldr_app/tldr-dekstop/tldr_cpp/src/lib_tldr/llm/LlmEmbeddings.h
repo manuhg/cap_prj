@@ -7,12 +7,14 @@
 #include "llama.h"
 #include "common.h"
 
-class llm_embedding {
+class LlmEmbeddings {
 public:
-    llm_embedding(std::string chat_model_path);
-    std::vector<float> llm_get_embeddings(std::vector<std::string_view> input_batch);
-    ~llm_embedding();
+    LlmEmbeddings(std::string model_path);
+    bool initialize_model();
+    std::vector<std::vector<float>> llm_get_embeddings(std::vector<std::string_view> input_batch);
+    ~LlmEmbeddings();
 private:
+    std::string model_path;
     llama_context * ctx;
     llama_model * model;
     const llama_vocab * vocab;

@@ -41,10 +41,10 @@ add_library(tldr STATIC
     ${SOURCE_DIR}/lib_tldr/tldr_api.h
     ${SOURCE_DIR}/lib_tldr/llm-wrapper.cpp
     ${SOURCE_DIR}/lib_tldr/llm-wrapper.h
-    ${SOURCE_DIR}/lib_tldr/llm/llm_chat.cpp
-    ${SOURCE_DIR}/lib_tldr/llm/llm_chat.h
-    ${SOURCE_DIR}/lib_tldr/llm/llm_embedding.cpp
-    ${SOURCE_DIR}/lib_tldr/llm/llm_embedding.h
+    ${SOURCE_DIR}/lib_tldr/llm/LlmChat.cpp
+    ${SOURCE_DIR}/lib_tldr/llm/LlmChat.h
+    ${SOURCE_DIR}/lib_tldr/llm/LlmEmbeddings.cpp
+    ${SOURCE_DIR}/lib_tldr/llm/LlmEmbeddings.h
 )
 
 # Include directories for the library
