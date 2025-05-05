@@ -7,6 +7,25 @@
 #include "db/postgres_database.h"
 #include "db/sqlite_database.h"
 #include "constants.h"
+#include <vector>
+#include <string>
+#include <cstdint>
+#include "libs/sqlite_modern_cpp.h"
+#include "vec_dump.h"
+
+// Structure for similarity search results from the NPU accelerator
+struct VectorSimilarityMatch {
+    uint64_t hash;
+    float score;
+    std::string text; // Text associated with the hash (filled in by wrapper)
+};
+
+// Wrapper function for NPU similarity search
+std::vector<std::pair<std::string, float>> searchSimilarVectorsNPU(
+    const std::vector<float>& query_vector,
+    const std::string& corpus_dir,
+    int k
+);
 
 // CURL wrapper class
 class CurlHandle {
@@ -48,6 +67,6 @@ void addCorpus(const std::string &sourcePath);
 void deleteCorpus(const std::string &corpusId);
 void doRag(const std::string &conversationId);
 void command_loop();
-void queryRag(const std::string& user_query);
+void queryRag(const std::string& user_query, const std::string& corpus_dir = "corpus/embedded");
 
 #endif //TLDR_CPP_MAIN_H

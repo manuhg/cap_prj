@@ -224,4 +224,52 @@ namespace tldr {
             return {};
         }
     }
+
+    // Get text chunks by their hash values
+    std::map<uint64_t, std::string> PostgresDatabase::getChunksByHashes(const std::vector<uint64_t>& hashes) {
+        std::map<uint64_t, std::string> results;
+        
+        if (hashes.empty()) {
+            return results;
+        }
+        
+        pqxx::connection *conn = nullptr;
+        if (!openConnection(conn)) {
+            return results;
+        }
+        
+        try {
+            pqxx::work txn(*conn);
+            
+            // Build the query with parameter placeholders
+            std::string query = "SELECT embedding_hash, chunk_text FROM embeddings WHERE embedding_hash IN (";
+            
+            // Create parameters list and placeholder string
+            std::vector<std::string> params;
+            for (size_t i = 0; i < hashes.size(); ++i) {
+                if (i > 0) query += ",";
+                query += "$" + std::to_string(i + 1);
+                params.push_back(std::to_string(hashes[i]));
+            }
+            query += ")";
+            
+            // Execute query with prepared parameters
+            pqxx::result db_result = txn.exec_params(query, params);
+            
+            // Process results
+            for (const auto& row : db_result) {
+                uint64_t hash = row["embedding_hash"].as<uint64_t>();
+                std::string text = row["chunk_text"].as<std::string>();
+                results[hash] = text;
+            }
+            
+            txn.commit();
+            std::cout << "Retrieved " << results.size() << " text chunks by hash from PostgreSQL database" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Error in getChunksByHashes: " << e.what() << std::endl;
+        }
+        
+        closeConnection(conn);
+        return results;
+    }
 }

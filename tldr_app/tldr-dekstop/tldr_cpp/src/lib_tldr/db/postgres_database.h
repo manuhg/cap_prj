@@ -19,6 +19,12 @@ namespace tldr {
 
         // Perform vector similarity search
         std::vector<std::pair<std::string, float>> searchSimilarVectors(const std::vector<float>& query_vector, int k = 5) override;
+        
+        // Get all embeddings from the database (for NPU-accelerated similarity search)
+        std::map<std::string, std::vector<float>> getAllEmbeddings() override;
+        
+        // Get text chunks by their hash values (for NPU-accelerated similarity search)
+        std::map<uint64_t, std::string> getChunksByHashes(const std::vector<uint64_t>& hashes) override;
 
     private:
         std::string connection_string_;

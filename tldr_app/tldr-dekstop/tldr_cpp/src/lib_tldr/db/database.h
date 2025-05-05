@@ -24,6 +24,12 @@ namespace tldr {
         virtual bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) = 0;
 
         virtual std::vector<std::pair<std::string, float>> searchSimilarVectors(const std::vector<float>& query_vector, int k) = 0;
+        
+        // Get all embeddings from the database (for NPU-accelerated similarity search)
+        virtual std::map<std::string, std::vector<float>> getAllEmbeddings() = 0;
+        
+        // Get text chunks by hash values
+        virtual std::map<uint64_t, std::string> getChunksByHashes(const std::vector<uint64_t>& hashes) = 0;
     };
 }
 

@@ -82,6 +82,27 @@ func loadCosineSimilarityModel(from modelPath: String, useNeuralEngine: Bool = t
 
 // MARK: - Vector Processing Helper Functions
 
+/// Creates an MLMultiArray from a float pointer
+/// - Parameters:
+///   - pointer: Pointer to float data
+///   - dimensions: Number of dimensions in the vector
+/// - Returns: MLMultiArray containing the vector data
+/// - Throws: If vector creation fails
+func createVectorFromPointer(pointer: UnsafePointer<Float32>, dimensions: Int32) throws -> MLMultiArray {
+    print("Creating vector from pointer, dimensions: \(dimensions)")
+    
+    // Create a new MLMultiArray with shape [1, dimensions] for the query vector
+    let vector = try MLMultiArray(shape: [1, NSNumber(value: dimensions)], dataType: .float32)
+    
+    // Copy the data from the pointer to the MLMultiArray
+    let vecPtr = vector.dataPointer.bindMemory(to: Float32.self, capacity: Int(dimensions))
+    for i in 0..<Int(dimensions) {
+        vecPtr[i] = pointer.advanced(by: i).pointee
+    }
+    
+    return vector
+}
+
 /// Creates a query vector from the first vector in the dump file
 /// - Parameters:
 ///   - reader: The VecDumpReader with access to vectors
@@ -106,6 +127,64 @@ func createQueryVector(from reader: VecDumpReader) throws -> MLMultiArray {
     
     print("Query vector prepared successfully, shape: \(queryVector.shape)")
     return queryVector
+}
+
+/// Computes cosine similarity between a query vector and a set of vectors
+/// - Parameters:
+///   - modelPath: Path to the CoreML model
+///   - queryVector: Query vector as MLMultiArray
+///   - vectors: Vectors to compare with as MLMultiArray
+///   - hashes: Optional array of hash values corresponding to the vectors
+/// - Returns: Array of top similarity results with index, score, and hash
+/// - Throws: If similarity calculation fails
+func computeCosineSimilarity(
+    using model: CosineSimilarityBatched,
+    queryVector: MLMultiArray,
+    vectors: MLMultiArray,
+    hashes: [UInt64]? = nil
+) throws -> [VectorSimilarityResult] {
+    print("Computing cosine similarity...")
+    print("Query vector shape: \(queryVector.shape), Vectors shape: \(vectors.shape)")
+    
+    // Perform prediction
+    let startTime = Date()
+    let predictionOutput = try model.prediction(input1: queryVector, input2: vectors)
+    let calculationTime = Date().timeIntervalSince(startTime) * 1000
+    
+    // Extract similarity scores
+    guard let similarityScores = predictionOutput.featureValue(for: "var_5")?.multiArrayValue else {
+        throw NSError(domain: "NpuAPI", code: 2, 
+                     userInfo: [NSLocalizedDescriptionKey: "Could not extract similarity scores"])
+    }
+    
+    print("Cosine similarity calculation time: \(calculationTime) milliseconds")
+    print("Output similarities shape: \(similarityScores.shape)")
+    
+    // Process scores
+    let scorePtr = similarityScores.dataPointer.bindMemory(to: Float32.self, capacity: similarityScores.count)
+    var results: [(index: Int, score: Float, hash: UInt64)] = []
+    
+    for i in 0..<similarityScores.count {
+        let score = scorePtr[i]
+        let hash: UInt64 = hashes?[safe: i] ?? UInt64(i) // Use provided hash if available, otherwise use index
+        
+        // Skip first vector if it's the query vector
+        if i == 0 && score > 0.99 { continue }
+        
+        results.append((i, score, hash))
+    }
+    
+    // Sort by similarity score (descending)
+    results.sort { $0.score > $1.score }
+    
+    return results
+}
+
+// Extension to safely access array elements
+extension Array {
+    subscript(safe index: Index) -> Element? {
+        return indices.contains(index) ? self[index] : nil
+    }
 }
 
 /// Processes a batch of vectors for similarity calculation
@@ -231,16 +310,237 @@ func findTopResults(
     return finalResults
 }
 
-// MARK: - C Exported Function
+// MARK: - C Exported Functions
 
-/// A C-compatible function for performing vector similarity search
+/// Computes cosine similarity between vectors using CoreML
 /// - Parameters:
-///   - modelPathCStr: Path to the CoreML model (.mlmodelc directory)
-///   - vectorDumpPathCStr: Path to the vector dump file
-///   - queryVectorPtr: Optional pointer to query vector (Float32 array). If nil, first vector from dump is used
-///   - queryVectorDimensions: Number of dimensions in the query vector (ignored if queryVectorPtr is nil)
+///   - modelPathCStr: Path to the CoreML model file
+///   - queryVectorPtr: Pointer to query vector data
+///   - queryVectorDimensions: Number of dimensions in the query vector
+///   - vectorsPtr: Pointer to vectors to compare with
+///   - vectorCount: Number of vectors to compare with
+///   - vectorDimensions: Dimensions of each vector
+///   - hashesPtr: Optional pointer to hash values for the vectors
 ///   - resultCountPtr: Pointer to store the number of results
-/// - Returns: Pointer to an array of SimilarityResult structures (must be freed by caller)
+/// - Returns: Pointer to array of SimilarityResult structures
+
+@_cdecl("compute_cosine_similarity")
+public func compute_cosine_similarity(
+    modelPathCStr: UnsafePointer<CChar>,
+    queryVectorPtr: UnsafePointer<Float32>,
+    queryVectorDimensions: Int32,
+    vectorsPtr: UnsafePointer<Float32>,
+    vectorCount: Int32,
+    vectorDimensions: Int32,
+    hashesPtr: UnsafePointer<UInt64>?,
+    resultCountPtr: UnsafeMutablePointer<Int32>
+) -> UnsafeMutablePointer<SimilarityResult>? {
+    // Initialize result count to 0 by default
+    resultCountPtr.pointee = 0
+    
+    // Convert C strings to Swift strings
+    let modelPath = String(cString: modelPathCStr)
+    
+    print("Swift: compute_cosine_similarity called")
+    print("Swift: modelPath = \(modelPath)")
+    print("Swift: queryVectorDimensions = \(queryVectorDimensions), vectorCount = \(vectorCount)")
+    
+    do {
+        // Step 1: Load the similarity model
+        print("Swift: Loading cosine similarity model...")
+        let model = try loadCosineSimilarityModel(from: modelPath)
+        
+        // Step 2: Create query vector MLMultiArray
+        let queryVector = try createVectorFromPointer(pointer: queryVectorPtr, dimensions: queryVectorDimensions)
+        
+        // Step 3: Create vectors MLMultiArray
+        let vectorsArray = try MLMultiArray(shape: [NSNumber(value: vectorCount), NSNumber(value: vectorDimensions)], 
+                                         dataType: .float32)
+        
+        // Copy vectors data from the provided pointer
+        let vectorsArrayPtr = vectorsArray.dataPointer.bindMemory(to: Float32.self, 
+                                                               capacity: Int(vectorCount * vectorDimensions))
+        
+        for i in 0..<Int(vectorCount) {
+            for j in 0..<Int(vectorDimensions) {
+                let sourceIndex = i * Int(vectorDimensions) + j
+                let destIndex = i * Int(vectorDimensions) + j
+                vectorsArrayPtr[destIndex] = vectorsPtr.advanced(by: sourceIndex).pointee
+            }
+        }
+        
+        // Step 4: Extract hashes if provided
+        var hashes: [UInt64]? = nil
+        if let hashesPtr = hashesPtr {
+            hashes = []
+            for i in 0..<Int(vectorCount) {
+                hashes!.append(hashesPtr.advanced(by: i).pointee)
+            }
+        }
+        
+        // Step 5: Compute cosine similarity
+        let results = try computeCosineSimilarity(
+            using: model,
+            queryVector: queryVector,
+            vectors: vectorsArray,
+            hashes: hashes
+        )
+        
+        // Step 6: Return the results
+        if !results.isEmpty {
+            // Limit to top 5 results by default
+            let topResults = Array(results.prefix(5))
+            resultCountPtr.pointee = Int32(topResults.count)
+            return createResultArray(topResults)
+        } else {
+            print("No similarity results found")
+            return nil
+        }
+    } catch {
+        print("Error in compute_cosine_similarity: \(error)")
+        return nil
+    }
+}
+
+@_cdecl("retrieve_similar_vectors_from_corpus")
+public func retrieve_similar_vectors_from_corpus(
+    modelPathCStr: UnsafePointer<CChar>,
+    corpusDirCStr: UnsafePointer<CChar>,
+    queryVectorPtr: UnsafePointer<Float32>,
+    queryVectorDimensions: Int32,
+    k: Int32,
+    resultCountPtr: UnsafeMutablePointer<Int32>
+) -> UnsafeMutablePointer<SimilarityResult>? {
+    // Initialize result count to 0 by default
+    resultCountPtr.pointee = 0
+    
+    // Convert C strings to Swift strings
+    let modelPath = String(cString: modelPathCStr)
+    let corpusDir = String(cString: corpusDirCStr)
+    
+    print("Swift: retrieve_similar_vectors_from_corpus called")
+    print("Swift: modelPath = \(modelPath)")
+    print("Swift: corpusDir = \(corpusDir)")
+    print("Swift: k = \(k)")
+    
+    do {
+        // Step 1: Load the model once for reuse
+        let model = try loadCosineSimilarityModel(from: modelPath)
+        
+        // Step 2: Create query vector MLMultiArray
+        let queryVector = try createVectorFromPointer(pointer: queryVectorPtr, dimensions: queryVectorDimensions)
+        
+        // Step 3: List all vector dump files in the corpus directory
+        let fileManager = FileManager.default
+        let corpusURL = URL(fileURLWithPath: corpusDir)
+        
+        // Get all files with .vecdump extension
+        let directoryContents = try fileManager.contentsOfDirectory(at: corpusURL, 
+                                                                   includingPropertiesForKeys: nil)
+        let dumpFiles = directoryContents.filter { $0.pathExtension == "vecdump" }
+        
+        print("Found \(dumpFiles.count) vector dump files in corpus directory")
+        
+        // Step 4: Process each dump file to find potential matches
+        var allResults: [VectorSimilarityResult] = []
+        
+        for dumpFile in dumpFiles {
+            // Get results from this dump file
+            let dumpResults = try get_relevant_vecs_from_dump(
+                modelPath: modelPath,
+                vectorDumpPath: dumpFile.path,
+                queryVector: queryVector,
+                model: model
+            )
+            
+            // Add to combined results
+            allResults.append(contentsOf: dumpResults)
+        }
+        
+        // Step 5: Sort all results by similarity score
+        allResults.sort { $0.score > $1.score }
+        
+        // Step 6: Take top k results
+        let topResults = Array(allResults.prefix(Int(k)))
+        
+        // Step 7: Return results
+        if !topResults.isEmpty {
+            resultCountPtr.pointee = Int32(topResults.count)
+            return createResultArray(topResults)
+        } else {
+            print("No similarity results found in corpus")
+            return nil
+        }
+    } catch {
+        print("Error in retrieve_similar_vectors_from_corpus: \(error)")
+        return nil
+    }
+}
+
+/// Helper function to get relevant vectors from a dump file
+/// - Parameters:
+///   - modelPath: Path to the CoreML model
+///   - vectorDumpPath: Path to the vector dump file
+///   - queryVector: Query vector as MLMultiArray
+///   - model: Optional pre-loaded model to reuse
+/// - Returns: Array of similarity results
+/// - Throws: If processing fails
+func get_relevant_vecs_from_dump(
+    modelPath: String,
+    vectorDumpPath: String,
+    queryVector: MLMultiArray,
+    model: CosineSimilarityBatched? = nil
+) throws -> [VectorSimilarityResult] {
+    print("Processing dump file: \(vectorDumpPath)")
+    
+    // Step 1: Open the vector dump file
+    let reader = VecDumpReader()
+    guard reader.open(filePath: vectorDumpPath) else {
+        throw NSError(domain: "NpuAPI", code: 3, 
+                     userInfo: [NSLocalizedDescriptionKey: "Failed to open vector dump file"])
+    }
+    
+    // Print vector dump info
+    reader.printInfo()
+    
+    // Use provided model or load a new one
+    let similarityModel = model ?? try loadCosineSimilarityModel(from: modelPath)
+    
+    // Step 2: Process vectors in batches to find similar ones
+    let totalVectors = reader.count
+    let dimensions = reader.dimensions
+    let batchSize = min(BATCH_SIZE, totalVectors)
+    var results: [VectorSimilarityResult] = []
+    
+    // Process in a single batch for now, can be optimized to use multiple batches if needed
+    if let vectors = reader.getAllVectorsAsMLMultiArray() {
+        // Prepare array of hashes
+        var hashes: [UInt64] = []
+        for i in 0..<totalVectors {
+            if let hash = reader.getHash(at: i) {
+                hashes.append(hash)
+            } else {
+                hashes.append(UInt64(i))
+            }
+        }
+        
+        // Compute similarity
+        let batchResults = try computeCosineSimilarity(
+            using: similarityModel,
+            queryVector: queryVector,
+            vectors: vectors,
+            hashes: hashes
+        )
+        
+        results.append(contentsOf: batchResults)
+    }
+    
+    // Clean up resources
+    reader.close()
+    
+    return results
+}
+
 @_cdecl("perform_similarity_check")
 public func perform_similarity_check(
     modelPathCStr: UnsafePointer<CChar>, 
