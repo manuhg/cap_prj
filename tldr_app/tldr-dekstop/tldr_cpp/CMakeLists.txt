@@ -41,6 +41,8 @@ add_library(tldr STATIC
     ${SOURCE_DIR}/lib_tldr/tldr_api.h
     ${SOURCE_DIR}/lib_tldr/llm-wrapper.cpp
     ${SOURCE_DIR}/lib_tldr/llm-wrapper.h
+    ${SOURCE_DIR}/lib_tldr/vec_dump.cpp
+    ${SOURCE_DIR}/lib_tldr/vec_dump.h
 )
 
 # Include directories for the library

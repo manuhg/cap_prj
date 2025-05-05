@@ -30,12 +30,17 @@ std::string extractTextFromPDF(const std::string &filename);
 std::vector<std::string>
 splitTextIntoChunks(const std::string &text, size_t max_chunk_size = 2000, size_t overlap = 20);
 bool initializeDatabase();
-int64_t saveEmbeddingsToDb(const std::vector<std::string> &chunks, const json &embeddings_response, const std::vector<size_t> &embeddings_hash = {});
+int64_t saveEmbeddingsToDb(const std::vector<std::string> &chunks, const std::vector<std::vector<float>> &embeddings, const std::vector<size_t> &embeddings_hash = {});
 std::string sendEmbeddingsRequest(const json &request, const std::string& url);
 json parseEmbeddingsResponse(const std::string &response_data);
 int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const std::vector<std::vector<float>> &batch_embeddings);
 void processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, size_t total_batches, int &result_id);
-void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size = 2, size_t num_threads = 2);
+// Returns gathered embeddings and their hashes
+std::pair<std::vector<std::vector<float>>, std::vector<size_t>> 
+obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size = 2, size_t num_threads = 2);
+
+// Include vector dump functionality
+#include "vec_dump.h"
 
 bool initializeSystem();
 void cleanupSystem();

@@ -2,7 +2,12 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <filesystem>
 #include <map>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <pqxx/pqxx>
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-page.h>
@@ -154,13 +159,26 @@ bool initializeDatabase() {
     return true;
 }
 
-int64_t saveEmbeddingsToDb(const std::vector<std::string> &chunks, const json &embeddings_response, const std::vector<size_t> &embeddings_hash) {
+int64_t saveEmbeddingsToDb(const std::vector<std::string> &chunks, const std::vector<std::vector<float>> &embeddings, const std::vector<size_t> &embeddings_hash) {
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return -1;
     }
+    
+    // Convert embeddings to JSON format
+    json embeddings_json;
+    embeddings_json["embeddings"] = json::array();
+    for(const auto& emb : embeddings) {
+        embeddings_json["embeddings"].push_back(emb);
+    }
+
+    if (embeddings_json["embeddings"].empty()) {
+        std::cerr << "No embeddings to save." << std::endl;
+        return -1;
+    }
+    
     // Pass the computed embeddings_hash to the database
-    return g_db->saveEmbeddings(chunks, embeddings_response, embeddings_hash);
+    return g_db->saveEmbeddings(chunks, embeddings_json, embeddings_hash);
 }
 
 size_t WriteCallback(char *contents, size_t size, size_t nmemb, void *userp) {
@@ -263,24 +281,12 @@ static std::vector<size_t> computeEmbeddingHashes(const std::vector<std::vector<
 int saveEmbeddingsThreadSafe(const std::vector<std::string>& batch, const std::vector<std::vector<float>>& batch_embeddings) {
     // --- Generate hashes for embeddings ---
     std::vector<size_t> embeddings_hash = computeEmbeddingHashes(batch_embeddings);
-    // (Currently unused – will be forwarded to DB layer once schema is ready)
 
-
-    json embeddings_json;
-    embeddings_json["embeddings"] = json::array();
-    for(const auto& emb : batch_embeddings) {
-        embeddings_json["embeddings"].push_back(emb);
-    }
-
-    if (embeddings_json["embeddings"].empty()) {
-        std::cerr << "  No embeddings generated for this batch." << std::endl;
-        return -1;
-    }
 #if !USE_POSTGRES
     // std::lock_guard<std::mutex> lock(g_mutex);
 #endif
-    // Pass the computed hashes to the database
-    int64_t saved_id = saveEmbeddingsToDb(batch, embeddings_json, embeddings_hash);
+    // Pass the raw embeddings and computed hashes to saveEmbeddingsToDb
+    int64_t saved_id = saveEmbeddingsToDb(batch, batch_embeddings, embeddings_hash);
     if (saved_id < 0) {
         throw std::runtime_error("Failed to save embeddings to database");
     }
@@ -380,16 +386,31 @@ void cleanupSystem() {
     std::cout << "System cleaned up." << std::endl;
 }
 
-void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size_t num_threads) {
+// Vector dump functionality is now in vec_dump.h/cpp
+
+std::pair<std::vector<std::vector<float>>, std::vector<size_t>> 
+obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size_t num_threads) {
     // System initialization is now handled by initializeSystem()
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
     std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
             << " batches using " << num_threads << " threads\n";
+    
+    // We'll collect all embeddings and hashes
+    std::vector<std::vector<float>> all_embeddings;
+    std::vector<size_t> all_hashes;
+    all_embeddings.reserve(chunks.size());
+    all_hashes.reserve(chunks.size());
+    
     std::vector<int> ids(num_threads, -1);
 
     try {
         for (size_t batch_start = 0; batch_start < chunks.size(); batch_start += batch_size * num_threads) {
             std::vector<std::thread> threads;
+            std::vector<std::vector<std::vector<float>>> thread_embeddings(num_threads);
+            std::vector<std::vector<size_t>> thread_hashes(num_threads);
+            
+            // Create a mutex to protect access to the embeddings and hashes collections
+            std::mutex collection_mutex;
 
             // Launch threads
             for (size_t j = 0; j < num_threads && batch_start + j * batch_size < chunks.size(); ++j) {
@@ -397,14 +418,31 @@ void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size,
                 size_t end = std::min(start + batch_size, chunks.size());
 
                 threads.emplace_back(
-                    [&chunks, start, end, batch_start, batch_size, total_batches, &ids, j, num_threads]() {
+                    [&chunks, start, end, batch_start, batch_size, total_batches, &ids, j, num_threads,
+                     &thread_embeddings, &thread_hashes]() {
                         try {
+                            // Create a vector of string_view for the current batch
+                            std::vector<std::string_view> batch_chunks(
+                                chunks.begin() + start,
+                                chunks.begin() + end
+                            );
+                            
                             // Process chunks directly without creating a copy
                             size_t batch_num = batch_start / (batch_size * num_threads) * num_threads + j;
-                            processChunkBatch(std::vector<std::string_view>(
-                                                  chunks.begin() + start,
-                                                  chunks.begin() + end
-                                              ), batch_num, total_batches, ids[j]);
+                            
+                            // Get embeddings for this batch
+                            std::vector<std::vector<float>> batch_emb = tldr::get_llm_manager().get_embeddings(batch_chunks);
+                            
+                            // Compute hashes for these embeddings
+                            std::vector<size_t> batch_hashes = computeEmbeddingHashes(batch_emb);
+                            
+                            // Save the embeddings and hashes for this thread
+                            thread_embeddings[j] = std::move(batch_emb);
+                            thread_hashes[j] = std::move(batch_hashes);
+                            
+                            // Also save to database for consistency with previous behavior
+                            processChunkBatch(batch_chunks, batch_num, total_batches, ids[j]);
+                            
                         } catch (const std::exception &e) {
                             std::cerr << "Thread " << j << " error: " << e.what() << std::endl;
                         }
@@ -417,25 +455,49 @@ void obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size,
                     thread.join();
                 }
             }
+            
+            // Collect all embeddings and hashes from this batch of threads
+            for (size_t j = 0; j < num_threads; ++j) {
+                if (!thread_embeddings[j].empty()) {
+                    all_embeddings.insert(all_embeddings.end(),
+                                         thread_embeddings[j].begin(),
+                                         thread_embeddings[j].end());
+                    
+                    all_hashes.insert(all_hashes.end(),
+                                     thread_hashes[j].begin(),
+                                     thread_hashes[j].end());
+                }
+            }
         }
     } catch (const std::exception &e) {
         std::cerr << "Error processing chunks: " << e.what() << std::endl;
         throw; // Re-throw to allow proper cleanup
     }
+    
+    return {all_embeddings, all_hashes};
 }
 
 void addCorpus(const std::string &sourcePath) {
-    std::string doc_text = extractTextFromPDF(translatePath(sourcePath));
+    std::string expanded_path = translatePath(sourcePath);
+    std::string doc_text = extractTextFromPDF(expanded_path);
+    
     if (doc_text.empty()) {
         std::cerr << "Error: No text extracted from PDF." << std::endl;
         return;
     }
-    // print text length only
+    
+    // Print text length only
     std::cout << "Extracted text length: " << doc_text.length() << std::endl;
     const std::vector<std::string> chunks = splitTextIntoChunks(doc_text, MAX_CHUNK_SIZE, CHUNK_N_OVERLAP);
     std::cout << "Number of chunks: " << chunks.size() << std::endl;
-    obtainEmbeddings(chunks,BATCH_SIZE,NUM_THREADS);
-    //TODO save the json to database and return the id
+    
+    // Get embeddings and their hashes
+    auto [embeddings, hashes] = obtainEmbeddings(chunks, BATCH_SIZE, NUM_THREADS);
+    
+    // Dump vectors and hashes to file for memory mapping
+    tldr::dump_vectors_to_file(expanded_path, embeddings, hashes);
+    
+    std::cout << "Corpus added successfully." << std::endl;
 }
 
 void deleteCorpus(const std::string &corpusId) {
@@ -515,13 +577,122 @@ void queryRag(const std::string& user_query) {
     }
 }
 
+// Test vector cache dump and read functionality
+bool test_vector_cache() {
+    std::cout << "=== Testing Vector Cache Dump and Read Functionality ===" << std::endl;
+    
+    // Create sample embeddings and hashes
+    std::vector<std::vector<float>> test_embeddings;
+    std::vector<size_t> test_hashes;
+    
+    // Create 5 test embeddings with 16 dimensions each
+    const size_t num_embeddings = 5;
+    const size_t dimensions = 16;
+    
+    std::cout << "Creating " << num_embeddings << " test embeddings with " 
+              << dimensions << " dimensions each" << std::endl;
+              
+    // Initialize with deterministic values for testing
+    for (size_t i = 0; i < num_embeddings; i++) {
+        std::vector<float> embedding(dimensions);
+        for (size_t j = 0; j < dimensions; j++) {
+            embedding[j] = static_cast<float>((i + 1) * 0.1f + j * 0.01f); // Deterministic pattern
+        }
+        test_embeddings.push_back(std::move(embedding));
+        
+        // Create corresponding hash
+        test_hashes.push_back(1000000 + i * 10000); // Simple deterministic hash for testing
+    }
+    
+    // Test file path
+    std::string test_file = "vector_cache_test.bin";
+    
+    // Step 1: Dump the test data
+    std::cout << "\nStep 1: Dumping test embeddings to " << test_file << std::endl;
+    if (!dump_vectors_to_file(test_file, test_embeddings, test_hashes)) {
+        std::cerr << "Error: Failed to dump test embeddings" << std::endl;
+        return false;
+    }
+    
+    // Step 2: Read the dumped file
+    std::cout << "\nStep 2: Reading the vector dump file" << std::endl;
+    auto mapped_data = read_vector_dump_file(test_file);
+    if (!mapped_data) {
+        std::cerr << "Error: Failed to read the vector dump file" << std::endl;
+        return false;
+    }
+    
+    // Step 3: Print info about the file
+    print_vector_dump_info(mapped_data.get(), test_file, false);
+    
+    // Step 4: Verify contents
+    std::cout << "\nStep 4: Verifying file contents" << std::endl;
+    
+    // Verify header
+    bool header_verified = 
+        (mapped_data->header->num_entries == num_embeddings) &&
+        (mapped_data->header->hash_size_bytes == sizeof(size_t)) &&
+        (mapped_data->header->vector_dimensions == dimensions);
+    
+    std::cout << "Header verification: " << (header_verified ? "PASSED" : "FAILED") << std::endl;
+    
+    // Verify contents by checking values at index 1 (second element)
+    bool data_verified = true;
+    size_t test_idx = 1;
+    
+    if (test_idx < mapped_data->header->num_entries) {
+        std::cout << "\nVerifying element at index " << test_idx << ":" << std::endl;
+        
+        // Original hash and the one read from file
+        size_t original_hash = test_hashes[test_idx];
+        size_t read_hash = mapped_data->hashes[test_idx];
+        
+        std::cout << "Hash verification: Original = " << original_hash 
+                  << ", Read = " << read_hash 
+                  << " -> " << (original_hash == read_hash ? "MATCH" : "MISMATCH") << std::endl;
+        
+        // Check a few dimensions of the embedding vector
+        const float* read_vector = mapped_data->vectors + (test_idx * mapped_data->header->vector_dimensions);
+        
+        std::cout << "Vector verification (first 5 dimensions):" << std::endl;
+        bool vector_matches = true;
+        for (size_t i = 0; i < 5 && i < mapped_data->header->vector_dimensions; i++) {
+            float original_val = test_embeddings[test_idx][i];
+            float read_val = read_vector[i];
+            bool matches = (std::abs(original_val - read_val) < 0.000001f); // Floating point comparison with epsilon
+            
+            std::cout << "  Dim " << i << ": Original = " << original_val 
+                      << ", Read = " << read_val 
+                      << " -> " << (matches ? "MATCH" : "MISMATCH") << std::endl;
+            
+            if (!matches) vector_matches = false;
+        }
+        
+        data_verified = (original_hash == read_hash) && vector_matches;
+    }
+    
+    // Print final result
+    std::cout << "\nTest result: " << (header_verified && data_verified ? "PASSED" : "FAILED") << std::endl;
+    
+    return header_verified && data_verified;
+}
+
 void command_loop() {
     std::string input;
     std::map<std::string, std::function<void(const std::string &)> > actions = {
         {"do-rag", doRag},
         {"add-corpus", addCorpus},
         {"delete-corpus", deleteCorpus},
-        {"query", [](const std::string& query) { queryRag(query); }}
+        {"query", [](const std::string& query) { queryRag(query); }},
+        {"read-vectors", [](const std::string& path) { 
+            auto data = tldr::read_vector_dump_file(path);
+            if (data) {
+                tldr::print_vector_dump_info(data.get(), path, true);
+            } else {
+                std::cerr << "Failed to read vector file: " << path << std::endl;
+            }
+        }},
+        {"test-vectors", [](const std::string&) { tldr::test_vector_cache(); }}
     };
 
     while (true) {
