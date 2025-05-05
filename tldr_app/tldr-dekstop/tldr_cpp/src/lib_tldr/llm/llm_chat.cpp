@@ -1,21 +1,22 @@
 //
-// Created by Manu Hegde on 5/5/25.
+// Modified version of llama.cpp/examples/simple.cpp/.h
 //
 
 #include "llm_chat.h"
 
-
-llm_result llm_chat::chat_with_llm(std::string prompt, std::string model_path, int ngl, int n_predict) {
+llm_chat::llm_chat(std::string model_path, int n_gpu_layers) {
     ggml_backend_load_all();
 
     // initialize the model
 
     llama_model_params model_params = llama_model_default_params();
-    model_params.n_gpu_layers = ngl;
+    model_params.n_gpu_layers = n_gpu_layers;
 
-    llama_model *model = llama_model_load_from_file(model_path.c_str(), model_params);
-    const llama_vocab *vocab = llama_model_get_vocab(model);
+    this->model = llama_model_load_from_file(model_path.c_str(), model_params);
+    this->vocab = llama_model_get_vocab(model);
+}
 
+llm_result llm_chat::chat_with_llm(std::string prompt, int n_predict) {
     if (model == NULL) {
         fprintf(stderr, "%s: error: unable to load model\n", __func__);
         return {true, "unable to load model\n"};

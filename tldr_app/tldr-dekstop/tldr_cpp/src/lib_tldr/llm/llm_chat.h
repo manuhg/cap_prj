@@ -1,5 +1,5 @@
 //
-// Modified version of llama.cpp/examples/simple.cpp
+// Modified version of llama.cpp/examples/simple.cpp/.h
 //
 
 #ifndef LLM_CHAT_H
@@ -7,6 +7,7 @@
 
 #include "llama.h"
 #include "ggml-backend.h"
+#include "common.h"
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -19,7 +20,14 @@ struct llm_result {
 };
 
 class llm_chat {
-    llm_result chat_with_llm(std::string prompt, std::string model_path,int ngl = 99,int n_predict = 32);
+    llm_chat(std::string model_path, int n_gpu_layers=99);
+    ~llm_chat();
+    llm_result chat_with_llm(std::string prompt, int n_predict);
+private:
+    llama_context * ctx;
+    llama_model * model;
+    const llama_vocab * vocab;
+    common_params params;
 };
 
 #endif //LLM_CHAT_H
