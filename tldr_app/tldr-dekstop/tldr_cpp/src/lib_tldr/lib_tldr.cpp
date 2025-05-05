@@ -24,8 +24,6 @@ using json = nlohmann::json;
 
 // Global database instance
 std::unique_ptr<tldr::Database> g_db;
-// Global LLM Manager instance
-tldr::LlmManager g_llm_manager;
 
 #if !USE_POSTGRES
 // Global mutex for thread synchronization
@@ -294,7 +292,7 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
         std::cout << "Processing batch " << batch_num + 1 << " of " << total_batches << std::endl;
 
         try {
-            std::vector<std::vector<float>> batch_embeddings = g_llm_manager.get_embeddings(batch);
+            std::vector<std::vector<float>> batch_embeddings = tldr::get_llm_manager().get_embeddings(batch);
             if (batch_embeddings.size() != batch.size()) {
                 std::cerr << "  Warning: Mismatch between input chunks (" << batch.size()
                           << ") and generated embeddings (" << batch_embeddings.size()
@@ -332,29 +330,13 @@ bool initializeSystem() {
         return false;
     }
 
-    // Initialize LLM models via the manager
-    if (!g_llm_manager.initialize_chat_model(CHAT_MODEL_PATH)) {
-        std::cerr << "Failed to initialize chat model" << std::endl;
-        // Database is initialized, but models failed. Cleanup backend.
-        llama_backend_free();
-        return false;
-    }
-
-    if (!g_llm_manager.initialize_embeddings_model(EMBEDDINGS_MODEL_PATH)) {
-        std::cerr << "Failed to initialize embeddings model" << std::endl;
-        // Chat model initialized, embeddings failed. Cleanup backend.
-        // LlmManager destructor will handle chat model cleanup.
-        llama_backend_free();
-        return false;
-    }
-
     // Initialize CURL globally (Restored)
     CURLcode curl_init_ret = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (curl_init_ret != CURLE_OK) {
         std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
         // Cleanup already initialized components
         llama_backend_free();
-        // LlmManager destructor handles models/contexts
+        // LlmManager destructor will handle chat model cleanup.
         // Database unique_ptr handles db connection
         return false;
     }
@@ -369,8 +351,6 @@ void cleanupSystem() {
 
     // Database is managed by unique_ptr, will clean up automatically.
     // g_db.reset();
-
-    // LLM Manager cleans up models/contexts in its destructor when g_llm_manager goes out of scope.
 
     // Clean up llama.cpp backend
     llama_backend_free();
@@ -471,7 +451,7 @@ void queryRag(const std::string& user_query) {
     try {
         // Get embeddings for the user query using LlmManager
         std::vector<std::string_view> query_vec = {user_query};
-        std::vector<std::vector<float>> query_embeddings = g_llm_manager.get_embeddings(query_vec);
+        std::vector<std::vector<float>> query_embeddings = tldr::get_llm_manager().get_embeddings(query_vec);
 
         if (query_embeddings.empty() || query_embeddings[0].empty()) {
             std::cerr << "Failed to get embeddings for the query." << std::endl;
@@ -493,7 +473,7 @@ void queryRag(const std::string& user_query) {
         }
 
         // 4. Generate response using LlmManager's chat model
-        std::string final_response = g_llm_manager.get_chat_response(context_str, user_query);
+        std::string final_response = tldr::get_llm_manager().get_chat_response(context_str, user_query);
         // Old way:
 
         // 5. Print results

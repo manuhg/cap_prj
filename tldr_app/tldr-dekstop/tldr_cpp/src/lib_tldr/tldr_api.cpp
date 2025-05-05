@@ -20,10 +20,10 @@ void deleteCorpus(const std::string& corpusId) {
     ::deleteCorpus(corpusId);
 }
 
-void queryRag(const std::string& user_query, 
-              const std::string& embeddings_url,
-              const std::string& chat_url) {
-    ::queryRag(user_query, embeddings_url, chat_url);
+void queryRag(const std::string& user_query) {
+    // Call the actual implementation in lib_tldr.cpp (global namespace)
+    // Note: We might need to adjust how URLs are passed if the underlying function changes
+    ::queryRag(user_query);
 }
 
 } // namespace tldr_cpp_api 

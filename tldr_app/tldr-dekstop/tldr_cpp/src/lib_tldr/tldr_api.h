@@ -31,12 +31,8 @@ void deleteCorpus(const std::string& corpusId);
 /**
  * @brief Query the RAG system
  * @param user_query The user's question
- * @param embeddings_url URL of the embeddings service (optional)
- * @param chat_url URL of the chat service (optional)
  */
-void queryRag(const std::string& user_query, 
-              const std::string& embeddings_url = "http://localhost:8084/embeddings",
-              const std::string& chat_url = "http://localhost:8088/v1/chat/completions");
+void queryRag(const std::string& user_query);
 
 } // namespace tldr_cpp_api
 
