@@ -26,17 +26,17 @@ namespace tldr {
         std::call_once(g_init_flag, [&]() {
             // llama_backend_init();
 
-            std::cout << "Initializing chat model..." << std::endl;
-            if (!g_llm_manager_instance.initialize_chat_model()) {
-                std::cerr << "Failed to initialize chat model." << std::endl;
-                // Handle initialization failure
-            }
-
-            // std::cout << "Initializing embeddings model..." << std::endl;
-            // if (!g_llm_manager_instance.initialize_embeddings_model()) {
-            //     std::cerr << "Failed to initialize embeddings model." << std::endl;
+            // std::cout << "Initializing chat model..." << std::endl;
+            // if (!g_llm_manager_instance.initialize_chat_model()) {
+            //     std::cerr << "Failed to initialize chat model." << std::endl;
             //     // Handle initialization failure
             // }
+
+            std::cout << "Initializing embeddings model..." << std::endl;
+            if (!g_llm_manager_instance.initialize_embeddings_model()) {
+                std::cerr << "Failed to initialize embeddings model." << std::endl;
+                // Handle initialization failure
+            }
         });
     }
 

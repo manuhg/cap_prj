@@ -15,7 +15,6 @@ public:
     std::vector<std::vector<float>> llm_get_embeddings(std::vector<std::string> input_batch);
 private:
     std::string model_path;
-    llama_context * ctx;
     llama_model * model;
     const llama_vocab * vocab;
     common_params params;

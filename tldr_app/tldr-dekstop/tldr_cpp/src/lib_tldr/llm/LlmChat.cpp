@@ -11,10 +11,6 @@ LlmChat::LlmChat(std::string model_path) {
 }
 
 void LlmChat::llm_chat_cleanup() {
-    if (ctx != nullptr) {
-        llama_free(ctx);
-        ctx = nullptr;
-    }
     if (model != nullptr) {
         llama_model_free(model);
         model = nullptr;
@@ -155,5 +151,6 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
     fprintf(stderr, "\n");
 
     llama_sampler_free(smpl);
+    llama_free(ctx);
     return {false, "", output};
 }

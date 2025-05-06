@@ -76,41 +76,14 @@ LlmEmbeddings::LlmEmbeddings(std::string model_path) {
 }
 
 bool LlmEmbeddings::initialize_model() {
-    common_init();
-    this->params.model = this->model_path;
-    params.embedding = true;
-    // For non-causal models, batch size must be equal to ubatch size
-    params.n_ubatch = params.n_batch;
-    params.cpuparams.n_threads=4;
+    ggml_backend_load_all();
 
-    llama_backend_init();
-    llama_numa_init(params.numa);
+    llama_model_params model_params = llama_model_default_params();
 
-    // load the model
-    common_init_result llama_init = common_init_from_params(params);
-
-    this->model = llama_init.model.get();
-    this->ctx = llama_init.context.get();
-
-    if (model == NULL) {
-        throw "unable to load embdedding model at " + this->model_path + "\n";
-    }
-
+    this->model = llama_model_load_from_file(model_path.c_str(), model_params);
     this->vocab = llama_model_get_vocab(model);
 
-    const int n_ctx_train = llama_model_n_ctx_train(model);
-    const int n_ctx = llama_n_ctx(ctx);
-
-
-    if (llama_model_has_encoder(model) && llama_model_has_decoder(model)) {
-        std::cerr << " computing embeddings in encoder-decoder models is not supported :" << __func__ << std::endl;
-        throw "Computing embeddings in encoder-decoder models is not supported";
-    }
-
-    if (n_ctx > n_ctx_train) {
-        std::cerr << "warning: model was trained on only " << n_ctx_train << " context tokens (" << n_ctx <<
-                " specified): " << __func__ << std::endl;
-    }
+    std::cout<<"Embeddings initialized"<<std::endl;
 }
 
 std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<std::string> input_batch) {
@@ -119,6 +92,16 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
 
     if (params.n_batch >= params.n_ctx)
         GGML_ASSERT(params.n_batch >= params.n_ctx);
+
+    llama_context_params ctx_params = llama_context_default_params();
+   ctx_params.embeddings=true;
+
+    llama_context *ctx = llama_init_from_model(model, ctx_params);
+    if (ctx == NULL) {
+        fprintf(stderr, "%s: error: failed to create the llama_context\n", __func__);
+        return std::vector<std::vector<float>>();
+    }
+
 
     const enum llama_pooling_type pooling_type = llama_pooling_type(ctx);
 
@@ -195,12 +178,13 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
 
     // clean up
     llama_batch_free(batch);
+    llama_free(ctx);
 
     // convert to 2D vector
     std::vector<std::vector<float>> embeddings_vec;
     embeddings_vec.reserve(n_embd_count);  // Optional but more efficient
 
-    for (size_t i = 0; i < n_embd; ++i) {
+    for (size_t i = 0; i < n_embd_count; ++i) {
         embeddings_vec.emplace_back(
             embeddings.begin() + i * n_embd,
             embeddings.begin() + (i + 1) * n_embd
@@ -211,10 +195,6 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
 }
 
 void LlmEmbeddings::embedding_cleanup() {
-    if (ctx != nullptr) {
-        llama_free(ctx);
-        ctx = nullptr;
-    }
     if (model != nullptr) {
         llama_model_free(model);
         model = nullptr;
