@@ -11,6 +11,17 @@ LlmChat::LlmChat(std::string model_path, int n_gpu_layers) {
     this->n_gpu_layers = n_gpu_layers;
 }
 
+LlmChat::~LlmChat() {
+    if (ctx != nullptr) {
+        llama_free(ctx);
+        ctx = nullptr;
+    }
+    if (model != nullptr) {
+        llama_model_free(model);
+        model = nullptr;
+    }
+}
+
 bool LlmChat::initialize_model() {
     try {
         ggml_backend_load_all();

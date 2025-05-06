@@ -327,7 +327,6 @@ bool initializeSystem() {
 
     if (!initializeDatabase()) {
         std::cerr << "Failed to initialize database" << std::endl;
-        llama_backend_free(); // Clean up backend if db fails
         return false;
     }
 
@@ -336,7 +335,6 @@ bool initializeSystem() {
     if (curl_init_ret != CURLE_OK) {
         std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
         // Cleanup already initialized components
-        llama_backend_free();
         // LlmManager destructor will handle chat model cleanup.
         // Database unique_ptr handles db connection
         return false;

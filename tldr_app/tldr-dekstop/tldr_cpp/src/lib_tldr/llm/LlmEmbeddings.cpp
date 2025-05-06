@@ -221,5 +221,12 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
 }
 
 LlmEmbeddings::~LlmEmbeddings() {
-    llama_backend_free();
+    if (ctx != nullptr) {
+        llama_free(ctx);
+        ctx = nullptr;
+    }
+    if (model != nullptr) {
+        llama_model_free(model);
+        model = nullptr;
+    }
 }
