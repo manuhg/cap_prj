@@ -150,7 +150,6 @@ bool initializeDatabase() {
             return false;
         }
     }
-    tldr::initialize_llm_manager_once();
     return true;
 }
 
@@ -323,7 +322,7 @@ bool initializeSystem() {
     // TODO: Consider where backend init/free should ideally live
 
 
-    perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/CosineSimilarityBatched.mlmodelc");
+    perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/artefacts/CosineSimilarityBatched.mlmodelc");
 
     if (!initializeDatabase()) {
         std::cerr << "Failed to initialize database" << std::endl;
@@ -339,6 +338,7 @@ bool initializeSystem() {
         // Database unique_ptr handles db connection
         return false;
     }
+    tldr::initialize_llm_manager_once();
 
     std::cout << "System initialized successfully." << std::endl;
     return true;
