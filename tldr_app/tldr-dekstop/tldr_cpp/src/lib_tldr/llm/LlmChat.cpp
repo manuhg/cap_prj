@@ -6,9 +6,8 @@
 
 #include <iostream>
 
-LlmChat::LlmChat(std::string model_path, int n_gpu_layers) {
+LlmChat::LlmChat(std::string model_path) {
     this->model_path = model_path;
-    this->n_gpu_layers = n_gpu_layers;
 }
 
 LlmChat::~LlmChat() {
@@ -27,7 +26,6 @@ bool LlmChat::initialize_model() {
         ggml_backend_load_all();
 
         llama_model_params model_params = llama_model_default_params();
-        model_params.n_gpu_layers = n_gpu_layers;
 
         this->model = llama_model_load_from_file(model_path.c_str(), model_params);
         this->vocab = llama_model_get_vocab(model);
@@ -156,8 +154,5 @@ llm_result LlmChat::chat_with_llm(std::string prompt, int n_predict) {
     fprintf(stderr, "\n");
 
     llama_sampler_free(smpl);
-    llama_free(ctx);
-    llama_model_free(model);
-
     return {false, "", output};
 }

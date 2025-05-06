@@ -351,8 +351,6 @@ void cleanupSystem() {
     // Database is managed by unique_ptr, will clean up automatically.
     // g_db.reset();
 
-    // Clean up llama.cpp backend
-    llama_backend_free();
     std::cout << "System cleaned up." << std::endl;
 }
 

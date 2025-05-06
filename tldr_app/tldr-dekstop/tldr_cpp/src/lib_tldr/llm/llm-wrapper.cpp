@@ -46,9 +46,7 @@ namespace tldr {
                            const std::string &embeddings_model_path): chat(chat_model_path),
                                                                       embedding(embeddings_model_path) {}
 
-    LlmManager::~LlmManager() {
-        llama_backend_free();
-    }
+    LlmManager::~LlmManager() {}
 
     bool LlmManager::initialize_chat_model() {
         try {

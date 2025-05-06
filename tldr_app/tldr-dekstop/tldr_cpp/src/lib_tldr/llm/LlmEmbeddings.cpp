@@ -18,21 +18,6 @@
 #pragma warning(disable: 4244 4267) // possible loss of data
 #endif
 
-static std::vector<std::string> split_lines(const std::string &s, const std::string &separator = "\n") {
-    std::vector<std::string> lines;
-    size_t start = 0;
-    size_t end = s.find(separator);
-
-    while (end != std::string::npos) {
-        lines.push_back(s.substr(start, end - start));
-        start = end + separator.length();
-        end = s.find(separator, start);
-    }
-
-    lines.push_back(s.substr(start)); // Add the last part
-
-    return lines;
-}
 
 static void batch_add_seq(llama_batch &batch, const std::vector<int32_t> &tokens, llama_seq_id seq_id) {
     size_t n_tokens = tokens.size();
@@ -96,7 +81,9 @@ bool LlmEmbeddings::initialize_model() {
     params.embedding = true;
     // For non-causal models, batch size must be equal to ubatch size
     params.n_ubatch = params.n_batch;
+    params.cpuparams.n_threads=4;
 
+    // llama_backend_init();
     llama_numa_init(params.numa);
 
     // load the model

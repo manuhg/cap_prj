@@ -6,12 +6,8 @@
 #define LLM_CHAT_H
 
 #include "llama.h"
-#include "ggml-backend.h"
 #include "common.h"
-#include <cstdio>
-#include <cstring>
 #include <string>
-#include <vector>
 
 struct llm_result {
     bool error;
@@ -21,7 +17,7 @@ struct llm_result {
 
 class LlmChat {
 public:
-    LlmChat(std::string model_path, int n_gpu_layers = 99);
+    LlmChat(std::string model_path);
     ~LlmChat();
     bool initialize_model();
     llm_result chat_with_llm(std::string prompt, int n_predict=128);
