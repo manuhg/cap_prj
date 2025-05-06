@@ -458,52 +458,38 @@ void queryRag(const std::string& user_query) {
         // Get embeddings for the user query using LlmManager
         std::vector<std::string> query_vec = {user_query, "What is a SQL database?"};
         std::vector<std::vector<float>> query_embeddings = tldr::get_llm_manager().get_embeddings(query_vec);
-        std::cout << "User query len: " <<user_query.size()<< std::endl;
-        std::cout<<"Embeddings obtained: "<<query_embeddings.size();
-        if (query_embeddings.size()>0) {
-            std::cout<<"x"<<query_embeddings[0].size();
-            std::cout<<" -->";
-            for (std::vector<float>qv:query_embeddings) {
-                std::cout<<"\n";
-                for (float v: qv) {
-                    std::cout << " " << v;
-                }
-            }
-        }
-        std::cout<<std::endl;
 
-        // if (query_embeddings.empty() || query_embeddings[0].empty()) {
-        //     std::cerr << "Failed to get embeddings for the query." << std::endl;
-        //     // Handle error - maybe return or throw
-        //     return;
-        // }
-        //
-        // // Find similar chunks in the database
-        // auto similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
+        if (query_embeddings.empty() || query_embeddings[0].empty()) {
+            std::cerr << "Failed to get embeddings for the query." << std::endl;
+            // Handle error - maybe return or throw
+            return;
+        }
+
+        // Find similar chunks in the database
+        auto similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
 
         // 3. Prepare context from similar chunks
         std::string context_str ="";
-        // for (const auto& [chunk, similarity] : similar_chunks) {
-        //     context_str += chunk + "\n\n"; // Simple concatenation
-        // }
+        for (const auto& [chunk, similarity] : similar_chunks) {
+        context_str += chunk + "\n\n"; // Simple concatenation
+        }
 
         if (context_str.empty()) {
             context_str = "No relevant context found.";
         }
 
         // 4. Generate response using LlmManager's chat model
-        // std::string final_response = tldr::get_llm_manager().get_chat_response(context_str, user_query);
-        // Old way:
+        std::string final_response = tldr::get_llm_manager().get_chat_response(context_str, user_query);
 
         // 5. Print results
         std::cout << "\nGenerated Response:\n";
-        // std::cout << final_response << "\n";
+        std::cout << final_response << "\n";
         std::cout << "\nContext used:\n";
-        // for (const auto& [chunk, similarity] : similar_chunks) {
-        //     std::cout << "\nSimilarity: " << similarity << "\n";
-        //     std::cout << "Content: " << chunk << "\n";
-        //     std::cout << "----------------------------------------\n";
-        // }
+        for (const auto& [chunk, similarity] : similar_chunks) {
+        std::cout << "\nSimilarity: " << similarity << "\n";
+        std::cout << "Content: " << chunk << "\n";
+        std::cout << "----------------------------------------\n";
+        }
 
     } catch (const std::exception &e) {
         std::cerr << "RAG Query error: " << e.what() << std::endl;
