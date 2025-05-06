@@ -6,8 +6,8 @@
 #include <string_view>
 
 
-#include "llm/LlmChat.h"
-#include "llm/LlmEmbeddings.h"
+#include "LlmChat.h"
+#include "LlmEmbeddings.h"
 
 namespace tldr {
 

@@ -5,7 +5,7 @@
 
 #include "llm-wrapper.h"
 
-#include "constants.h"
+#include "../constants.h"
 
 namespace tldr {
     // --- Static Instance and Initialization ---

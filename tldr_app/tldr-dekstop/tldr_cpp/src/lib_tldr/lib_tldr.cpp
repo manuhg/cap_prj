@@ -17,7 +17,7 @@
 #include "lib_tldr.h"
 #include "llama.h"
 #include "npu_accelerator.h"
-#include "lib_tldr/llm-wrapper.h"
+#include "llm/llm-wrapper.h"
 #include "lib_tldr/constants.h"
 
 using json = nlohmann::json;
