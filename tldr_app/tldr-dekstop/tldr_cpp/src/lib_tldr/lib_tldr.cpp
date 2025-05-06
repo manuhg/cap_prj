@@ -270,6 +270,14 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
     std::vector<json> embeddings_list;
     embeddings_list.reserve(batch.size());
 
+    std::vector<std::string> batch_strings;
+
+    batch_strings.reserve(batch.size()); // optional, for efficiency
+    for (const auto& sv : batch) {
+        batch_strings.emplace_back(sv);  // copy each string_view to string
+    }
+
+
     int total_length = 0;
     for (const auto &chunk: batch) {
         total_length += chunk.length();
@@ -292,7 +300,7 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
         std::cout << "Processing batch " << batch_num + 1 << " of " << total_batches << std::endl;
 
         try {
-            std::vector<std::vector<float>> batch_embeddings = tldr::get_llm_manager().get_embeddings(batch);
+            std::vector<std::vector<float>> batch_embeddings = tldr::get_llm_manager().get_embeddings(batch_strings);
             if (batch_embeddings.size() != batch.size()) {
                 std::cerr << "  Warning: Mismatch between input chunks (" << batch.size()
                           << ") and generated embeddings (" << batch_embeddings.size()
@@ -350,6 +358,7 @@ void cleanupSystem() {
 
     // Database is managed by unique_ptr, will clean up automatically.
     // g_db.reset();
+    tldr::get_llm_manager().cleanup();
 
     std::cout << "System cleaned up." << std::endl;
 }
@@ -447,23 +456,23 @@ void queryRag(const std::string& user_query) {
 
     try {
         // Get embeddings for the user query using LlmManager
-        std::vector<std::string_view> query_vec = {user_query};
-        std::vector<std::vector<float>> query_embeddings = tldr::get_llm_manager().get_embeddings(query_vec);
+        std::vector<std::string> query_vec = {user_query};
+        // std::vector<std::vector<float>> query_embeddings = tldr::get_llm_manager().get_embeddings(query_vec);
 
-        if (query_embeddings.empty() || query_embeddings[0].empty()) {
-            std::cerr << "Failed to get embeddings for the query." << std::endl;
-            // Handle error - maybe return or throw
-            return; 
-        }
-
-        // Find similar chunks in the database
-        auto similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
+        // if (query_embeddings.empty() || query_embeddings[0].empty()) {
+        //     std::cerr << "Failed to get embeddings for the query." << std::endl;
+        //     // Handle error - maybe return or throw
+        //     return;
+        // }
+        //
+        // // Find similar chunks in the database
+        // auto similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
 
         // 3. Prepare context from similar chunks
-        std::string context_str;
-        for (const auto& [chunk, similarity] : similar_chunks) {
-            context_str += chunk + "\n\n"; // Simple concatenation
-        }
+        std::string context_str ="";
+        // for (const auto& [chunk, similarity] : similar_chunks) {
+        //     context_str += chunk + "\n\n"; // Simple concatenation
+        // }
 
         if (context_str.empty()) {
             context_str = "No relevant context found.";
@@ -477,11 +486,11 @@ void queryRag(const std::string& user_query) {
         std::cout << "\nGenerated Response:\n";
         std::cout << final_response << "\n";
         std::cout << "\nContext used:\n";
-        for (const auto& [chunk, similarity] : similar_chunks) {
-            std::cout << "\nSimilarity: " << similarity << "\n";
-            std::cout << "Content: " << chunk << "\n";
-            std::cout << "----------------------------------------\n";
-        }
+        // for (const auto& [chunk, similarity] : similar_chunks) {
+        //     std::cout << "\nSimilarity: " << similarity << "\n";
+        //     std::cout << "Content: " << chunk << "\n";
+        //     std::cout << "----------------------------------------\n";
+        // }
 
     } catch (const std::exception &e) {
         std::cerr << "RAG Query error: " << e.what() << std::endl;

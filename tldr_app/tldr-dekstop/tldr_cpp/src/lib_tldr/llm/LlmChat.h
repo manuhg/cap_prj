@@ -18,9 +18,9 @@ struct llm_result {
 class LlmChat {
 public:
     LlmChat(std::string model_path);
-    ~LlmChat();
+    void llm_chat_cleanup();
     bool initialize_model();
-    llm_result chat_with_llm(std::string prompt, int n_predict=128);
+    llm_result chat_with_llm(std::string prompt);
 
 private:
     std::string model_path;

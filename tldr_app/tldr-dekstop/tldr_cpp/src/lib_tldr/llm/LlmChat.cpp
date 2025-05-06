@@ -10,7 +10,7 @@ LlmChat::LlmChat(std::string model_path) {
     this->model_path = model_path;
 }
 
-LlmChat::~LlmChat() {
+void LlmChat::llm_chat_cleanup() {
     if (ctx != nullptr) {
         llama_free(ctx);
         ctx = nullptr;
@@ -36,7 +36,7 @@ bool LlmChat::initialize_model() {
     }
 }
 
-llm_result LlmChat::chat_with_llm(std::string prompt, int n_predict) {
+llm_result LlmChat::chat_with_llm(std::string prompt) {
     if (model == NULL) {
         fprintf(stderr, "%s: error: unable to load model\n", __func__);
         return {true, "unable to load model\n"};
@@ -59,7 +59,8 @@ llm_result LlmChat::chat_with_llm(std::string prompt, int n_predict) {
 
     llama_context_params ctx_params = llama_context_default_params();
     // n_ctx is the context size
-    ctx_params.n_ctx = n_prompt + n_predict - 1;
+    int ctx_size = 2048;
+    ctx_params.n_ctx = ctx_size;//n_prompt + n_predict - 1;
     // n_batch is the maximum number of tokens that can be processed in a single call to llama_decode
     ctx_params.n_batch = n_prompt;
     // enable performance counters
@@ -104,7 +105,7 @@ llm_result LlmChat::chat_with_llm(std::string prompt, int n_predict) {
     llama_token new_token_id;
     std::string output = "";
 
-    for (int n_pos = 0; n_pos + batch.n_tokens < n_prompt + n_predict;) {
+    for (int n_pos = 0; n_pos + batch.n_tokens < ctx_size;) {
         // evaluate the current batch with the transformer model
         if (llama_decode(ctx, batch)) {
             fprintf(stderr, "%s : failed to eval, return code %d\n", __func__, 1);

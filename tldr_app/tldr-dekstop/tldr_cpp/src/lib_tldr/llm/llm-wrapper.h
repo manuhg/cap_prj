@@ -31,15 +31,16 @@ namespace tldr {
     class LlmManager {
     public:
         LlmManager(const std::string &chat_model_path, const std::string &embeddings_model_path);
-        ~LlmManager();
 
         // Initialization methods
         bool initialize_chat_model();
         bool initialize_embeddings_model();
 
         // Core functionalities
-        std::vector<std::vector<float>> get_embeddings(const std::vector<std::string_view>& texts);
+        std::vector<std::vector<float>> get_embeddings(const std::vector<std::string>& texts);
         std::string get_chat_response(const std::string& context, const std::string& user_prompt);
+
+        void cleanup();
 
 
     private:

@@ -11,8 +11,8 @@ class LlmEmbeddings {
 public:
     LlmEmbeddings(std::string model_path);
     bool initialize_model();
-    std::vector<std::vector<float>> llm_get_embeddings(std::vector<std::string_view> input_batch);
-    ~LlmEmbeddings();
+    void embedding_cleanup();
+    std::vector<std::vector<float>> llm_get_embeddings(std::vector<std::string> input_batch);
 private:
     std::string model_path;
     llama_context * ctx;

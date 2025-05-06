@@ -83,7 +83,7 @@ bool LlmEmbeddings::initialize_model() {
     params.n_ubatch = params.n_batch;
     params.cpuparams.n_threads=4;
 
-    // llama_backend_init();
+    llama_backend_init();
     llama_numa_init(params.numa);
 
     // load the model
@@ -113,10 +113,13 @@ bool LlmEmbeddings::initialize_model() {
     }
 }
 
-std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<std::string_view> input_batch) {
+std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<std::string> input_batch) {
     // max batch size
     const uint64_t n_batch = params.n_batch;
-    GGML_ASSERT(params.n_batch >= params.n_ctx);
+
+    if (params.n_batch >= params.n_ctx)
+        GGML_ASSERT(params.n_batch >= params.n_ctx);
+
     const enum llama_pooling_type pooling_type = llama_pooling_type(ctx);
 
     // tokenize the prompts and trim
@@ -207,7 +210,7 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
     return embeddings_vec;
 }
 
-LlmEmbeddings::~LlmEmbeddings() {
+void LlmEmbeddings::embedding_cleanup() {
     if (ctx != nullptr) {
         llama_free(ctx);
         ctx = nullptr;

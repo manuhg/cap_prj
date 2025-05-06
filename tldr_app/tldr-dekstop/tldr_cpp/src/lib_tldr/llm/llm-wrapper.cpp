@@ -24,7 +24,7 @@ namespace tldr {
     // Moved initialization function
     void initialize_llm_manager_once() {
         std::call_once(g_init_flag, [&]() {
-            llama_backend_init();
+            // llama_backend_init();
 
             std::cout << "Initializing chat model..." << std::endl;
             if (!g_llm_manager_instance.initialize_chat_model()) {
@@ -32,11 +32,11 @@ namespace tldr {
                 // Handle initialization failure
             }
 
-            std::cout << "Initializing embeddings model..." << std::endl;
-            if (!g_llm_manager_instance.initialize_embeddings_model()) {
-                std::cerr << "Failed to initialize embeddings model." << std::endl;
-                // Handle initialization failure
-            }
+            // std::cout << "Initializing embeddings model..." << std::endl;
+            // if (!g_llm_manager_instance.initialize_embeddings_model()) {
+            //     std::cerr << "Failed to initialize embeddings model." << std::endl;
+            //     // Handle initialization failure
+            // }
         });
     }
 
@@ -45,8 +45,6 @@ namespace tldr {
     LlmManager::LlmManager(const std::string &chat_model_path,
                            const std::string &embeddings_model_path): chat(chat_model_path),
                                                                       embedding(embeddings_model_path) {}
-
-    LlmManager::~LlmManager() {}
 
     bool LlmManager::initialize_chat_model() {
         try {
@@ -68,7 +66,7 @@ namespace tldr {
         }
     }
 
-    std::vector<std::vector<float>> LlmManager::get_embeddings(const std::vector<std::string_view> &texts) {
+    std::vector<std::vector<float>> LlmManager::get_embeddings(const std::vector<std::string> &texts) {
         return embedding.llm_get_embeddings(texts);
     }
 
@@ -89,4 +87,10 @@ namespace tldr {
         }
         return result.chat_response;
     }
+
+    void LlmManager::cleanup() {
+        chat.llm_chat_cleanup();
+        embedding.embedding_cleanup();
+    }
+
 } // namespace tldr
