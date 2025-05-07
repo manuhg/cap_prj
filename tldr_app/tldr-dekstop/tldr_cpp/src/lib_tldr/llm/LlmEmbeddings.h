@@ -18,6 +18,7 @@ private:
     llama_model * model;
     const llama_vocab * vocab;
     common_params params;
+    llama_context *ctx;
 };
 
 
