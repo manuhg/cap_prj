@@ -158,7 +158,7 @@ bool initializeDatabase() {
     return true;
 }
 
-int64_t saveEmbeddingsToDb(const std::vector<std::string> &chunks, const std::vector<std::vector<float>> &embeddings, const std::vector<size_t> &embeddings_hash) {
+int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, const std::vector<std::vector<float>> &embeddings, const std::vector<size_t> &embeddings_hash) {
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return -1;
@@ -277,9 +277,8 @@ static std::vector<size_t> computeEmbeddingHashes(const std::vector<std::vector<
 }
 
 // Save embeddings to database with thread safety
-int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const std::vector<std::vector<float>> &batch_embeddings) {
-    // --- Generate hashes for embeddings ---
-    std::vector<size_t> embeddings_hash = computeEmbeddingHashes(batch_embeddings);
+int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
+    const std::vector<std::vector<float>> &batch_embeddings, const std::vector<size_t> &embeddings_hash) {
 
     json embeddings_json;
     embeddings_json["embeddings"] = json::array();
@@ -303,7 +302,7 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const std::v
     }
     return saved_id;
 }
-
+/*
 void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_num, size_t total_batches,
                        int &result_id) {
     // Process each text chunk individually since llama.cpp server expects single text input
@@ -354,7 +353,7 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
     std::cerr << "Failed to process batch after " << MAX_RETRIES << " attempts" << std::endl;
     result_id = -1;
 }
-
+*/
 bool initializeSystem() {
     std::cout << "Initialize the system" << std::endl;
 
@@ -417,16 +416,17 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
             std::vector<std::vector<size_t>> thread_hashes(num_threads);
 
             // Create a mutex to protect access to the embeddings and hashes collections
-            std::mutex collection_mutex;
+            // std::mutex collection_mutex;
 
             // Launch threads
-            for (size_t j = 0; j < num_threads && batch_start + j * batch_size < chunks.size(); ++j) {
+            // for (size_t j = 0; j < num_threads && batch_start + j * batch_size < chunks.size(); ++j) {
+                int j =0;
                 size_t start = batch_start + j * batch_size;
                 size_t end = std::min(start + batch_size, chunks.size());
-
+/*
                 threads.emplace_back(
                     [&chunks, start, end, batch_start, batch_size, total_batches, &ids, j, num_threads,
-                     &thread_embeddings, &thread_hashes]() {
+                     &thread_embeddings, &thread_hashes]() {*/
                         try {
                             // Create a vector of string_view for the current batch
                             std::vector<std::string_view> batch_chunks(
@@ -447,14 +447,16 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
                             thread_embeddings[j] = std::move(batch_emb);
                             thread_hashes[j] = std::move(batch_hashes);
 
+                            saveEmbeddingsThreadSafe(batch_chunks,batch_emb,batch_hashes);
+
                             // Also save to database for consistency with previous behavior
-                            processChunkBatch(batch_chunks, batch_num, total_batches, ids[j]);
+                            // processChunkBatch(batch_chunks, batch_num, total_batches, ids[j]);
 
                         } catch (const std::exception &e) {
                             std::cerr << "Thread " << j << " error: " << e.what() << std::endl;
                         }
-                    });
-            }
+                    /* });
+            }*/
 
             // Wait for all threads in this group to complete
             for (auto &thread: threads) {
@@ -534,7 +536,7 @@ void doRag(const std::string &conversationId) {
     }
 }
 
-void queryRag(const std::string& user_query, const std::string& corpus_dir = "corpus/embedded") {
+void queryRag(const std::string& user_query, const std::string& corpus_dir) {
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return;

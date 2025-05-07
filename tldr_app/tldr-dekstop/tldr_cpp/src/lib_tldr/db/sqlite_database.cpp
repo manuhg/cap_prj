@@ -90,7 +90,7 @@ namespace tldr {
         return true;
     }
 
-    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response, const std::vector<size_t> &embedding_hashes) {
+    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string_view> &chunks, const json &embeddings_response, const std::vector<size_t> &embedding_hashes) {
         sqlite3 *db = nullptr;
         if (!openConnection(db)) {
             return -1;
