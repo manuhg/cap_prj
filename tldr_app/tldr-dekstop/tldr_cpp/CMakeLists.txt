@@ -39,10 +39,12 @@ add_library(tldr STATIC
     ${SOURCE_DIR}/lib_tldr/db/connection_pool.h
     ${SOURCE_DIR}/lib_tldr/tldr_api.cpp
     ${SOURCE_DIR}/lib_tldr/tldr_api.h
-    ${SOURCE_DIR}/lib_tldr/llm-wrapper.cpp
-    ${SOURCE_DIR}/lib_tldr/llm-wrapper.h
-    ${SOURCE_DIR}/lib_tldr/vec_dump.cpp
-    ${SOURCE_DIR}/lib_tldr/vec_dump.h
+    ${SOURCE_DIR}/lib_tldr/llm/llm-wrapper.cpp
+    ${SOURCE_DIR}/lib_tldr/llm/llm-wrapper.h
+    ${SOURCE_DIR}/lib_tldr/llm/LlmChat.cpp
+    ${SOURCE_DIR}/lib_tldr/llm/LlmChat.h
+    ${SOURCE_DIR}/lib_tldr/llm/LlmEmbeddings.cpp
+    ${SOURCE_DIR}/lib_tldr/llm/LlmEmbeddings.h
 )
 
 # Include directories for the library

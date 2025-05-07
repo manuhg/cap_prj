@@ -1,0 +1,30 @@
+//
+// Modified version of llama.cpp/examples/embedding.cpp/.h
+//
+#ifndef LLM_EMBEDDING_H
+#define LLM_EMBEDDING_H
+#include <vector>
+#include "llama.h"
+#include "common.h"
+
+class LlmEmbeddings {
+public:
+    LlmEmbeddings(std::string model_path);
+    bool initialize_model();
+    void embedding_cleanup();
+    std::vector<std::vector<float>> llm_get_embeddings(std::vector<std::string_view> input_batch);
+private:
+    std::string model_path;
+    llama_model * model;
+    const llama_vocab * vocab;
+    common_params params;
+    llama_context *ctx;
+    // store total runtime in milliseconds for each embeddings call
+    std::vector<double> call_times_ms;
+    std::vector<size_t> batch_sizes;
+    std::vector<size_t> prompt_sizes;
+};
+
+
+
+#endif //LLM_EMBEDDING_H

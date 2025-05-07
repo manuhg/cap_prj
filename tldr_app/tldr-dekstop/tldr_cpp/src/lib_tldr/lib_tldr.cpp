@@ -15,7 +15,7 @@
 #include <mutex>
 #include <cstdlib>
 #include <regex>
-#include <curl/curl.h>
+// #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <memory>
 #include <functional> // Include for std::hash
@@ -23,7 +23,7 @@
 #include "lib_tldr.h"
 #include "llama.h"
 #include "npu_accelerator.h"
-#include "lib_tldr/llm-wrapper.h"
+#include "llm/llm-wrapper.h"
 #include "lib_tldr/constants.h"
 
 using json = nlohmann::json;
@@ -35,7 +35,6 @@ std::unique_ptr<tldr::Database> g_db;
 // Global mutex for thread synchronization
 // std::mutex g_mutex;
 #endif
-
 std::string translatePath(const std::string &path) {
     std::string result = path;
 
@@ -164,7 +163,7 @@ int64_t saveEmbeddingsToDb(const std::vector<std::string> &chunks, const std::ve
         std::cerr << "Database not initialized" << std::endl;
         return -1;
     }
-    
+
     // Convert embeddings to JSON format
     json embeddings_json;
     embeddings_json["embeddings"] = json::array();
@@ -176,11 +175,11 @@ int64_t saveEmbeddingsToDb(const std::vector<std::string> &chunks, const std::ve
         std::cerr << "No embeddings to save." << std::endl;
         return -1;
     }
-    
+
     // Pass the computed embeddings_hash to the database
     return g_db->saveEmbeddings(chunks, embeddings_json, embeddings_hash);
 }
-
+/*
 size_t WriteCallback(char *contents, size_t size, size_t nmemb, void *userp) {
     ((std::string *) userp)->append((char *) contents, size * nmemb);
     return size * nmemb;
@@ -224,7 +223,7 @@ std::string sendEmbeddingsRequest(const json &request, const std::string& url) {
 
     return response_data;
 }
-
+*/
 // Parse response and extract embeddings
 json parseEmbeddingsResponse(const std::string &response_data) {
     try {
@@ -278,9 +277,21 @@ static std::vector<size_t> computeEmbeddingHashes(const std::vector<std::vector<
 }
 
 // Save embeddings to database with thread safety
-int saveEmbeddingsThreadSafe(const std::vector<std::string>& batch, const std::vector<std::vector<float>>& batch_embeddings) {
+int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const std::vector<std::vector<float>> &batch_embeddings) {
     // --- Generate hashes for embeddings ---
     std::vector<size_t> embeddings_hash = computeEmbeddingHashes(batch_embeddings);
+
+    json embeddings_json;
+    embeddings_json["embeddings"] = json::array();
+    for(const auto& emb : batch_embeddings) {
+        embeddings_json["embeddings"].push_back(emb);
+    }
+
+    if (embeddings_json["embeddings"].empty()) {
+        std::cerr << "  No embeddings generated for this batch." << std::endl;
+        return -1;
+    }
+
 
 #if !USE_POSTGRES
     // std::lock_guard<std::mutex> lock(g_mutex);
@@ -349,26 +360,23 @@ bool initializeSystem() {
 
     // Initialize llama.cpp backend (required before model loading)
     // TODO: Consider where backend init/free should ideally live
-    llama_backend_init(); 
 
     perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/CosineSimilarityBatched.mlmodelc");
-
     if (!initializeDatabase()) {
         std::cerr << "Failed to initialize database" << std::endl;
-        llama_backend_free(); // Clean up backend if db fails
         return false;
     }
 
     // Initialize CURL globally (Restored)
-    CURLcode curl_init_ret = curl_global_init(CURL_GLOBAL_DEFAULT);
-    if (curl_init_ret != CURLE_OK) {
-        std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
+    // CURLcode curl_init_ret = curl_global_init(CURL_GLOBAL_DEFAULT);
+    // if (curl_init_ret != CURLE_OK) {
+        // std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
         // Cleanup already initialized components
-        llama_backend_free();
         // LlmManager destructor will handle chat model cleanup.
         // Database unique_ptr handles db connection
-        return false;
-    }
+        // return false;
+    // }
+    tldr::initialize_llm_manager_once();
 
     std::cout << "System initialized successfully." << std::endl;
     return true;
@@ -376,31 +384,30 @@ bool initializeSystem() {
 
 void cleanupSystem() {
     // Cleanup CURL (If it was ever initialized - check initializeSystem)
-    curl_global_cleanup();
+    // curl_global_cleanup();
 
     // Database is managed by unique_ptr, will clean up automatically.
     // g_db.reset();
+    tldr::get_llm_manager().cleanup();
 
-    // Clean up llama.cpp backend
-    llama_backend_free();
     std::cout << "System cleaned up." << std::endl;
 }
 
 // Vector dump functionality is now in vec_dump.h/cpp
 
-std::pair<std::vector<std::vector<float>>, std::vector<size_t>> 
+std::pair<std::vector<std::vector<float>>, std::vector<size_t>>
 obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size_t num_threads) {
     // System initialization is now handled by initializeSystem()
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
     std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
             << " batches using " << num_threads << " threads\n";
-    
+
     // We'll collect all embeddings and hashes
     std::vector<std::vector<float>> all_embeddings;
     std::vector<size_t> all_hashes;
     all_embeddings.reserve(chunks.size());
     all_hashes.reserve(chunks.size());
-    
+
     std::vector<int> ids(num_threads, -1);
 
     try {
@@ -408,7 +415,7 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
             std::vector<std::thread> threads;
             std::vector<std::vector<std::vector<float>>> thread_embeddings(num_threads);
             std::vector<std::vector<size_t>> thread_hashes(num_threads);
-            
+
             // Create a mutex to protect access to the embeddings and hashes collections
             std::mutex collection_mutex;
 
@@ -426,23 +433,23 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
                                 chunks.begin() + start,
                                 chunks.begin() + end
                             );
-                            
+
                             // Process chunks directly without creating a copy
                             size_t batch_num = batch_start / (batch_size * num_threads) * num_threads + j;
-                            
+
                             // Get embeddings for this batch
                             std::vector<std::vector<float>> batch_emb = tldr::get_llm_manager().get_embeddings(batch_chunks);
-                            
+
                             // Compute hashes for these embeddings
                             std::vector<size_t> batch_hashes = computeEmbeddingHashes(batch_emb);
-                            
+
                             // Save the embeddings and hashes for this thread
                             thread_embeddings[j] = std::move(batch_emb);
                             thread_hashes[j] = std::move(batch_hashes);
-                            
+
                             // Also save to database for consistency with previous behavior
                             processChunkBatch(batch_chunks, batch_num, total_batches, ids[j]);
-                            
+
                         } catch (const std::exception &e) {
                             std::cerr << "Thread " << j << " error: " << e.what() << std::endl;
                         }
@@ -455,14 +462,14 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
                     thread.join();
                 }
             }
-            
+
             // Collect all embeddings and hashes from this batch of threads
             for (size_t j = 0; j < num_threads; ++j) {
                 if (!thread_embeddings[j].empty()) {
                     all_embeddings.insert(all_embeddings.end(),
                                          thread_embeddings[j].begin(),
                                          thread_embeddings[j].end());
-                    
+
                     all_hashes.insert(all_hashes.end(),
                                      thread_hashes[j].begin(),
                                      thread_hashes[j].end());
@@ -473,30 +480,30 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
         std::cerr << "Error processing chunks: " << e.what() << std::endl;
         throw; // Re-throw to allow proper cleanup
     }
-    
+
     return {all_embeddings, all_hashes};
 }
 
 void addCorpus(const std::string &sourcePath) {
     std::string expanded_path = translatePath(sourcePath);
     std::string doc_text = extractTextFromPDF(expanded_path);
-    
+
     if (doc_text.empty()) {
         std::cerr << "Error: No text extracted from PDF." << std::endl;
         return;
     }
-    
+
     // Print text length only
     std::cout << "Extracted text length: " << doc_text.length() << std::endl;
     const std::vector<std::string> chunks = splitTextIntoChunks(doc_text, MAX_CHUNK_SIZE, CHUNK_N_OVERLAP);
     std::cout << "Number of chunks: " << chunks.size() << std::endl;
-    
+
     // Get embeddings and their hashes
     auto [embeddings, hashes] = obtainEmbeddings(chunks, BATCH_SIZE, NUM_THREADS);
-    
+
     // Dump vectors and hashes to file for memory mapping
     tldr::dump_vectors_to_file(expanded_path, embeddings, hashes);
-    
+
     std::cout << "Corpus added successfully." << std::endl;
 }
 
@@ -541,18 +548,18 @@ void queryRag(const std::string& user_query, const std::string& corpus_dir = "co
         if (query_embeddings.empty() || query_embeddings[0].empty()) {
             std::cerr << "Failed to get embeddings for the query." << std::endl;
             // Handle error - maybe return or throw
-            return; 
+            return;
         }
-        
+
         std::cout << "Using NPU-accelerated similarity search..." << std::endl;
-        
+
         // Use NPU-accelerated similarity search instead of database search
         auto similar_chunks = searchSimilarVectorsNPU(
             query_embeddings[0],         // Query vector
             corpus_dir,                  // Vector corpus directory
             K_SIMILAR_CHUNKS_TO_RETRIEVE // Number of results to return
         );
-        
+
         if (similar_chunks.empty()) {
             std::cout << "No results from NPU search, falling back to database search..." << std::endl;
             // Fallback to traditional database search if NPU search returns no results
@@ -596,20 +603,20 @@ std::vector<std::pair<std::string, float>> searchSimilarVectorsNPU(
     int k
 ) {
     std::vector<std::pair<std::string, float>> results;
-    
+
     // Get CoreML model path from the release-products directory
     const char* model_path = "/Users/manu/proj_tldr/tldr-dekstop/release-products/artifacts/CosineSimilarityBatched.mlmodelc";
-    
+
     // We'll collect the hashes from the results and only then query the database
     // This is more efficient than loading all embeddings upfront
-    
+
     try {
         // Convert vector dimensions to int32_t
         int32_t dimensions = static_cast<int32_t>(query_vector.size());
-        
+
         // Prepare to call Swift function
         int32_t result_count = 0;
-        
+
         // Call the NPU similarity search function
         SimilarityResult* swift_results = retrieve_similar_vectors_from_corpus(
             model_path,                             // CoreML model path
@@ -619,26 +626,26 @@ std::vector<std::pair<std::string, float>> searchSimilarVectorsNPU(
             k,                                      // Number of results to return
             &result_count                           // Output: number of results
         );
-        
+
         if (swift_results && result_count > 0) {
             // Collect all the hashes we need to look up
             std::vector<uint64_t> hashes_to_lookup;
             std::map<uint64_t, float> hash_scores;
-            
+
             for (int32_t i = 0; i < result_count; i++) {
                 uint64_t hash = swift_results[i].hash;
                 float score = swift_results[i].score;
-                
+
                 hashes_to_lookup.push_back(hash);
                 hash_scores[hash] = score; // Store the score for this hash
             }
-            
+
             // Query the database for just these specific hashes
             std::map<uint64_t, std::string> hash_to_text;
             if (g_db) {
                 hash_to_text = g_db->getChunksByHashes(hashes_to_lookup);
             }
-            
+
             // Convert results to the expected format using the looked-up text chunks
             for (const auto& [hash, score] : hash_scores) {
                 auto it = hash_to_text.find(hash);
@@ -650,32 +657,32 @@ std::vector<std::pair<std::string, float>> searchSimilarVectorsNPU(
                     results.emplace_back(hash_id, score);
                 }
             }
-            
+
             // Free the results from Swift
             free(swift_results);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error in NPU similarity search: " << e.what() << std::endl;
     }
-    
+
     return results;
 }
 
 // Test vector cache dump and read functionality
 bool test_vector_cache() {
     std::cout << "=== Testing Vector Cache Dump and Read Functionality ===" << std::endl;
-    
+
     // Create sample embeddings and hashes
     std::vector<std::vector<float>> test_embeddings;
     std::vector<size_t> test_hashes;
-    
+
     // Create 5 test embeddings with 16 dimensions each
     const size_t num_embeddings = 5;
     const size_t dimensions = 16;
-    
-    std::cout << "Creating " << num_embeddings << " test embeddings with " 
+
+    std::cout << "Creating " << num_embeddings << " test embeddings with "
               << dimensions << " dimensions each" << std::endl;
-              
+
     // Initialize with deterministic values for testing
     for (size_t i = 0; i < num_embeddings; i++) {
         std::vector<float> embedding(dimensions);
@@ -683,21 +690,21 @@ bool test_vector_cache() {
             embedding[j] = static_cast<float>((i + 1) * 0.1f + j * 0.01f); // Deterministic pattern
         }
         test_embeddings.push_back(std::move(embedding));
-        
+
         // Create corresponding hash
         test_hashes.push_back(1000000 + i * 10000); // Simple deterministic hash for testing
     }
-    
+
     // Test file path
     std::string test_file = "vector_cache_test.bin";
-    
+
     // Step 1: Dump the test data
     std::cout << "\nStep 1: Dumping test embeddings to " << test_file << std::endl;
     if (!dump_vectors_to_file(test_file, test_embeddings, test_hashes)) {
         std::cerr << "Error: Failed to dump test embeddings" << std::endl;
         return false;
     }
-    
+
     // Step 2: Read the dumped file
     std::cout << "\nStep 2: Reading the vector dump file" << std::endl;
     auto mapped_data = read_vector_dump_file(test_file);
@@ -705,59 +712,59 @@ bool test_vector_cache() {
         std::cerr << "Error: Failed to read the vector dump file" << std::endl;
         return false;
     }
-    
+
     // Step 3: Print info about the file
     print_vector_dump_info(mapped_data.get(), test_file, false);
-    
+
     // Step 4: Verify contents
     std::cout << "\nStep 4: Verifying file contents" << std::endl;
-    
+
     // Verify header
-    bool header_verified = 
+    bool header_verified =
         (mapped_data->header->num_entries == num_embeddings) &&
         (mapped_data->header->hash_size_bytes == sizeof(size_t)) &&
         (mapped_data->header->vector_dimensions == dimensions);
-    
+
     std::cout << "Header verification: " << (header_verified ? "PASSED" : "FAILED") << std::endl;
-    
+
     // Verify contents by checking values at index 1 (second element)
     bool data_verified = true;
     size_t test_idx = 1;
-    
+
     if (test_idx < mapped_data->header->num_entries) {
         std::cout << "\nVerifying element at index " << test_idx << ":" << std::endl;
-        
+
         // Original hash and the one read from file
         size_t original_hash = test_hashes[test_idx];
         size_t read_hash = mapped_data->hashes[test_idx];
-        
-        std::cout << "Hash verification: Original = " << original_hash 
-                  << ", Read = " << read_hash 
+
+        std::cout << "Hash verification: Original = " << original_hash
+                  << ", Read = " << read_hash
                   << " -> " << (original_hash == read_hash ? "MATCH" : "MISMATCH") << std::endl;
-        
+
         // Check a few dimensions of the embedding vector
         const float* read_vector = mapped_data->vectors + (test_idx * mapped_data->header->vector_dimensions);
-        
+
         std::cout << "Vector verification (first 5 dimensions):" << std::endl;
         bool vector_matches = true;
         for (size_t i = 0; i < 5 && i < mapped_data->header->vector_dimensions; i++) {
             float original_val = test_embeddings[test_idx][i];
             float read_val = read_vector[i];
             bool matches = (std::abs(original_val - read_val) < 0.000001f); // Floating point comparison with epsilon
-            
-            std::cout << "  Dim " << i << ": Original = " << original_val 
-                      << ", Read = " << read_val 
+
+            std::cout << "  Dim " << i << ": Original = " << original_val
+                      << ", Read = " << read_val
                       << " -> " << (matches ? "MATCH" : "MISMATCH") << std::endl;
-            
+
             if (!matches) vector_matches = false;
         }
-        
+
         data_verified = (original_hash == read_hash) && vector_matches;
     }
-    
+
     // Print final result
     std::cout << "\nTest result: " << (header_verified && data_verified ? "PASSED" : "FAILED") << std::endl;
-    
+
     return header_verified && data_verified;
 }
 
@@ -768,7 +775,7 @@ void command_loop() {
         {"add-corpus", addCorpus},
         {"delete-corpus", deleteCorpus},
         {"query", [](const std::string& query) { queryRag(query); }},
-        {"read-vectors", [](const std::string& path) { 
+        {"read-vectors", [](const std::string& path) {
             auto data = tldr::read_vector_dump_file(path);
             if (data) {
                 tldr::print_vector_dump_info(data.get(), path, true);

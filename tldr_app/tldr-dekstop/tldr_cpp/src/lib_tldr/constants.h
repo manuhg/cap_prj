@@ -14,7 +14,7 @@
 #define MAX_CHUNK_SIZE (MAX_CHARS_PER_BATCH-(CHUNK_N_OVERLAP*2))
 #define BATCH_SIZE 8
 
-#define NUM_THREADS 4
+#define NUM_THREADS 1
 #define CONN_POOL_SIZE NUM_THREADS
 
 // Database constants
@@ -26,8 +26,9 @@
 #define EMBEDDINGS_URL "http://localhost:8084/embeddings"
 #define CHAT_URL "http://localhost:8088/v1/chat/completions"
 
-#define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf"
-#define CHAT_MODEL_PATH "/Users/manu/llm-weights/embedding/all-MiniLM-L6-v2-ggml-model-f16.gguf"
+#define CHAT_MODEL_PATH "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf"
+// #define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf"
+#define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/embedding/all-MiniLM-L6-v2-ggml-model-f16.gguf"
 
 #define CONNECT_TIMEOUT_SECONDS 5
 #define REQUEST_TIMEOUT_SECONDS 30
