@@ -397,6 +397,8 @@
 		};
 		32D335272DB1EC9B00DCF3BD /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 32D335092DB1EC9800DCF3BD /* tldr */;
+			baseConfigurationReferenceRelativePath = "build-dependencies.xcconfig";
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -447,11 +449,51 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/TldrAPI/**",
+					"$(PROJECT_DIR)/../../release-products/libs/**",
+				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-lnpu-accelerator",
+					"-ltldr",
+					"-lcurl",
+					"-lsqlite3",
+					"-lpq",
+					"-lpqxx",
+					"-lpoppler-cpp",
+					"-lpoppler",
+					"-lssl",
+					"-lcrypto",
+					"-lz",
+					"-licuuc",
+					"-licudata",
+					"-framework",
+					Security,
+					"-framework",
+					CoreFoundation,
+					"-lnpu-accelerator",
+					"-lllama",
+					"-lggml",
+					"-lggml-metal",
+					"-lggml-base",
+					"-lcommon",
+					"-lggml-cpu",
+					"-lggml-blas",
+					"-lllava_static",
+					"-framework",
+					Accelerate,
+					"-framework",
+					Metal,
+					"-framework",
+					Foundation,
+					"-lTldrAPI",
+				);
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -460,6 +502,8 @@
 		};
 		32D335282DB1EC9B00DCF3BD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 32D335092DB1EC9800DCF3BD /* tldr */;
+			baseConfigurationReferenceRelativePath = "build-dependencies.xcconfig";
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -504,10 +548,50 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/TldrAPI/**",
+					"$(PROJECT_DIR)/../../release-products/libs/**",
+				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = (
+					"-lnpu-accelerator",
+					"-ltldr",
+					"-lcurl",
+					"-lsqlite3",
+					"-lpq",
+					"-lpqxx",
+					"-lpoppler-cpp",
+					"-lpoppler",
+					"-lssl",
+					"-lcrypto",
+					"-lz",
+					"-licuuc",
+					"-licudata",
+					"-framework",
+					Security,
+					"-framework",
+					CoreFoundation,
+					"-lnpu-accelerator",
+					"-lllama",
+					"-lggml",
+					"-lggml-metal",
+					"-lggml-base",
+					"-lcommon",
+					"-lggml-cpu",
+					"-lggml-blas",
+					"-lllava_static",
+					"-framework",
+					Accelerate,
+					"-framework",
+					Metal,
+					"-framework",
+					Foundation,
+					"-lTldrAPI",
+				);
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};

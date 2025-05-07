@@ -1,0 +1,14 @@
+//
+//  build-dependencies.swift
+//  tldr
+//
+//  Created by Manu Hegde on 5/4/25.
+//
+
+OTHER_LDFLAGS = -lnpu-accelerator -ltldr -lcurl -lsqlite3 -lpq -lpqxx -lpoppler-cpp -lpoppler -lssl -lcrypto -lz -licuuc -licudata -framework Security -framework CoreFoundation -lnpu-accelerator -lllama -lggml -lggml-metal -lggml-base -lcommon -lggml-cpu -lggml-blas -lllava_static -framework Accelerate -framework Metal -framework Foundation -lTldrAPI
+
+
+LIBRARY_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/TldrAPI/** $(PROJECT_DIR)/../../release-products/libs/**
+
+
+HEADER_SEARCH_PATHS = $(PROJECT_DIR)/TldrAPI/** /Users/manu/proj_tldr/tldr-dekstop/release-products/include/**

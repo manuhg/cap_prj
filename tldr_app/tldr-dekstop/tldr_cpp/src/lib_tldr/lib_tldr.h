@@ -43,6 +43,6 @@ void addCorpus(const std::string &sourcePath);
 void deleteCorpus(const std::string &corpusId);
 void doRag(const std::string &conversationId);
 void command_loop();
-void queryRag(const std::string& user_query, const std::string& embeddings_url = EMBEDDINGS_URL, const std::string& chat_url = CHAT_URL);
+void queryRag(const std::string& user_query);
 
 #endif //TLDR_CPP_MAIN_H
