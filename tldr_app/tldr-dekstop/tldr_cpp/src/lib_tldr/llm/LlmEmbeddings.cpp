@@ -90,6 +90,7 @@ bool LlmEmbeddings::initialize_model() {
 
     // GGML_ASSERT(params.n_batch >= params.n_ctx);
     llama_context_params ctx_params = llama_context_default_params();
+    ctx_params.n_ubatch = 2048;
     ctx_params.embeddings=true;
 
     this->ctx = llama_init_from_model(model, ctx_params);
