@@ -12,18 +12,43 @@
 int main() {
     std::cout << "Calling Swift function from C++..." << std::endl;
 
-    // Define the path to the compiled Core ML model relative to the executable
+    // Define the path to the compiled Core ML model and corpus directory
     const char* modelPath = "CosineSimilarityBatched.mlmodelc";
+    const char* corpusDir = "corpus_vectors/"; // Example directory, adjust as needed
     std::cout << "C++: Using model path: " << modelPath << std::endl;
+    std::cout << "C++: Using corpus directory: " << corpusDir << std::endl;
 
-    // Call the Swift function and pass the path
-    int result = perform_similarity_check(modelPath);
+    // Example query vector (replace with real data as needed)
+    const int32_t queryVectorDimensions = 384;
+    float queryVector[queryVectorDimensions] = {0};
+    for (int i = 0; i < queryVectorDimensions; ++i) queryVector[i] = static_cast<float>(i) / queryVectorDimensions;
 
-    if (result == 0) {
-        std::cout << "Swift function executed successfully." << std::endl;
+    // Number of top results to retrieve
+    int32_t k = 5;
+    int32_t resultCount = 0;
+
+    // Call the Swift function
+    SimilarityResult* results = retrieve_similar_vectors_from_corpus(
+        modelPath,
+        corpusDir,
+        queryVector,
+        queryVectorDimensions,
+        k,
+        &resultCount
+    );
+
+    if (results && resultCount > 0) {
+        std::cout << "Top " << resultCount << " similar vectors:" << std::endl;
+        for (int i = 0; i < resultCount; ++i) {
+            std::cout << "Hash: " << results[i].hash << ", Score: " << results[i].score << std::endl;
+        }
     } else {
-        std::cout << "Swift function failed with code: " << result << std::endl;
+        std::cout << "No results or function failed." << std::endl;
     }
+
+    // Free the results memory if allocated
+    if (results) free_similarity_results(results);
 
     return 0;
 }
+

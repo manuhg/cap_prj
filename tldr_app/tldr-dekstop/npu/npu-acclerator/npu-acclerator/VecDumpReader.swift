@@ -3,6 +3,15 @@ import CoreML
 
 /// A Swift reader for the vector dump files created by the C++ library.
 /// Uses memory mapping to efficiently access the embedding vectors without data copying.
+/// VecDumpReader reads vector dump files created by the C++ library.
+/// WARNING: Any MLMultiArray or pointer returned from this class becomes INVALID after calling close().
+/// The C++ struct layout must be:
+/// struct VectorCacheDumpHeader {
+///     uint32_t numEntries;
+///     uint32_t hashSizeBytes;
+///     uint32_t vectorSizeBytes;
+///     uint32_t vectorDimensions;
+/// };
 public class VecDumpReader {
     
     // MARK: - Header Structure
@@ -43,46 +52,53 @@ public class VecDumpReader {
     public func open(filePath: String) -> Bool {
         // Make sure we're starting fresh
         close()
-        
+
+        let MAP_FAILED = UnsafeMutableRawPointer(bitPattern: -1)
+
         do {
             // Open the file
             fileHandle = try FileHandle(forReadingFrom: URL(fileURLWithPath: filePath))
-            
+            guard let fileHandle = fileHandle else {
+                print("Error: Could not open file handle")
+                return false
+            }
+
             // Get file size
-            let fileSize = try fileHandle?.seekToEnd() ?? 0
-            try fileHandle?.seek(toOffset: 0)
-            
+            let fileSize = try fileHandle.seekToEnd()
+            try fileHandle.seek(toOffset: 0)
+
             guard fileSize > 0 else {
                 print("Error: Empty file")
                 return false
             }
-            
+
             // Memory map the file
-            let fileDescriptor = fileHandle?.fileDescriptor ?? -1
-            mappedData = mmap(nil, fileSize, PROT_READ, MAP_PRIVATE, fileDescriptor, 0)
+            let fileDescriptor = fileHandle.fileDescriptor
+            mappedData = mmap(nil, Int(fileSize), PROT_READ, MAP_PRIVATE, fileDescriptor, 0)
             mappedLength = Int(fileSize)
-            
-            guard mappedData != MAP_FAILED else {
+
+            guard let mappedData = mappedData, mappedData != MAP_FAILED else {
                 print("Error: Failed to memory map file")
+                self.mappedData = nil
                 return false
             }
-            
+
             // Read the header
-            header = VectorCacheDumpHeader(data: mappedData!)
-            
+            header = VectorCacheDumpHeader(data: mappedData)
+
             guard let header = header else {
                 print("Error: Failed to read header")
                 return false
             }
-            
+
             // Calculate offsets
             let headerSize = 16 // Size of the header (4 UInt32 values)
             let vectorsSectionSize = Int(header.numEntries) * Int(header.vectorSizeBytes)
-            
+
             // Set up pointers to the vectors and hashes sections
-            vectorsBasePtr = mappedData!.advanced(by: headerSize).assumingMemoryBound(to: Float.self)
-            hashesBasePtr = mappedData!.advanced(by: headerSize + vectorsSectionSize).assumingMemoryBound(to: UInt64.self)
-            
+            vectorsBasePtr = UnsafePointer<Float>(mappedData.advanced(by: headerSize).assumingMemoryBound(to: Float.self))
+            hashesBasePtr = UnsafePointer<UInt64>(mappedData.advanced(by: headerSize + vectorsSectionSize).assumingMemoryBound(to: UInt64.self))
+
             return true
         } catch {
             print("Error opening vector dump file: \(error)")
@@ -142,6 +158,7 @@ public class VecDumpReader {
     /// Creates an MLMultiArray directly from memory-mapped vector data without copying
     /// - Parameter index: Index of the vector
     /// - Returns: MLMultiArray containing the vector or nil if creation failed
+    /// WARNING: The returned MLMultiArray is only valid while this VecDumpReader is open.
     public func getVectorAsMLMultiArray(at index: Int) -> MLMultiArray? {
         guard let header = header, 
               let vectorPointer = getVectorPointer(at: index),
@@ -165,6 +182,7 @@ public class VecDumpReader {
     
     /// Creates an MLMultiArray directly from all memory-mapped vectors without copying
     /// - Returns: MLMultiArray containing all vectors or nil if creation failed
+    /// WARNING: The returned MLMultiArray is only valid while this VecDumpReader is open.
     public func getAllVectorsAsMLMultiArray() -> MLMultiArray? {
         guard let header = header, let vectorsBasePtr = vectorsBasePtr else { return nil }
         

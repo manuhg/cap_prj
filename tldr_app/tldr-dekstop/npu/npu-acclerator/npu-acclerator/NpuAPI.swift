@@ -9,9 +9,10 @@ let BATCH_SIZE = 1024*128 // Default batch size (must be <= 1024)
 // MARK: - Vector Similarity Result Types
 
 /// Structure for returning similarity results to C++
-struct SimilarityResult {
-    var hash: UInt64 // Hash value of the vector
-    var score: Float // Similarity score (higher is more similar)
+@frozen
+public struct SimilarityResult {
+    public var hash: UInt64 // Hash value of the vector
+    public var score: Float // Similarity score (higher is more similar)
 }
 
 /// Internal type for tracking vector similarity results during processing
@@ -324,6 +325,32 @@ func findTopResults(
 ///   - resultCountPtr: Pointer to store the number of results
 /// - Returns: Pointer to array of SimilarityResult structures
 
+/**
+ Computes cosine similarity between a query vector and a set of vectors using a CoreML model.
+ - Parameters:
+   - modelPathCStr: Path to the CoreML model file (C string)
+   - queryVectorPtr: Pointer to query vector data
+   - queryVectorDimensions: Number of dimensions in the query vector
+   - vectorsPtr: Pointer to vectors to compare with
+   - vectorCount: Number of vectors to compare with
+   - vectorDimensions: Dimensions of each vector
+   - hashesPtr: Optional pointer to hash values for the vectors
+   - resultCountPtr: Pointer to store the number of results
+ - Returns: Pointer to array of SimilarityResult structures (must be freed by free_similarity_results)
+*/
+/**
+ Computes cosine similarity between a query vector and a set of vectors using a CoreML model.
+ - Parameters:
+   - modelPathCStr: Path to the CoreML model file (C string)
+   - queryVectorPtr: Pointer to query vector data
+   - queryVectorDimensions: Number of dimensions in the query vector
+   - vectorsPtr: Pointer to vectors to compare with
+   - vectorCount: Number of vectors to compare with
+   - vectorDimensions: Dimensions of each vector
+   - hashesPtr: Optional pointer to hash values for the vectors
+   - resultCountPtr: Pointer to store the number of results
+ - Returns: Pointer to array of SimilarityResult structures (must be freed by free_similarity_results)
+*/
 @_cdecl("compute_cosine_similarity")
 public func compute_cosine_similarity(
     modelPathCStr: UnsafePointer<CChar>,
@@ -334,7 +361,7 @@ public func compute_cosine_similarity(
     vectorDimensions: Int32,
     hashesPtr: UnsafePointer<UInt64>?,
     resultCountPtr: UnsafeMutablePointer<Int32>
-) -> UnsafeMutablePointer<SimilarityResult>? {
+) -> UnsafeMutableRawPointer? {
     // Initialize result count to 0 by default
     resultCountPtr.pointee = 0
     
@@ -391,7 +418,8 @@ public func compute_cosine_similarity(
             // Limit to top 5 results by default
             let topResults = Array(results.prefix(5))
             resultCountPtr.pointee = Int32(topResults.count)
-            return createResultArray(topResults)
+            let ptr = createResultArray(topResults)
+return UnsafeMutableRawPointer(ptr)
         } else {
             print("No similarity results found")
             return nil
@@ -402,6 +430,28 @@ public func compute_cosine_similarity(
     }
 }
 
+/**
+ Retrieves the most similar vectors from a corpus directory using a CoreML model.
+ - Parameters:
+   - modelPathCStr: Path to the CoreML model file (C string)
+   - corpusDirCStr: Path to the corpus directory (C string)
+   - queryVectorPtr: Pointer to query vector data
+   - queryVectorDimensions: Number of dimensions in the query vector
+   - k: Number of top results to return
+   - resultCountPtr: Pointer to store the number of results
+ - Returns: Pointer to array of SimilarityResult structures (must be freed by free_similarity_results)
+*/
+/**
+ Retrieves the most similar vectors from a corpus directory using a CoreML model.
+ - Parameters:
+   - modelPathCStr: Path to the CoreML model file (C string)
+   - corpusDirCStr: Path to the corpus directory (C string)
+   - queryVectorPtr: Pointer to query vector data
+   - queryVectorDimensions: Number of dimensions in the query vector
+   - k: Number of top results to return
+   - resultCountPtr: Pointer to store the number of results
+ - Returns: Pointer to array of SimilarityResult structures (must be freed by free_similarity_results)
+*/
 @_cdecl("retrieve_similar_vectors_from_corpus")
 public func retrieve_similar_vectors_from_corpus(
     modelPathCStr: UnsafePointer<CChar>,
@@ -410,7 +460,7 @@ public func retrieve_similar_vectors_from_corpus(
     queryVectorDimensions: Int32,
     k: Int32,
     resultCountPtr: UnsafeMutablePointer<Int32>
-) -> UnsafeMutablePointer<SimilarityResult>? {
+) -> UnsafeMutableRawPointer? {
     // Initialize result count to 0 by default
     resultCountPtr.pointee = 0
     
@@ -466,7 +516,8 @@ public func retrieve_similar_vectors_from_corpus(
         // Step 7: Return results
         if !topResults.isEmpty {
             resultCountPtr.pointee = Int32(topResults.count)
-            return createResultArray(topResults)
+            let ptr = createResultArray(topResults)
+return UnsafeMutableRawPointer(ptr)
         } else {
             print("No similarity results found in corpus")
             return nil
@@ -504,12 +555,17 @@ func get_relevant_vecs_from_dump(
     reader.printInfo()
     
     // Use provided model or load a new one
-    let similarityModel = model ?? try loadCosineSimilarityModel(from: modelPath)
+    let similarityModel: CosineSimilarityBatched
+if let existingModel = model {
+    similarityModel = existingModel
+} else {
+    similarityModel = try loadCosineSimilarityModel(from: modelPath)
+}
     
     // Step 2: Process vectors in batches to find similar ones
     let totalVectors = reader.count
-    let dimensions = reader.dimensions
-    let batchSize = min(BATCH_SIZE, totalVectors)
+    _ = reader.dimensions
+    _ = min(BATCH_SIZE, totalVectors)
     var results: [VectorSimilarityResult] = []
     
     // Process in a single batch for now, can be optimized to use multiple batches if needed
@@ -541,6 +597,26 @@ func get_relevant_vecs_from_dump(
     return results
 }
 
+/**
+ Performs a similarity check using a vector dump file and a CoreML model.
+ - Parameters:
+   - modelPathCStr: Path to the CoreML model file (C string)
+   - vectorDumpPathCStr: Path to the vector dump file (C string)
+   - queryVectorPtr: Optional pointer to query vector data
+   - queryVectorDimensions: Number of dimensions in the query vector
+   - resultCountPtr: Pointer to store the number of results
+ - Returns: Pointer to array of SimilarityResult structures (must be freed by free_similarity_results)
+*/
+/**
+ Performs a similarity check using a vector dump file and a CoreML model.
+ - Parameters:
+   - modelPathCStr: Path to the CoreML model file (C string)
+   - vectorDumpPathCStr: Path to the vector dump file (C string)
+   - queryVectorPtr: Optional pointer to query vector data
+   - queryVectorDimensions: Number of dimensions in the query vector
+   - resultCountPtr: Pointer to store the number of results
+ - Returns: Pointer to array of SimilarityResult structures (must be freed by free_similarity_results)
+*/
 @_cdecl("perform_similarity_check")
 public func perform_similarity_check(
     modelPathCStr: UnsafePointer<CChar>, 
@@ -548,7 +624,7 @@ public func perform_similarity_check(
     queryVectorPtr: UnsafePointer<Float32>? = nil,
     queryVectorDimensions: Int32 = 0,
     resultCountPtr: UnsafeMutablePointer<Int32>
-) -> UnsafeMutablePointer<SimilarityResult>? {
+) -> UnsafeMutableRawPointer? {
     // Convert C strings to Swift strings
     let modelPath = String(cString: modelPathCStr)
     let vectorDumpPath = String(cString: vectorDumpPathCStr)
@@ -628,7 +704,7 @@ public func perform_similarity_check(
                 of: batchCount,
                 startIndex: batchStartIndex,
                 size: batchSize,
-                dimensions: dimensions,
+                dimensions: UInt32(dimensions),
                 reader: reader,
                 model: model,
                 queryVector: queryVector,
@@ -655,7 +731,7 @@ public func perform_similarity_check(
             
             // Clean up resources
             reader.close()
-            return resultArray
+            return UnsafeMutableRawPointer(resultArray)
         } else {
             print("Error: No similarity matches found")
             reader.close()
@@ -664,40 +740,36 @@ public func perform_similarity_check(
     } catch {
         print("Error during vector similarity calculation: \(error)")
         print("Localized Description: \(error.localizedDescription)")
-        
-        // Attempt to determine more specific error type
-        if let mlError = error as? MLError {
-            print("CoreML Error: \(mlError.errorDescription)")
-        }
-        
+        print("Detailed CoreML error: \(coreMLErrorDescription(error))")
         return nil // Indicate failure with no results
     }
 }
 
-// MARK: - CoreML Error Handling
-
-extension MLError {
-    /// Returns a human-readable description of MLError codes
-    var errorDescription: String {
-        switch self.code {
-        case .featureType:
-            return "Invalid feature type"
-        case .genericError:
-            return "Generic CoreML error"
-        case .invalidImageSize:
-            return "Invalid image size for model input"
-        case .labelsNotFound:
-            return "Labels not found"
-        case .modelCreation:
-            return "Model creation failed"
-        case .modelMismatch:
-            return "Model mismatch"
-        case .notProcessed:
-            return "Not processed"
-        case .parameterError:
-            return "Parameter error"
-        @unknown default:
-            return "Unknown CoreML error code: \(self.code.rawValue)"
+/// Helper to provide more detailed CoreML error descriptions
+private func coreMLErrorDescription(_ error: Error) -> String {
+    guard let nsError = error as NSError? else { return error.localizedDescription }
+    if nsError.domain == "com.apple.CoreML" {
+        switch nsError.code {
+        case 1: return "Model loading error"
+        case 2: return "Prediction error"
+        case 3: return "Parameter error"
+        default: return "Unknown CoreML error code: \(nsError.code)"
         }
     }
+    return nsError.localizedDescription
 }
+
+// MARK: - C API Memory Management
+
+/// Frees a result array allocated by Swift and returned to C/++.
+/// - Parameter ptr: Pointer to the result array.
+/**
+ Frees a result array allocated by Swift and returned to C/++.
+ - Parameter ptr: Pointer to the result array (as UnsafeMutableRawPointer).
+*/
+@_cdecl("free_similarity_results")
+public func free_similarity_results(_ ptr: UnsafeMutableRawPointer?) {
+    guard let typedPtr = ptr?.assumingMemoryBound(to: SimilarityResult.self) else { return }
+    typedPtr.deallocate()
+}
+
