@@ -37,7 +37,7 @@ namespace tldr {
         bool initialize_embeddings_model();
 
         // Core functionalities
-        std::vector<std::vector<float>> get_embeddings(const std::vector<std::string>& texts);
+        std::vector<std::vector<float>> get_embeddings(const std::vector<std::string_view>& texts);
         std::string get_chat_response(const std::string& context, const std::string& user_prompt);
 
         void cleanup();

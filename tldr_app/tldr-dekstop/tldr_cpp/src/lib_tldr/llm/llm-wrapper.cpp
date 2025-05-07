@@ -66,7 +66,7 @@ namespace tldr {
         }
     }
 
-    std::vector<std::vector<float>> LlmManager::get_embeddings(const std::vector<std::string> &texts) {
+    std::vector<std::vector<float>> LlmManager::get_embeddings(const std::vector<std::string_view> &texts) {
         return embedding.llm_get_embeddings(texts);
     }
 

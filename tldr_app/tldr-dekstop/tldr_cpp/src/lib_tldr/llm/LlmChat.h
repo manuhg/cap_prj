@@ -8,6 +8,7 @@
 #include "llama.h"
 #include "common.h"
 #include <string>
+#include <vector>
 
 struct llm_result {
     bool error;
@@ -29,6 +30,8 @@ private:
     llama_model *model;
     const llama_vocab *vocab;
     common_params params;
+    std::vector<double> call_times_ms;
+    std::vector<size_t> prompt_sizes;
 };
 
 #endif //LLM_CHAT_H

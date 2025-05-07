@@ -14,6 +14,7 @@
 #include <vector>
 #include <vector>
 #include <vector>
+#include <chrono>
 
 #if defined(_MSC_VER)
 #pragma warning(disable: 4244 4267) // possible loss of data
@@ -74,6 +75,9 @@ static void batch_decode(llama_context *ctx, llama_batch &batch, float *output, 
 
 LlmEmbeddings::LlmEmbeddings(std::string model_path) {
     this->model_path = model_path;
+    call_times_ms = std::vector<double>();
+    batch_sizes = std::vector<size_t>();
+    prompt_sizes = std::vector<size_t>();
 }
 
 bool LlmEmbeddings::initialize_model() {
@@ -101,10 +105,11 @@ bool LlmEmbeddings::initialize_model() {
 
 }
 
-std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<std::string> input_batch) {
+std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<std::string_view> input_batch) {
     std::cout<<"Embeddings input batch size:"<<input_batch.size()<<"x"<<input_batch[0].size() <<std::endl;
     // max batch size
     const uint64_t n_batch = params.n_batch;
+    auto call_start = std::chrono::high_resolution_clock::now();
 
     const enum llama_pooling_type pooling_type = llama_pooling_type(ctx);
 
@@ -152,6 +157,8 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
     std::vector<float> embeddings(n_embd_count * n_embd, 0);
     float *emb = embeddings.data();
 
+    
+
     // break into batches
     int e = 0; // number of embeddings already stored
     int s = 0; // number of prompts in current batch
@@ -182,6 +189,8 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
     // clean up
     llama_batch_free(batch);
 
+    auto call_end = std::chrono::high_resolution_clock::now();
+
     // convert to 2D vector
     std::vector<std::vector<float>> embeddings_vec;
     embeddings_vec.reserve(n_embd_count);  // Optional but more efficient
@@ -192,6 +201,11 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
             embeddings.begin() + (i + 1) * n_embd
         );
     }
+
+    double total_ms = std::chrono::duration<double, std::milli>(call_end - call_start).count();
+    call_times_ms.push_back(total_ms);
+    batch_sizes.push_back(input_batch.size());
+    prompt_sizes.push_back(input_batch.empty()?0:input_batch[0].size());
 
     return embeddings_vec;
 }
@@ -204,5 +218,19 @@ void LlmEmbeddings::embedding_cleanup() {
     if (ctx != nullptr) {
         llama_free(ctx);
         ctx = nullptr;
+    }
+    if (!call_times_ms.empty()) {
+        double total_sum = 0;
+        for (double v : call_times_ms) total_sum += v;
+        // helper lambda for median
+        auto median=[](std::vector<double> v){ if(v.empty()) return 0.0; std::sort(v.begin(),v.end()); size_t mid=v.size()/2; return v.size()%2? v[mid]: (v[mid-1]+v[mid])/2.0;};
+        auto median_size=[&](std::vector<size_t> v){ if(v.empty()) return 0.0; std::sort(v.begin(),v.end()); size_t mid=v.size()/2; return v.size()%2? (double)v[mid]: ((double)v[mid-1]+v[mid])/2.0;};
+        double total_med=median(call_times_ms);
+        double batch_med=median_size(batch_sizes);
+        double prompt_med=median_size(prompt_sizes);
+        std::cout << "Embedding stats across " << call_times_ms.size() << " calls: total time "
+                  << total_sum/1000.0 << " s" << std::endl;
+        std::cout << "Median call time "<< total_med/1000.0 << " s, median batch "<< batch_med
+                  << ", median prompt size "<< prompt_med << std::endl;
     }
 }

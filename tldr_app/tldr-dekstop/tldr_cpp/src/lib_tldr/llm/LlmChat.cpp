@@ -5,15 +5,28 @@
 #include "LlmChat.h"
 
 #include <iostream>
+#include <chrono>
+#include <vector>
+#include <algorithm>
 
 LlmChat::LlmChat(std::string model_path) {
     this->model_path = model_path;
+    call_times_ms = std::vector<double>();
+    prompt_sizes = std::vector<size_t>();
 }
 
 void LlmChat::llm_chat_cleanup() {
     if (model != nullptr) {
         llama_model_free(model);
         model = nullptr;
+    }
+    if (!call_times_ms.empty()) {
+        double total_sum=0; for(double v:call_times_ms) total_sum+=v;
+        auto median=[&](std::vector<double> v){ std::sort(v.begin(),v.end()); size_t m=v.size()/2; return v.size()%2? v[m]:(v[m-1]+v[m])/2.0;};
+        auto median_size=[&](std::vector<size_t> v){ std::sort(v.begin(),v.end()); size_t m=v.size()/2; return v.size()%2? (double)v[m]:((double)v[m-1]+v[m])/2.0;};
+        double med=median(call_times_ms);
+        double prompt_med=median_size(prompt_sizes);
+        std::cout<<"Chat stats across "<<call_times_ms.size()<<" calls: total "<<total_sum/1000.0<<" s, median "<<med/1000.0<<" s, median prompt size "<<prompt_med<<std::endl;
     }
 }
 
@@ -101,6 +114,8 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
     llama_token new_token_id;
     std::string output = "";
 
+    auto call_start = std::chrono::high_resolution_clock::now();
+
     for (int n_pos = 0; n_pos + batch.n_tokens < ctx_size;) {
         // evaluate the current batch with the transformer model
         if (llama_decode(ctx, batch)) {
@@ -152,5 +167,11 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
 
     llama_sampler_free(smpl);
     llama_free(ctx);
+
+    auto call_end = std::chrono::high_resolution_clock::now();
+    double total_ms = std::chrono::duration<double, std::milli>(call_end - call_start).count();
+    call_times_ms.push_back(total_ms);
+    prompt_sizes.push_back(prompt.size());
+
     return {false, "", output};
 }

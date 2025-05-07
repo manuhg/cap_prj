@@ -10,7 +10,7 @@
 #include <mutex>
 #include <cstdlib>
 #include <regex>
-#include <curl/curl.h>
+// #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <memory>
 
@@ -162,7 +162,7 @@ int64_t saveEmbeddings(const std::vector<std::string> &chunks, const json &embed
 
     return g_db->saveEmbeddings(chunks, embeddings_response);
 }
-
+/*
 size_t WriteCallback(char *contents, size_t size, size_t nmemb, void *userp) {
     ((std::string *) userp)->append((char *) contents, size * nmemb);
     return size * nmemb;
@@ -206,7 +206,7 @@ std::string sendEmbeddingsRequest(const json &request, const std::string& url) {
 
     return response_data;
 }
-
+*/
 // Parse response and extract embeddings
 json parseEmbeddingsResponse(const std::string &response_data) {
     try {
@@ -270,14 +270,6 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
     std::vector<json> embeddings_list;
     embeddings_list.reserve(batch.size());
 
-    std::vector<std::string> batch_strings;
-
-    batch_strings.reserve(batch.size()); // optional, for efficiency
-    for (const auto& sv : batch) {
-        batch_strings.emplace_back(sv);  // copy each string_view to string
-    }
-
-
     int total_length = 0;
     for (const auto &chunk: batch) {
         total_length += chunk.length();
@@ -300,7 +292,7 @@ void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_
         std::cout << "Processing batch " << batch_num + 1 << " of " << total_batches << std::endl;
 
         try {
-            std::vector<std::vector<float>> batch_embeddings = tldr::get_llm_manager().get_embeddings(batch_strings);
+            std::vector<std::vector<float>> batch_embeddings = tldr::get_llm_manager().get_embeddings(batch);
             if (batch_embeddings.size() != batch.size()) {
                 std::cerr << "  Warning: Mismatch between input chunks (" << batch.size()
                           << ") and generated embeddings (" << batch_embeddings.size()
@@ -338,14 +330,14 @@ bool initializeSystem() {
     }
 
     // Initialize CURL globally (Restored)
-    CURLcode curl_init_ret = curl_global_init(CURL_GLOBAL_DEFAULT);
-    if (curl_init_ret != CURLE_OK) {
-        std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
+    // CURLcode curl_init_ret = curl_global_init(CURL_GLOBAL_DEFAULT);
+    // if (curl_init_ret != CURLE_OK) {
+        // std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
         // Cleanup already initialized components
         // LlmManager destructor will handle chat model cleanup.
         // Database unique_ptr handles db connection
-        return false;
-    }
+        // return false;
+    // }
     tldr::initialize_llm_manager_once();
 
     std::cout << "System initialized successfully." << std::endl;
@@ -354,7 +346,7 @@ bool initializeSystem() {
 
 void cleanupSystem() {
     // Cleanup CURL (If it was ever initialized - check initializeSystem)
-    curl_global_cleanup();
+    // curl_global_cleanup();
 
     // Database is managed by unique_ptr, will clean up automatically.
     // g_db.reset();
@@ -456,7 +448,7 @@ void queryRag(const std::string& user_query) {
 
     try {
         // Get embeddings for the user query using LlmManager
-        std::vector<std::string> query_vec = {user_query, "What is a SQL database?"};
+        std::vector<std::string_view> query_vec = {user_query, "What is a SQL database?"};
         std::vector<std::vector<float>> query_embeddings = tldr::get_llm_manager().get_embeddings(query_vec);
 
         if (query_embeddings.empty() || query_embeddings[0].empty()) {
