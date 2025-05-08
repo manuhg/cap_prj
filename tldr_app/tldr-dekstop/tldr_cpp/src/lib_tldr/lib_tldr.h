@@ -10,7 +10,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include "libs/sqlite_modern_cpp.h"
+// #include "libs/sqlite_modern_cpp.h"
 #include "vec_dump.h"
 
 // Structure for similarity search results from the NPU accelerator

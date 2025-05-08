@@ -605,7 +605,7 @@ std::vector<std::pair<std::string, float>> searchSimilarVectorsNPU(
     int k
 ) {
     std::vector<std::pair<std::string, float>> results;
-
+/*
     // Get CoreML model path from the release-products directory
     const char* model_path = "/Users/manu/proj_tldr/tldr-dekstop/release-products/artifacts/CosineSimilarityBatched.mlmodelc";
 
@@ -666,7 +666,7 @@ std::vector<std::pair<std::string, float>> searchSimilarVectorsNPU(
     } catch (const std::exception& e) {
         std::cerr << "Error in NPU similarity search: " << e.what() << std::endl;
     }
-
+*/
     return results;
 }
 
@@ -702,14 +702,14 @@ bool test_vector_cache() {
 
     // Step 1: Dump the test data
     std::cout << "\nStep 1: Dumping test embeddings to " << test_file << std::endl;
-    if (!dump_vectors_to_file(test_file, test_embeddings, test_hashes)) {
+    if (!tldr::dump_vectors_to_file(test_file, test_embeddings, test_hashes)) {
         std::cerr << "Error: Failed to dump test embeddings" << std::endl;
         return false;
     }
 
     // Step 2: Read the dumped file
     std::cout << "\nStep 2: Reading the vector dump file" << std::endl;
-    auto mapped_data = read_vector_dump_file(test_file);
+    auto mapped_data = tldr::read_vector_dump_file(test_file);
     if (!mapped_data) {
         std::cerr << "Error: Failed to read the vector dump file" << std::endl;
         return false;

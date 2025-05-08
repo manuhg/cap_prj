@@ -20,7 +20,7 @@ bool dump_vectors_to_file(const std::string& source_path,
     
     // Extract the base filename from source path
     std::filesystem::path path(source_path);
-    std::string filename = "vcd-" + path.filename().string() + ".bin";
+    std::string filename = path.filename().string() + ".vecdump";
     
     std::ofstream out(filename, std::ios::binary);
     if (!out) {

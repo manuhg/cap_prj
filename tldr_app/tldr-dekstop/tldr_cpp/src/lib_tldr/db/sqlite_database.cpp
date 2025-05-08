@@ -125,7 +125,7 @@ namespace tldr {
             const auto &chunk = chunks[i];
             size_t hash = i < embedding_hashes.size() ? embedding_hashes[i] : 0;
 
-            sqlite3_bind_text(stmt, 1, chunk.c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, 1, std::string(chunk).c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_int64(stmt, 2, static_cast<sqlite3_int64>(hash));
             sqlite3_bind_text(stmt, 3, embeddings_response.dump().c_str(), -1, SQLITE_STATIC);
 

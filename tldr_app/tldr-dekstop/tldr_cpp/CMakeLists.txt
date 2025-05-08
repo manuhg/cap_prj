@@ -45,6 +45,8 @@ add_library(tldr STATIC
     ${SOURCE_DIR}/lib_tldr/llm/LlmChat.h
     ${SOURCE_DIR}/lib_tldr/llm/LlmEmbeddings.cpp
     ${SOURCE_DIR}/lib_tldr/llm/LlmEmbeddings.h
+    ${SOURCE_DIR}/lib_tldr/vec_dump.cpp
+    ${SOURCE_DIR}/lib_tldr/vec_dump.h
 )
 
 # Include directories for the library
