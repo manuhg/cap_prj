@@ -12,6 +12,7 @@
 #include <cstdint>
 // #include "libs/sqlite_modern_cpp.h"
 #include "vec_dump.h"
+#include "npu_accelerator.h"
 
 // Structure for similarity search results from the NPU accelerator
 struct VectorSimilarityMatch {
@@ -60,6 +61,11 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size = 2, 
 
 // Include vector dump functionality
 #include "vec_dump.h"
+std::map<uint64_t, float> npuCosineSimSearchWrapper(
+    const float *queryVector, const int queryVectorDimensions, const int32_t k = 5,
+    const char *corpusDir = "/Users/manu/proj_tldr/corpus/current/",
+    const char *modelPath =
+            "/Users/manu/proj_tldr/tldr-dekstop/release-products/artefacts/CosineSimilarityBatched.mlmodelc");
 
 bool initializeSystem();
 void cleanupSystem();
@@ -67,6 +73,6 @@ void addCorpus(const std::string &sourcePath);
 void deleteCorpus(const std::string &corpusId);
 void doRag(const std::string &conversationId);
 void command_loop();
-void queryRag(const std::string& user_query, const std::string& corpus_dir = "corpus/embedded");
+void queryRag(const std::string& user_query, const std::string& corpus_dir = "/Users/manu/proj_tldr/corpus/current/");
 
 #endif //TLDR_CPP_MAIN_H

@@ -22,7 +22,6 @@
 
 #include "lib_tldr.h"
 #include "llama.h"
-#include "npu_accelerator.h"
 #include "llm/llm-wrapper.h"
 #include "lib_tldr/constants.h"
 
@@ -298,7 +297,8 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
     // Pass the raw embeddings and computed hashes to saveEmbeddingsToDb
     int64_t saved_id = saveEmbeddingsToDb(batch, batch_embeddings, embeddings_hash);
     if (saved_id < 0) {
-        throw std::runtime_error("Failed to save embeddings to database");
+        std::cerr<<"Failed to save embeddings to database";
+        // throw std::runtime_error("Failed to save embeddings to database");
     }
     return saved_id;
 }
@@ -563,7 +563,8 @@ void queryRag(const std::string& user_query, const std::string& corpus_dir) {
         );
 
         if (similar_chunks.empty()) {
-            std::cout << "No results from NPU search, falling back to database search..." << std::endl;
+            std::cerr << "No results from NPU search, falling back to database search..." << std::endl;
+            exit(1);
             // Fallback to traditional database search if NPU search returns no results
             similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
         }
@@ -598,76 +599,85 @@ void queryRag(const std::string& user_query, const std::string& corpus_dir) {
     }
 }
 
+std::map<uint64_t, float> npuCosineSimSearchWrapper(
+    const float *queryVector, const int queryVectorDimensions,
+    const int32_t k,
+    const char *corpusDir, const char *modelPath) {
+    std::cout << "Calling Swift function from C++..." << std::endl;
+
+    // Define the path to the compiled Core ML model and corpus directory
+    std::cout << "C++: Using model path: " << modelPath << std::endl;
+    std::cout << "C++: Using corpus directory: " << corpusDir << std::endl;
+
+    int32_t resultCount = 0;
+    std::map<uint64_t, float> hash_scores;
+
+    // Call the Swift function
+    SimilarityResult *results_ptr = retrieve_similar_vectors_from_corpus(
+        modelPath,
+        corpusDir,
+        queryVector,
+        queryVectorDimensions,
+        k,
+        &resultCount
+    );
+    if (results_ptr && resultCount > 0) {
+        for (int32_t i = 0; i < resultCount; i++)
+            hash_scores[results_ptr[i].hash] = results_ptr[i].score;
+    } else
+        std::cerr << "No similar chunks found! " << std::endl;
+
+    if (results_ptr)
+        free_similarity_results(results_ptr);
+
+    return hash_scores;
+}
+
 // Wrapper function for NPU-accelerated vector similarity search
-std::vector<std::pair<std::string, float>> searchSimilarVectorsNPU(
-    const std::vector<float>& query_vector,
-    const std::string& corpus_dir,
-    int k
-) {
-    std::vector<std::pair<std::string, float>> results;
-/*
-    // Get CoreML model path from the release-products directory
-    const char* model_path = "/Users/manu/proj_tldr/tldr-dekstop/release-products/artifacts/CosineSimilarityBatched.mlmodelc";
+std::vector<std::pair<std::string, float> > searchSimilarVectorsNPU(
+    const std::vector<float> &query_vector,
+    const std::string &corpus_dir,
+    int k) {
+    std::vector<std::pair<std::string, float> > similar_chunks;
+
 
     // We'll collect the hashes from the results and only then query the database
     // This is more efficient than loading all embeddings upfront
+    if (query_vector.size() != EMBEDDING_SIZE_INT)
+        throw std::runtime_error(std::format(
+            "Query vector size does not match the pre-defined embedding size! Expected {}, got {}",EMBEDDING_SIZE,
+            query_vector.size()));
 
     try {
-        // Convert vector dimensions to int32_t
-        int32_t dimensions = static_cast<int32_t>(query_vector.size());
+        std::map<uint64_t, float> hash_scores = npuCosineSimSearchWrapper(query_vector.data(),
+                                                                          query_vector.size(), k, corpus_dir.c_str());
 
-        // Prepare to call Swift function
-        int32_t result_count = 0;
-
-        // Call the NPU similarity search function
-        SimilarityResult* swift_results = retrieve_similar_vectors_from_corpus(
-            model_path,                             // CoreML model path
-            corpus_dir.c_str(),                     // Vector corpus directory
-            query_vector.data(),                    // Query vector pointer
-            dimensions,                             // Query vector dimensions
-            k,                                      // Number of results to return
-            &result_count                           // Output: number of results
-        );
-
-        if (swift_results && result_count > 0) {
-            // Collect all the hashes we need to look up
-            std::vector<uint64_t> hashes_to_lookup;
-            std::map<uint64_t, float> hash_scores;
-
-            for (int32_t i = 0; i < result_count; i++) {
-                uint64_t hash = swift_results[i].hash;
-                float score = swift_results[i].score;
-
-                hashes_to_lookup.push_back(hash);
-                hash_scores[hash] = score; // Store the score for this hash
-            }
-
-            // Query the database for just these specific hashes
-            std::map<uint64_t, std::string> hash_to_text;
-            if (g_db) {
-                hash_to_text = g_db->getChunksByHashes(hashes_to_lookup);
-            }
-
-            // Convert results to the expected format using the looked-up text chunks
-            for (const auto& [hash, score] : hash_scores) {
-                auto it = hash_to_text.find(hash);
-                if (it != hash_to_text.end()) {
-                    results.emplace_back(it->second, score);
-                } else {
-                    // If text not found, use hash as identifier
-                    std::string hash_id = "Hash_" + std::to_string(hash);
-                    results.emplace_back(hash_id, score);
-                }
-            }
-
-            // Free the results from Swift
-            free(swift_results);
+        std::vector<uint64_t> hashes_to_lookup;
+        for (const auto &pair: hash_scores) {
+            hashes_to_lookup.push_back(pair.first);
         }
-    } catch (const std::exception& e) {
+
+
+        // Query the database for just these specific hashes
+        std::map<uint64_t, std::string> hash_to_text;
+        if (g_db) {
+            hash_to_text = g_db->getChunksByHashes(hashes_to_lookup);
+        }
+
+        // Convert results to the expected format using the looked-up text chunks
+        for (const auto &[hash, score]: hash_scores) {
+            auto it = hash_to_text.find(hash);
+            if (it != hash_to_text.end()) {
+                similar_chunks.emplace_back(it->second, score);
+            } else {
+                // If text not found, use hash as identifier
+                std::cerr << "HASH_NOT_FOUND-" <<hash<< std::endl;
+            }
+        }
+    } catch (const std::exception &e) {
         std::cerr << "Error in NPU similarity search: " << e.what() << std::endl;
     }
-*/
-    return results;
+    return similar_chunks;
 }
 
 // Test vector cache dump and read functionality

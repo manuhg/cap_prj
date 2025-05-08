@@ -245,13 +245,16 @@ namespace tldr {
             std::string query = "SELECT embedding_hash, chunk_text FROM embeddings WHERE embedding_hash IN (";
             
             // Create parameters list and placeholder string
+            std::cout << "hashes for  search_query:" << std::endl;
             std::vector<std::string> params;
             for (size_t i = 0; i < hashes.size(); ++i) {
                 if (i > 0) query += ",";
                 query += "$" + std::to_string(i + 1);
+                std::cout <<std::to_string(hashes[i])<<"\n";
                 params.push_back(std::to_string(hashes[i]));
             }
             query += ")";
+
             
             // Execute query with prepared parameters
             pqxx::result db_result = txn.exec_params(query, params);
