@@ -360,7 +360,7 @@ bool initializeSystem() {
     // Initialize llama.cpp backend (required before model loading)
     // TODO: Consider where backend init/free should ideally live
 
-    perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/CosineSimilarityBatched.mlmodelc");
+    // perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/CosineSimilarityBatched.mlmodelc");
     if (!initializeDatabase()) {
         std::cerr << "Failed to initialize database" << std::endl;
         return false;
