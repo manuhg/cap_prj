@@ -442,12 +442,12 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
 
                             // Compute hashes for these embeddings
                             std::vector<size_t> batch_hashes = computeEmbeddingHashes(batch_emb);
+                            saveEmbeddingsThreadSafe(batch_chunks,batch_emb,batch_hashes);
 
                             // Save the embeddings and hashes for this thread
                             thread_embeddings[j] = std::move(batch_emb);
                             thread_hashes[j] = std::move(batch_hashes);
 
-                            saveEmbeddingsThreadSafe(batch_chunks,batch_emb,batch_hashes);
 
                             // Also save to database for consistency with previous behavior
                             // processChunkBatch(batch_chunks, batch_num, total_batches, ids[j]);
