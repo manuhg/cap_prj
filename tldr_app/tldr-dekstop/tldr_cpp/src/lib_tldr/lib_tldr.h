@@ -22,7 +22,7 @@ struct VectorSimilarityMatch {
 };
 
 // Wrapper function for NPU similarity search
-std::vector<std::pair<std::string, float>> searchSimilarVectorsNPU(
+std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectorsNPU(
     const std::vector<float>& query_vector,
     const std::string& corpus_dir,
     int k
@@ -53,7 +53,7 @@ bool initializeDatabase();
 int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, const std::vector<std::vector<float>> &embeddings, const std::vector<uint64_t> &embeddings_hash = {});
 std::string sendEmbeddingsRequest(const json &request, const std::string& url);
 json parseEmbeddingsResponse(const std::string &response_data);
-int saveEmbeddingsThreadSafe(const std::vector<std::string> &batch, const std::vector<std::vector<float>> &batch_embeddings, const std::vector<uint64_t> &embeddings_hash);
+int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch, const std::vector<std::vector<float>> &batch_embeddings, const std::vector<uint64_t> &embeddings_hash);
 void processChunkBatch(const std::vector<std::string> &batch, size_t batch_num, size_t total_batches, int &result_id);
 // Returns gathered embeddings and their hashes
 std::pair<std::vector<std::vector<float>>, std::vector<uint64_t>> 

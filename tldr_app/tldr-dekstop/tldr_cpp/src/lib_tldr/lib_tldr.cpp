@@ -443,7 +443,7 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
 
                             // Compute hashes for these embeddings
                             std::vector<uint64_t> batch_hashes = computeEmbeddingHashes(batch_emb);
-                            saveEmbeddingsThreadSafe(std::vector<std::string>(batch_chunks.begin(), batch_chunks.end()), batch_emb, batch_hashes);
+                            saveEmbeddingsThreadSafe(batch_chunks, batch_emb, batch_hashes);
 
                             // Save the embeddings and hashes for this thread
                             thread_embeddings[j] = std::move(batch_emb);
@@ -569,14 +569,18 @@ void queryRag(const std::string& user_query, const std::string& corpus_dir) {
             // Fallback to traditional database search if NPU search returns no results
             similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
         }
-        exit(1);
+
 
         // 3. Prepare context from similar chunks
+        std::cout << "obtained embedding hashes:" << std::endl;
         std::string context_str;
-        for (const auto& [chunk, similarity] : similar_chunks) {
+        for (const auto& chunk_data : similar_chunks) {
+            const auto& [chunk, similarity, hash] = chunk_data;
             context_str += chunk + "\n\n"; // Simple concatenation
+            std::cout  <<hash<< std::endl;
+            // You can now use the hash if needed
         }
-
+        std::cout << std::endl;
         if (context_str.empty()) {
             context_str = "No relevant context found.";
             std::cerr << "No relevant context found in DB either!" << std::endl;
@@ -590,9 +594,11 @@ void queryRag(const std::string& user_query, const std::string& corpus_dir) {
         std::cout << "\nGenerated Response:\n";
         std::cout << final_response << "\n";
         std::cout << "\nContext used:\n";
-        for (const auto& [chunk, similarity] : similar_chunks) {
+        for (const auto& chunk_data : similar_chunks) {
+            const auto& [chunk, similarity, hash] = chunk_data;
             std::cout << "\nSimilarity: " << similarity << "\n";
             std::cout << "Content: " << chunk << "\n";
+            std::cout << "Hash: " << hash << "\n";
             std::cout << "----------------------------------------\n";
         }
 
@@ -637,11 +643,11 @@ std::map<uint64_t, float> npuCosineSimSearchWrapper(
 }
 
 // Wrapper function for NPU-accelerated vector similarity search
-std::vector<std::pair<std::string, float> > searchSimilarVectorsNPU(
+std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectorsNPU(
     const std::vector<float> &query_vector,
     const std::string &corpus_dir,
     int k) {
-    std::vector<std::pair<std::string, float> > similar_chunks;
+    std::vector<std::tuple<std::string, float, uint64_t>> similar_chunks;
 
 
     // We'll collect the hashes from the results and only then query the database
@@ -653,7 +659,13 @@ std::vector<std::pair<std::string, float> > searchSimilarVectorsNPU(
 
     try {
         std::map<uint64_t, float> hash_scores = npuCosineSimSearchWrapper(query_vector.data(),
-                                                                          query_vector.size(), k, corpus_dir.c_str());
+                                                                           query_vector.size(), k, corpus_dir.c_str());
+
+        // Print the hash values returned by the NPU search
+        std::cout << "NPU search returned the following hashes:" << std::endl;
+        for (const auto &pair: hash_scores) {
+            std::cout << "Hash: " << pair.first << ", Score: " << pair.second << std::endl;
+        }
 
         std::vector<uint64_t> hashes_to_lookup;
         for (const auto &pair: hash_scores) {
@@ -671,10 +683,11 @@ std::vector<std::pair<std::string, float> > searchSimilarVectorsNPU(
         for (const auto &[hash, score]: hash_scores) {
             auto it = hash_to_text.find(hash);
             if (it != hash_to_text.end()) {
-                similar_chunks.emplace_back(it->second, score);
+                similar_chunks.emplace_back(it->second, score, hash);
+                std::cout << "Found match for hash: " << hash << std::endl;
             } else {
                 // If text not found, use hash as identifier
-                std::cerr << "HASH_NOT_FOUND-" <<hash<< std::endl;
+                std::cerr << "HASH_NOT_FOUND-" << hash << std::endl;
             }
         }
     } catch (const std::exception &e) {

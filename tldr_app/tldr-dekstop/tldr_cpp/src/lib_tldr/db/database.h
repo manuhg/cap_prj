@@ -23,7 +23,7 @@ namespace tldr {
         // Get embeddings by ID
         virtual bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) = 0;
 
-        virtual std::vector<std::pair<std::string, float>> searchSimilarVectors(const std::vector<float>& query_vector, int k) = 0;
+        virtual std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectors(const std::vector<float>& query_vector, int k) = 0;
 
         
         // Get text chunks by hash values

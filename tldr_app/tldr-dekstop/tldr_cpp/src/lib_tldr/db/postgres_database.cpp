@@ -62,7 +62,7 @@ namespace tldr {
                 "id BIGSERIAL PRIMARY KEY,"
                 "chunk_text TEXT NOT NULL,"
                 "text_hash BIGINT NOT NULL,"
-                "embedding_hash BIGINT,"
+                "embedding_hash TEXT," // Store as TEXT to avoid sign issues with uint64_t
                 "embedding vector(" EMBEDDING_SIZE ") NOT NULL,"  // Assuming 2048-dimensional embeddings
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
             );
@@ -138,12 +138,14 @@ namespace tldr {
                 vector_str += "]";
 
                 // Get hash if available, or use 0 as default
-                size_t hash = i < embedding_hashes.size() ? embedding_hashes[i] : 0;
+                uint64_t hash = i < embedding_hashes.size() ? embedding_hashes[i] : 0;
                 
                 // Execute the prepared statement with parameters
                 pqxx::params params;
                 params.append(chunks[i]);
-                params.append(static_cast<long long>(hash));  // Cast to long long for PostgreSQL bigint
+                
+                // Store the hash as a string to avoid sign issues when converting between uint64_t and BIGINT
+                params.append(std::to_string(hash));
                 params.append(vector_str);
                 // Use exec_prepared directly
                 auto result = txn.exec_prepared(stmt_name, params);
@@ -200,7 +202,7 @@ namespace tldr {
         }
     }
 
-    std::vector<std::pair<std::string, float>> PostgresDatabase::searchSimilarVectors(const std::vector<float>& query_vector, int k) {
+    std::vector<std::tuple<std::string, float, uint64_t>> PostgresDatabase::searchSimilarVectors(const std::vector<float>& query_vector, int k) {
         pqxx::connection *conn = nullptr;
         if (!openConnection(conn)) {
             return {};
@@ -219,18 +221,23 @@ namespace tldr {
 
             // Perform similarity search using cosine distance
             std::string query = 
-                "SELECT chunk_text, 1 - (embedding <=> " + vector_str + ") as similarity "
+                "SELECT chunk_text, 1 - (embedding <=> " + vector_str + ") as similarity, embedding_hash "
                 "FROM embeddings "
                 "ORDER BY embedding <=> " + vector_str + " "
                 "LIMIT " + std::to_string(k);
 
             auto result = txn.exec(query);
-            std::vector<std::pair<std::string, float>> results;
+            std::vector<std::tuple<std::string, float, uint64_t>> results;
 
             for (const auto& row : result) {
+                // Convert the hash from string to uint64_t
+                std::string hash_str = row["embedding_hash"].as<std::string>();
+                uint64_t hash = std::stoull(hash_str);
+                
                 results.emplace_back(
                     row["chunk_text"].as<std::string>(),
-                    row["similarity"].as<float>()
+                    row["similarity"].as<float>(),
+                    hash
                 );
             }
 
@@ -261,26 +268,27 @@ namespace tldr {
             pqxx::work txn(*conn);
             
             // Build the query with parameter placeholders
+            // Note: embedding_hash is now TEXT in the database
             std::string query = "SELECT embedding_hash, chunk_text FROM embeddings WHERE embedding_hash IN (";
             
             // Create parameters list and placeholder string
-            std::cout << "hashes for  search_query:" << std::endl;
-            std::vector<std::string> params;
+            std::cout << "hashes for search_query:" << std::endl;
             for (size_t i = 0; i < hashes.size(); ++i) {
                 if (i > 0) query += ",";
-                query += "$" + std::to_string(i + 1);
-                std::cout <<std::to_string(hashes[i])<<"\n";
-                params.push_back(std::to_string(hashes[i]));
+                std::string hash_str = std::to_string(hashes[i]);
+                query += "'" + hash_str + "'";
+                std::cout << hash_str << "\n";
             }
             query += ")";
 
-            std::cout<<"\nparams.size: "<<params.size()<<"\n";
             // Use the newer exec method directly with the params vector
-            pqxx::result db_result = txn.exec(query, params);
+            pqxx::result db_result = txn.exec(query);
             
             // Process results
             for (const auto& row : db_result) {
-                uint64_t hash = row["embedding_hash"].as<uint64_t>();
+                // Convert the hash from string to uint64_t
+                std::string hash_str = row["embedding_hash"].as<std::string>();
+                uint64_t hash = std::stoull(hash_str);
                 std::string text = row["chunk_text"].as<std::string>();
                 results[hash] = text;
             }
