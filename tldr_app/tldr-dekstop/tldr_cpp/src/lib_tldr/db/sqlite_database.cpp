@@ -90,7 +90,7 @@ namespace tldr {
         return true;
     }
 
-    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string_view> &chunks, const json &embeddings_response, const std::vector<size_t> &embedding_hashes) {
+    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string_view> &chunks, const json &embeddings_response, const std::vector<uint64_t> &embedding_hashes) {
         sqlite3 *db = nullptr;
         if (!openConnection(db)) {
             return -1;
@@ -123,7 +123,7 @@ namespace tldr {
         // Insert each chunk and its embedding
         for (size_t i = 0; i < chunks.size(); ++i) {
             const auto &chunk = chunks[i];
-            size_t hash = i < embedding_hashes.size() ? embedding_hashes[i] : 0;
+            uint64_t hash = i < embedding_hashes.size() ? embedding_hashes[i] : 0;
 
             sqlite3_bind_text(stmt, 1, std::string(chunk).c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_int64(stmt, 2, static_cast<sqlite3_int64>(hash));

@@ -69,6 +69,7 @@ namespace tldr {
 
             // Create unique index on text_hash to prevent duplicates
             txn.exec("CREATE UNIQUE INDEX IF NOT EXISTS embeddings_text_hash_idx ON embeddings (text_hash)");
+            txn.exec("CREATE UNIQUE INDEX IF NOT EXISTS embeddings_hash_idx ON embeddings (embedding_hash)");
 
             // Create index for vector similarity search
             txn.exec("CREATE INDEX IF NOT EXISTS embeddings_vector_idx ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)");
@@ -83,7 +84,7 @@ namespace tldr {
         }
     }
 
-    int64_t PostgresDatabase::saveEmbeddings(const std::vector<std::string_view> &chunks, const json &embeddings_response, const std::vector<size_t> &embedding_hashes) {
+    int64_t PostgresDatabase::saveEmbeddings(const std::vector<std::string_view> &chunks, const json &embeddings_response, const std::vector<uint64_t> &embedding_hashes) {
         pqxx::connection *conn = nullptr;
         if (!openConnection(conn)) {
             return -1;
@@ -97,14 +98,31 @@ namespace tldr {
             std::string stmt_name = "insert_embedding_" + std::to_string(statement_counter++);
 
             // Prepare the statement with a unique name
+#if DB_HASH_PRESENT_ACTION==DB_HASH_PRESENT_UPSERT
             txn.conn().prepare(
                 stmt_name,
                 "INSERT INTO embeddings (chunk_text, text_hash, embedding_hash, embedding) "
                 "VALUES ($1, hashtextextended($1::text, 0), $2, $3) "
-                "ON CONFLICT (text_hash) DO NOTHING "
+                "ON CONFLICT (text_hash) DO UPDATE SET "
+                "chunk_text = EXCLUDED.chunk_text, "
+                "text_hash = EXCLUDED.text_hash, "
+                "embedding = EXCLUDED.embedding, "
+                "created_at = CURRENT_TIMESTAMP "
                 "RETURNING id"
             );
-
+#else
+            txn.conn().prepare(
+                stmt_name,
+                "INSERT INTO embeddings (chunk_text, text_hash, embedding_hash, embedding) "
+                "VALUES ($1, hashtextextended($1::text, 0), $2, $3) "
+                "ON CONFLICT (text_hash) DO UPDATE SET "
+                "chunk_text = EXCLUDED.chunk_text, "
+                "text_hash = EXCLUDED.text_hash, "
+                "embedding = EXCLUDED.embedding, "
+                "created_at = CURRENT_TIMESTAMP "
+                "RETURNING id"
+            );
+#endif
             int64_t last_id = -1;
             // Get the embeddings array from the response
             const auto& embeddings = embeddings_response["embeddings"];
@@ -127,6 +145,7 @@ namespace tldr {
                 params.append(chunks[i]);
                 params.append(static_cast<long long>(hash));  // Cast to long long for PostgreSQL bigint
                 params.append(vector_str);
+                // Use exec_prepared directly
                 auto result = txn.exec_prepared(stmt_name, params);
 
                 // Get the last inserted id
@@ -158,8 +177,8 @@ namespace tldr {
             pqxx::params params;
             params.append(id);
 
-            // Execute the query with parameters
-            auto result = txn.exec_params(
+            // Use the newer exec method directly with the params vector
+            auto result = txn.exec(
                 "SELECT chunk_text, embedding_data FROM embeddings WHERE id = $1",
                 params
             );
@@ -255,9 +274,9 @@ namespace tldr {
             }
             query += ")";
 
-            
-            // Execute query with prepared parameters
-            pqxx::result db_result = txn.exec_params(query, params);
+            std::cout<<"\nparams.size: "<<params.size()<<"\n";
+            // Use the newer exec method directly with the params vector
+            pqxx::result db_result = txn.exec(query, params);
             
             // Process results
             for (const auto& row : db_result) {

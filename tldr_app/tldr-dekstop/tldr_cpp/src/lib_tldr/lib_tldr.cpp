@@ -157,7 +157,7 @@ bool initializeDatabase() {
     return true;
 }
 
-int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, const std::vector<std::vector<float>> &embeddings, const std::vector<size_t> &embeddings_hash) {
+int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, const std::vector<std::vector<float>> &embeddings, const std::vector<uint64_t> &embeddings_hash) {
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return -1;
@@ -259,13 +259,13 @@ json parseEmbeddingsResponse(const std::string &response_data) {
 }
 
 // Helper: Compute hash for each embedding
-static std::vector<size_t> computeEmbeddingHashes(const std::vector<std::vector<float>>& embeddings_list) {
-    std::vector<size_t> hashes;
+static std::vector<uint64_t> computeEmbeddingHashes(const std::vector<std::vector<float>>& embeddings_list) {
+    std::vector<uint64_t> hashes;
     hashes.reserve(embeddings_list.size());
 
     std::hash<float> float_hasher;
     for (const auto& emb : embeddings_list) {
-        size_t seed = 0;
+        uint64_t seed = 0;
         for (float v : emb) {
             // Combine hash (similar to boost::hash_combine)
             seed ^= float_hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -277,7 +277,7 @@ static std::vector<size_t> computeEmbeddingHashes(const std::vector<std::vector<
 
 // Save embeddings to database with thread safety
 int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
-    const std::vector<std::vector<float>> &batch_embeddings, const std::vector<size_t> &embeddings_hash) {
+    const std::vector<std::vector<float>> &batch_embeddings, const std::vector<uint64_t> &embeddings_hash) {
 
     json embeddings_json;
     embeddings_json["embeddings"] = json::array();
@@ -302,6 +302,7 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
     }
     return saved_id;
 }
+
 /*
 void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_num, size_t total_batches,
                        int &result_id) {
@@ -394,7 +395,7 @@ void cleanupSystem() {
 
 // Vector dump functionality is now in vec_dump.h/cpp
 
-std::pair<std::vector<std::vector<float>>, std::vector<size_t>>
+std::pair<std::vector<std::vector<float>>, std::vector<uint64_t>>
 obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size_t num_threads) {
     // System initialization is now handled by initializeSystem()
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
@@ -403,7 +404,7 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
 
     // We'll collect all embeddings and hashes
     std::vector<std::vector<float>> all_embeddings;
-    std::vector<size_t> all_hashes;
+    std::vector<uint64_t> all_hashes;
     all_embeddings.reserve(chunks.size());
     all_hashes.reserve(chunks.size());
 
@@ -413,7 +414,7 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
         for (size_t batch_start = 0; batch_start < chunks.size(); batch_start += batch_size * num_threads) {
             std::vector<std::thread> threads;
             std::vector<std::vector<std::vector<float>>> thread_embeddings(num_threads);
-            std::vector<std::vector<size_t>> thread_hashes(num_threads);
+            std::vector<std::vector<uint64_t>> thread_hashes(num_threads);
 
             // Create a mutex to protect access to the embeddings and hashes collections
             // std::mutex collection_mutex;
@@ -441,8 +442,8 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
                             std::vector<std::vector<float>> batch_emb = tldr::get_llm_manager().get_embeddings(batch_chunks);
 
                             // Compute hashes for these embeddings
-                            std::vector<size_t> batch_hashes = computeEmbeddingHashes(batch_emb);
-                            saveEmbeddingsThreadSafe(batch_chunks,batch_emb,batch_hashes);
+                            std::vector<uint64_t> batch_hashes = computeEmbeddingHashes(batch_emb);
+                            saveEmbeddingsThreadSafe(std::vector<std::string>(batch_chunks.begin(), batch_chunks.end()), batch_emb, batch_hashes);
 
                             // Save the embeddings and hashes for this thread
                             thread_embeddings[j] = std::move(batch_emb);
@@ -564,10 +565,11 @@ void queryRag(const std::string& user_query, const std::string& corpus_dir) {
 
         if (similar_chunks.empty()) {
             std::cerr << "No results from NPU search, falling back to database search..." << std::endl;
-            exit(1);
+
             // Fallback to traditional database search if NPU search returns no results
             similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
         }
+        exit(1);
 
         // 3. Prepare context from similar chunks
         std::string context_str;
@@ -577,6 +579,7 @@ void queryRag(const std::string& user_query, const std::string& corpus_dir) {
 
         if (context_str.empty()) {
             context_str = "No relevant context found.";
+            std::cerr << "No relevant context found in DB either!" << std::endl;
         }
 
         // 4. Generate response using LlmManager's chat model
@@ -686,7 +689,7 @@ bool test_vector_cache() {
 
     // Create sample embeddings and hashes
     std::vector<std::vector<float>> test_embeddings;
-    std::vector<size_t> test_hashes;
+    std::vector<uint64_t> test_hashes;
 
     // Create 5 test embeddings with 16 dimensions each
     const size_t num_embeddings = 5;

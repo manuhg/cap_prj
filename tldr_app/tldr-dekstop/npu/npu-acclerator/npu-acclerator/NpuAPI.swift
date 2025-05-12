@@ -740,23 +740,14 @@ public func perform_similarity_check(
     } catch {
         print("Error during vector similarity calculation: \(error)")
         print("Localized Description: \(error.localizedDescription)")
-        print("Detailed CoreML error: \(coreMLErrorDescription(error))")
+        
+        // Attempt to determine more specific error type
+        if let nsError = error as NSError?, nsError.domain == "com.apple.CoreML" {
+            print("CoreML NSError: \(nsError.localizedDescription)")
+            print("CoreML code: \(nsError.code)")
+        }
         return nil // Indicate failure with no results
     }
-}
-
-/// Helper to provide more detailed CoreML error descriptions
-private func coreMLErrorDescription(_ error: Error) -> String {
-    guard let nsError = error as NSError? else { return error.localizedDescription }
-    if nsError.domain == "com.apple.CoreML" {
-        switch nsError.code {
-        case 1: return "Model loading error"
-        case 2: return "Prediction error"
-        case 3: return "Parameter error"
-        default: return "Unknown CoreML error code: \(nsError.code)"
-        }
-    }
-    return nsError.localizedDescription
 }
 
 // MARK: - C API Memory Management

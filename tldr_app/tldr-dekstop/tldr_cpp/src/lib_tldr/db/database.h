@@ -18,7 +18,7 @@ namespace tldr {
         // Save embeddings to the database
         virtual int64_t saveEmbeddings(const std::vector<std::string_view> &chunks, 
                                       const json &embeddings_response,
-                                      const std::vector<size_t> &embedding_hashes = {}) = 0;
+                                      const std::vector<uint64_t> &embedding_hashes = {}) = 0;
 
         // Get embeddings by ID
         virtual bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) = 0;

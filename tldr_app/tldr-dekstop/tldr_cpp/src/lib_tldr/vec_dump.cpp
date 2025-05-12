@@ -11,7 +11,7 @@ namespace tldr {
 // Dump vectors and hashes to a binary file for memory mapping
 bool dump_vectors_to_file(const std::string& source_path, 
                          const std::vector<std::vector<float>>& embeddings,
-                         const std::vector<size_t>& hashes) {
+                         const std::vector<uint64_t>& hashes) {
     
     if (embeddings.empty() || hashes.empty() || embeddings.size() != hashes.size()) {
         std::cerr << "Error: Invalid embeddings or hashes for dumping to file" << std::endl;
@@ -31,7 +31,7 @@ bool dump_vectors_to_file(const std::string& source_path,
     // Prepare the header
     VectorCacheDumpHeader header;
     header.num_entries = static_cast<uint32_t>(embeddings.size());
-    header.hash_size_bytes = sizeof(size_t);
+    header.hash_size_bytes = sizeof(uint64_t);
     header.vector_dimensions = static_cast<uint32_t>(embeddings[0].size());
     header.vector_size_bytes = sizeof(float) * header.vector_dimensions;
     
@@ -103,7 +103,7 @@ std::unique_ptr<MappedVectorData> read_vector_dump_file(const std::string& dump_
     result->vectors = reinterpret_cast<const float*>(
         static_cast<const char*>(result->mapped_memory) + header_size);
         
-    result->hashes = reinterpret_cast<const size_t*>(
+    result->hashes = reinterpret_cast<const uint64_t*>(
         static_cast<const char*>(result->mapped_memory) + header_size + vectors_section_size);
     
     return result;
@@ -152,7 +152,7 @@ bool test_vector_cache() {
     
     // Create sample embeddings and hashes
     std::vector<std::vector<float>> test_embeddings;
-    std::vector<size_t> test_hashes;
+    std::vector<uint64_t> test_hashes;
     
     // Create 5 test embeddings with 16 dimensions each
     const size_t num_embeddings = 5;
@@ -200,7 +200,7 @@ bool test_vector_cache() {
     // Verify header
     bool header_verified = 
         (mapped_data->header->num_entries == num_embeddings) &&
-        (mapped_data->header->hash_size_bytes == sizeof(size_t)) &&
+        (mapped_data->header->hash_size_bytes == sizeof(uint64_t)) &&
         (mapped_data->header->vector_dimensions == dimensions);
     
     std::cout << "Header verification: " << (header_verified ? "PASSED" : "FAILED") << std::endl;
@@ -213,8 +213,8 @@ bool test_vector_cache() {
         std::cout << "\nVerifying element at index " << test_idx << ":" << std::endl;
         
         // Original hash and the one read from file
-        size_t original_hash = test_hashes[test_idx];
-        size_t read_hash = mapped_data->hashes[test_idx];
+        uint64_t original_hash = test_hashes[test_idx];
+        uint64_t read_hash = mapped_data->hashes[test_idx];
         
         std::cout << "Hash verification: Original = " << original_hash 
                   << ", Read = " << read_hash 

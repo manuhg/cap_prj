@@ -23,7 +23,7 @@ struct MappedVectorData {
     int fd = -1;                           // File descriptor
     VectorCacheDumpHeader* header = nullptr; // Pointer to the header
     const float* vectors = nullptr;        // Pointer to the vectors array
-    const size_t* hashes = nullptr;        // Pointer to the hashes array
+    const uint64_t* hashes = nullptr;        // Pointer to the hashes array
     
     // Cleanup resources
     ~MappedVectorData() {
@@ -39,7 +39,7 @@ struct MappedVectorData {
 // Dump vectors and hashes to a binary file for memory mapping
 bool dump_vectors_to_file(const std::string& source_path, 
                          const std::vector<std::vector<float>>& embeddings,
-                         const std::vector<size_t>& hashes);
+                         const std::vector<uint64_t>& hashes);
 
 // Read a vector dump file using memory mapping and return pointers to the data
 std::unique_ptr<MappedVectorData> read_vector_dump_file(const std::string& dump_file_path);
