@@ -8,6 +8,7 @@
 #include <chrono>
 #include <vector>
 #include <algorithm>
+#include "../constants.h"
 
 LlmChat::LlmChat(std::string model_path) {
     this->model_path = model_path;
@@ -16,6 +17,13 @@ LlmChat::LlmChat(std::string model_path) {
 }
 
 void LlmChat::llm_chat_cleanup() {
+    // Clean up the context pool first
+    if (context_pool) {
+        context_pool->clear();
+        context_pool.reset();
+    }
+    
+    // Then free the model
     if (model != nullptr) {
         llama_model_free(model);
         model = nullptr;
@@ -38,6 +46,14 @@ bool LlmChat::initialize_model() {
 
         this->model = llama_model_load_from_file(model_path.c_str(), model_params);
         this->vocab = llama_model_get_vocab(model);
+        
+        // Create context pool with sizes defined in constants.h
+        llama_context_params ctx_params = llama_context_default_params();
+        ctx_params.n_ctx = 2048; // Default context size
+        ctx_params.n_batch = 512; // Default batch size
+        
+        context_pool = std::make_unique<tldr::LlmContextPool>(model, CHAT_MIN_CONTEXTS, CHAT_MAX_CONTEXTS, ctx_params);
+        
         return true;
     } catch (const std::exception &e) {
         std::cerr << "Exception initializing chat model: " << e.what() << std::endl;
@@ -64,22 +80,17 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
         return {true, "failed to tokenize the prompt\n"};
     }
 
-    // initialize the context
-
-    llama_context_params ctx_params = llama_context_default_params();
-    // n_ctx is the context size
-    int ctx_size = 2048;
-    ctx_params.n_ctx = ctx_size;//n_prompt + n_predict - 1;
-    // n_batch is the maximum number of tokens that can be processed in a single call to llama_decode
-    ctx_params.n_batch = n_prompt;
-    // enable performance counters
-    ctx_params.no_perf = false;
-
-    llama_context *ctx = llama_init_from_model(model, ctx_params);
-
+    // Acquire a context from the pool
+    auto ctx_handle = context_pool->acquire_context();
+    if (!ctx_handle) {
+        fprintf(stderr, "%s: error: failed to acquire context from pool\n", __func__);
+        return {true, "failed to acquire context from pool\n"};
+    }
+    
+    llama_context *ctx = ctx_handle->get();
     if (ctx == NULL) {
-        fprintf(stderr, "%s: error: failed to create the llama_context\n", __func__);
-        return {true, "failed to create the llama_context\n"};
+        fprintf(stderr, "%s: error: acquired null context from pool\n", __func__);
+        return {true, "acquired null context from pool\n"};
     }
 
     // initialize the sampler
@@ -116,6 +127,8 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
 
     auto call_start = std::chrono::high_resolution_clock::now();
 
+    // Get the context size from the context parameters
+    const int ctx_size = llama_n_ctx(ctx);
     for (int n_pos = 0; n_pos + batch.n_tokens < ctx_size;) {
         // evaluate the current batch with the transformer model
         if (llama_decode(ctx, batch)) {
@@ -165,8 +178,9 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
     llama_perf_context_print(ctx);
     fprintf(stderr, "\n");
 
+    // Free the sampler but don't free the context - it will be returned to the pool
     llama_sampler_free(smpl);
-    llama_free(ctx);
+    // Context is automatically returned to the pool when ctx_handle goes out of scope
 
     auto call_end = std::chrono::high_resolution_clock::now();
     double total_ms = std::chrono::duration<double, std::milli>(call_end - call_start).count();

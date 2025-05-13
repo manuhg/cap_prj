@@ -7,6 +7,7 @@
 #include "common.h"
 #include "llama.h"
 #include "arg.h"
+#include "../constants.h"
 
 #include <ctime>
 #include <algorithm>
@@ -90,19 +91,15 @@ bool LlmEmbeddings::initialize_model() {
 
     std::cout<<"Embeddings initialized"<<std::endl;
 
-
-
-    // GGML_ASSERT(params.n_batch >= params.n_ctx);
+    // Create context parameters for embeddings
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ubatch = 2048;
-    ctx_params.embeddings=true;
-
-    this->ctx = llama_init_from_model(model, ctx_params);
-    if (ctx == NULL) {
-        fprintf(stderr, "%s: error: failed to create the llama_context\n", __func__);
-        throw "failed to create the llama_context";
-    }
-
+    ctx_params.embeddings = true;
+    
+    // Create context pool with sizes defined in constants.h
+    context_pool = std::make_unique<tldr::LlmContextPool>(model, EMBEDDING_MIN_CONTEXTS, EMBEDDING_MAX_CONTEXTS, ctx_params);
+    
+    return true;
 }
 
 std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<std::string_view> input_batch) {
@@ -110,7 +107,20 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
     // max batch size
     const uint64_t n_batch = params.n_batch;
     auto call_start = std::chrono::high_resolution_clock::now();
-
+    
+    // Acquire a context from the pool
+    auto ctx_handle = context_pool->acquire_context();
+    if (!ctx_handle) {
+        std::cerr << "Failed to acquire context from pool" << std::endl;
+        return std::vector<std::vector<float>>();
+    }
+    
+    llama_context *ctx = ctx_handle->get();
+    if (ctx == NULL) {
+        std::cerr << "Acquired null context from pool" << std::endl;
+        return std::vector<std::vector<float>>();
+    }
+    
     const enum llama_pooling_type pooling_type = llama_pooling_type(ctx);
 
     // tokenize the prompts and trim
@@ -211,13 +221,16 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
 }
 
 void LlmEmbeddings::embedding_cleanup() {
+    // Clean up the context pool first
+    if (context_pool) {
+        context_pool->clear();
+        context_pool.reset();
+    }
+    
+    // Then free the model
     if (model != nullptr) {
         llama_model_free(model);
         model = nullptr;
-    }
-    if (ctx != nullptr) {
-        llama_free(ctx);
-        ctx = nullptr;
     }
     if (!call_times_ms.empty()) {
         double total_sum = 0;

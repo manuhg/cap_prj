@@ -7,8 +7,10 @@
 
 #include "llama.h"
 #include "common.h"
+#include "LlmContextPool.h"
 #include <string>
 #include <vector>
+#include <memory>
 
 struct llm_result {
     bool error;
@@ -26,12 +28,14 @@ public:
 private:
     std::string model_path;
     int n_gpu_layers;
-    llama_context *ctx;
     llama_model *model;
     const llama_vocab *vocab;
     common_params params;
     std::vector<double> call_times_ms;
     std::vector<size_t> prompt_sizes;
+    
+    // Context pool for reusing contexts
+    std::unique_ptr<tldr::LlmContextPool> context_pool;
 };
 
 #endif //LLM_CHAT_H

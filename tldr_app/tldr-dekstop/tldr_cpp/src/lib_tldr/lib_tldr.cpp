@@ -420,14 +420,13 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
             // std::mutex collection_mutex;
 
             // Launch threads
-            // for (size_t j = 0; j < num_threads && batch_start + j * batch_size < chunks.size(); ++j) {
-                int j =0;
+            for (size_t j = 0; j < num_threads && batch_start + j * batch_size < chunks.size(); ++j) {
                 size_t start = batch_start + j * batch_size;
                 size_t end = std::min(start + batch_size, chunks.size());
-/*
+
                 threads.emplace_back(
                     [&chunks, start, end, batch_start, batch_size, total_batches, &ids, j, num_threads,
-                     &thread_embeddings, &thread_hashes]() {*/
+                     &thread_embeddings, &thread_hashes]() {
                         try {
                             // Create a vector of string_view for the current batch
                             std::vector<std::string_view> batch_chunks(
@@ -456,8 +455,8 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
                         } catch (const std::exception &e) {
                             std::cerr << "Thread " << j << " error: " << e.what() << std::endl;
                         }
-                    /* });
-            }*/
+                    });
+            }
 
             // Wait for all threads in this group to complete
             for (auto &thread: threads) {
