@@ -1,0 +1,170 @@
+\documentclass [11pt, proquest] {uwthesis}[03/03/15] %[2021/06/15]
+\usepackage{graphicx}
+\usepackage[sort&compress,numbers]{natbib}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[breaklinks,hidelinks]{hyperref}
+\usepackage{amsmath,amssymb,amsfonts,amsthm,epsfig,epstopdf,titling,url}
+\usepackage{enumerate}
+\usepackage{algorithm,algorithmic}
+\usepackage{{booktabs}}
+
+\newenvironment{packed_enum}{
+\begin{enumerate}[a)]
+  \setlength{\itemsep}{1pt}
+  \setlength{\parskip}{0pt}
+  \setlength{\parsep}{0pt}
+}{\end{enumerate}}
+
+\newenvironment{packed_enum1}{
+\begin{enumerate}[1.]
+  \setlength{\itemsep}{1pt}
+  \setlength{\parskip}{0pt}
+  \setlength{\parsep}{0pt}
+}{\end{enumerate}}
+
+\newenvironment{packed_enum_par}{
+\begin{enumerate}[1)]
+  \setlength{\itemsep}{1pt}
+  \setlength{\parskip}{0pt}
+  \setlength{\parsep}{0pt}
+}{\end{enumerate}}
+
+\newenvironment{packed_e}{
+\begin{enumerate}
+  \setlength{\itemsep}{1pt}
+  \setlength{\parskip}{0pt}
+  \setlength{\parsep}{0pt}
+}{\end{enumerate}}
+
+\newenvironment{packed_itemize}{
+\begin{itemize}
+  \setlength{\itemsep}{1pt}
+  \setlength{\parskip}{0pt}
+  \setlength{\parsep}{0pt}
+}{\end{itemize}}
+
+% ==========   Local defs and mods
+
+% ----------- definitions format
+\theoremstyle{definition}
+\newtheorem{defn}{Definition}
+\newtheorem{conj}{Conjecture}[section]
+\newtheorem{exmp}{Example}[section]
+
+
+
+% ================================
+% DOCUMENT
+% ================================
+\begin{document}
+
+\prelimpages
+% \raggedbottom
+
+
+% ---------------------------
+
+\Title{Project TLDR: Standalone desktop application for question answering and summarization using resource-efficient LLMs}
+
+\Author{Manu Hegde}
+\Year{2025}
+\Program{Computer Science and Software Engineering}
+
+\Chair{Erika Parsons}{}{School of Science, Technology, Engineering \& Mathematics}
+\Signature{Michael Stiber}
+\Signature{Shane Steinert-Threlkeld}
+
+\copyrightpage
+
+\titlepage  
+
+
+\setcounter{page}{-1}
+\abstract{
+
+This project presents the design and development of a standalone desktop application that enables offline question answering and summarization over a user-provided document corpus using resource-efficient large language models (LLMs). Targeted to run on Apple's M1 / M2 hardware, it leverages on-device processing through Apple's neural engine (ANE) and Apple metal shaders (GPU). The application aims to address growing concerns about data privacy, resource consumption, and user accessibility. Unlike cloud-based tools, which require constant internet connectivity and expose sensitive data to third-party servers, this application provides a secure, localized alternative optimized for academic researchers and students. Core capabilities include a graphical interface and retrieval-augmented generation (RAG) over user specified corpus, while leveraging only a fraction of system resources to allow for seamless multi-tasking. Evaluation is based on both functional quality (e.g., BERTScore comparison to ChatGPT) and nonfunctional metrics (e.g., memory, CPU usage). The outcome is a practical and efficient tool that allows users to interact with large academic corpora while maintaining system responsiveness and data confidentiality.
+
+
+}
+
+%
+% ----- contents & etc.
+%
+\tableofcontents
+\listoffigures
+\listoftables  
+
+%
+% ----- acknowledgments
+%
+\acknowledgments{% \vskip2pc
+  % {\narrower\noindent
+I would like to express my gratitude to Prof. Erika Parsons for all the valuable guidance and help during this work. Furthermore, I sincerely thank Prof. Steinert-Threlkeld and Prof. Stiber for accepting my request to be on the committee for this thesis and for providing precise feedback.
+  % \par}
+}
+%
+% end of the preliminary pages
+ 
+ 
+ 
+%
+% ==========      Text pages
+%
+\textpages
+% ============================================================
+%
+%                   CHAPTER 1: INTRODUCTION
+%
+% =============================================================
+\input{1_Introduction.tex}
+
+% ============================================================
+%
+%                   CHAPTER 2: THEORETICAL BACKGROUND
+%
+% =============================================================
+\input{2_TheoreticalBackground.tex}
+
+% ============================================================
+%
+%                   CHAPTER 3: RELATED WORK
+%
+% =============================================================
+\input{3_RelatedWork.tex}
+
+% ============================================================
+%
+%                   CHAPTER 4: METHODS
+%
+% =============================================================
+\input{4_Methods.tex}
+
+% ============================================================
+%
+%                   CHAPTER 5: RESULTS
+%
+% =============================================================
+\input{5_Results.tex}
+
+% ============================================================
+%
+%                   CHAPTER 6: CONCLUSION
+%
+% =============================================================
+\input{6_Conclusion.tex}
+
+\printendnotes
+
+%
+% ==========   Bibliography
+%
+% \nocite{*}   % include everything in the uwthesis.bib file
+\bibliographystyle{plain}
+\bibliography{uwthesis}
+%
+% ==========   Appendices
+%
+
+\end{document}
