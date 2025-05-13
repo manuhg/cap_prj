@@ -4,8 +4,10 @@
 #ifndef LLM_EMBEDDING_H
 #define LLM_EMBEDDING_H
 #include <vector>
+#include <memory>
 #include "llama.h"
 #include "common.h"
+#include "LlmContextPool.h"
 
 class LlmEmbeddings {
 public:
@@ -18,11 +20,13 @@ private:
     llama_model * model;
     const llama_vocab * vocab;
     common_params params;
-    llama_context *ctx;
     // store total runtime in milliseconds for each embeddings call
     std::vector<double> call_times_ms;
     std::vector<size_t> batch_sizes;
     std::vector<size_t> prompt_sizes;
+    
+    // Context pool for reusing contexts
+    std::unique_ptr<tldr::LlmContextPool> context_pool;
 };
 
 
