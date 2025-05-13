@@ -14,6 +14,10 @@
 #define MAX_CHUNK_SIZE (MAX_CHARS_PER_BATCH-(CHUNK_N_OVERLAP*2))
 #define BATCH_SIZE 8
 
+#define DB_HASH_PRESENT_UPSERT 1
+#define DB_HASH_PRESENT_DO_NOTHING 2
+#define DB_HASH_PRESENT_ACTION DB_HASH_PRESENT_DO_NOTHING
+
 #define NUM_THREADS 1
 #define CONN_POOL_SIZE NUM_THREADS
 
@@ -35,6 +39,7 @@
 #define MAX_RETRIES 1
 #define RETRY_DELAY_MS 1000
 #define EMBEDDING_SIZE "384" // keep it string so that it can be inserted into create table stmt
+#define EMBEDDING_SIZE_INT 384 // keep it string so that it can be inserted into create table stmt
 #define K_SIMILAR_CHUNKS_TO_RETRIEVE 5
 struct embeddings_request {
     std::vector<std::string> input;

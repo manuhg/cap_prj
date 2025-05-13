@@ -74,6 +74,7 @@ namespace tldr {
         const char *sql = "CREATE TABLE IF NOT EXISTS embeddings ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                 "chunk_text TEXT NOT NULL,"
+                "embedding_hash TEXT," // Store as TEXT to avoid issues with uint64_t
                 "embedding_data TEXT NOT NULL,"
                 "created_at DATETIME DEFAULT CURRENT_TIMESTAMP)";
 
@@ -89,7 +90,7 @@ namespace tldr {
         return true;
     }
 
-    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string> &chunks, const json &embeddings_response) {
+    int64_t SQLiteDatabase::saveEmbeddings(const std::vector<std::string_view> &chunks, const json &embeddings_response, const std::vector<uint64_t> &embedding_hashes) {
         sqlite3 *db = nullptr;
         if (!openConnection(db)) {
             return -1;
@@ -110,7 +111,7 @@ namespace tldr {
 
         // Prepare the insert statement
         sqlite3_stmt *stmt;
-        const char *sql = "INSERT INTO embeddings (chunk_text, embedding_data) VALUES (?, ?)";
+        const char *sql = "INSERT INTO embeddings (chunk_text, embedding_hash, embedding_data) VALUES (?, ?, ?)";
         rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
 
         if (rc != SQLITE_OK) {
@@ -120,9 +121,13 @@ namespace tldr {
         }
 
         // Insert each chunk and its embedding
-        for (const auto &chunk: chunks) {
-            sqlite3_bind_text(stmt, 1, chunk.c_str(), -1, SQLITE_STATIC);
-            sqlite3_bind_text(stmt, 2, embeddings_response.dump().c_str(), -1, SQLITE_STATIC);
+        for (size_t i = 0; i < chunks.size(); ++i) {
+            const auto &chunk = chunks[i];
+            uint64_t hash = i < embedding_hashes.size() ? embedding_hashes[i] : 0;
+
+            sqlite3_bind_text(stmt, 1, std::string(chunk).c_str(), -1, SQLITE_STATIC);
+            sqlite3_bind_int64(stmt, 2, static_cast<sqlite3_int64>(hash));
+            sqlite3_bind_text(stmt, 3, embeddings_response.dump().c_str(), -1, SQLITE_STATIC);
 
             rc = sqlite3_step(stmt);
             if (rc != SQLITE_DONE) {
@@ -187,8 +192,8 @@ namespace tldr {
         return false;
     }
 
-    std::vector<std::pair<std::string, float>> SQLiteDatabase::searchSimilarVectors(const std::vector<float>& query_vector, int k) {
-        std::vector<std::pair<std::string, float>> results;
+    std::vector<std::tuple<std::string, float, uint64_t>> SQLiteDatabase::searchSimilarVectors(const std::vector<float>& query_vector, int k) {
+        std::vector<std::tuple<std::string, float, uint64_t>> results;
         
         try {
             // Convert vector to string representation
@@ -203,7 +208,7 @@ namespace tldr {
             SQLite::Database db(db_path_, SQLite::OPEN_READWRITE);
 
             // Prepare and execute query
-            std::string query = "SELECT chunk_text, similarity FROM embeddings "
+            std::string query = "SELECT chunk_text, similarity, embedding_hash FROM embeddings "
                               "CROSS JOIN (SELECT embedding_data, "
                               "cosine_similarity(embedding_data, ?) as similarity "
                               "FROM embeddings ORDER BY similarity DESC LIMIT ?) AS similar_chunks "
@@ -217,12 +222,72 @@ namespace tldr {
             while (stmt.executeStep()) {
                 std::string chunk_text = stmt.getColumn(0).getString();
                 float similarity = stmt.getColumn(1).getDouble();
-                results.emplace_back(chunk_text, similarity);
+                uint64_t hash = stmt.getColumn(2).getInt64();
+                results.emplace_back(chunk_text, similarity, hash);
             }
         } catch (const std::exception& e) {
             std::cerr << "Error in searchSimilarVectors: " << e.what() << std::endl;
         }
 
+        return results;
+    }
+
+    // Get text chunks by their hash values (for NPU-accelerated similarity search)
+    std::map<uint64_t, std::string> SQLiteDatabase::getChunksByHashes(const std::vector<uint64_t>& hashes) {
+        std::map<uint64_t, std::string> results;
+        
+        if (hashes.empty()) {
+            return results;
+        }
+        
+        try {
+            sqlite3* db = nullptr;
+            if (!openConnection(db)) {
+                return results;
+            }
+            
+            // Prepare the query with placeholders for hash values
+            std::string query = "SELECT embedding_hash, chunk_text FROM embeddings WHERE embedding_hash IN (";
+            
+            // Add placeholders for each hash
+            for (size_t i = 0; i < hashes.size(); ++i) {
+                if (i > 0) query += ",";
+                query += "?";
+            }
+            query += ")";
+            
+            sqlite3_stmt *stmt;
+            const char *sql = query.c_str();
+            int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, 0);
+            if (rc != SQLITE_OK) {
+                std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+                closeConnection(db);
+                return results;
+            }
+            
+            // Bind hash values to the query as TEXT
+            for (size_t i = 0; i < hashes.size(); ++i) {
+                // Convert uint64_t hash to string for comparison with TEXT column
+                std::string hash_str = std::to_string(hashes[i]);
+                sqlite3_bind_text(stmt, i+1, hash_str.c_str(), -1, SQLITE_TRANSIENT); // SQLite uses 1-based indexing for parameters
+            }
+            
+            // Execute and collect results
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                // Get the hash as TEXT and convert back to uint64_t
+                const char *hash_str = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+                uint64_t hash = std::stoull(hash_str);
+                const char *text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+                results[hash] = text;
+            }
+            
+            sqlite3_finalize(stmt);
+            closeConnection(db);
+            std::cout << "Retrieved " << results.size() << " text chunks by hash from SQLite database" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Error in getChunksByHashes: " << e.what() << std::endl;
+        }
+        
         return results;
     }
 }

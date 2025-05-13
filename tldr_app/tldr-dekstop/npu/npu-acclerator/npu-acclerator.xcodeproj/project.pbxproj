@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		32DD787F2DCC2314000E7908 /* CoreML.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 32DD787E2DCC2314000E7908 /* CoreML.framework */; };
+		32DD78832DCC251A000E7908 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 32DD78822DCC251A000E7908 /* Foundation.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		3246FD452DBED84B007A32A0 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -20,6 +25,9 @@
 
 /* Begin PBXFileReference section */
 		3246FD472DBED84B007A32A0 /* npu-acclerator */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "npu-acclerator"; sourceTree = BUILT_PRODUCTS_DIR; };
+		32DD787E2DCC2314000E7908 /* CoreML.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreML.framework; path = System/Library/Frameworks/CoreML.framework; sourceTree = SDKROOT; };
+		32DD78802DCC231B000E7908 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
+		32DD78822DCC251A000E7908 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -35,6 +43,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				32DD787F2DCC2314000E7908 /* CoreML.framework in Frameworks */,
+				32DD78832DCC251A000E7908 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -45,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				3246FD492DBED84B007A32A0 /* npu-acclerator */,
+				32DD787D2DCC2313000E7908 /* Frameworks */,
 				3246FD482DBED84B007A32A0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,6 +66,16 @@
 				3246FD472DBED84B007A32A0 /* npu-acclerator */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		32DD787D2DCC2313000E7908 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				32DD78822DCC251A000E7908 /* Foundation.framework */,
+				32DD78802DCC231B000E7908 /* Accelerate.framework */,
+				32DD787E2DCC2314000E7908 /* CoreML.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
