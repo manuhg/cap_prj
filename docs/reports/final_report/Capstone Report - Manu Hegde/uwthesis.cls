@@ -646,7 +646,7 @@
 \def\School#1{\gdef\@School{#1}} \School{University of Washington}
 \def\GSchool#1{\gdef\@GSchool{#1}} \GSchool{Graduate School}
 \def\Degreetext#1{\gdef\@Degreetext{#1}} 
-  \Degreetext{A thesis\\ submitted in partial fulfillment of the\\requirements for the degree of}
+  \Degreetext{A Capstone project report \\ submitted in partial fulfillment of the\\requirements for the degree of}
 \def\Programtext#1{\gdef\@Programtext{#1}}  
        \Programtext{Program Authorized to Offer Degree: }
 
