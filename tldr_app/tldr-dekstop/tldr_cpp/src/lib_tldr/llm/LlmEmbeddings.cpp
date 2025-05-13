@@ -7,6 +7,7 @@
 #include "common.h"
 #include "llama.h"
 #include "arg.h"
+#include "../constants.h"
 
 #include <ctime>
 #include <algorithm>
@@ -95,8 +96,8 @@ bool LlmEmbeddings::initialize_model() {
     ctx_params.n_ubatch = 2048;
     ctx_params.embeddings = true;
     
-    // Create context pool with initial size of 2 contexts and max size of 4
-    context_pool = std::make_unique<tldr::LlmContextPool>(model, 1, 2, ctx_params);
+    // Create context pool with sizes defined in constants.h
+    context_pool = std::make_unique<tldr::LlmContextPool>(model, EMBEDDING_MIN_CONTEXTS, EMBEDDING_MAX_CONTEXTS, ctx_params);
     
     return true;
 }

@@ -8,6 +8,7 @@
 #include <chrono>
 #include <vector>
 #include <algorithm>
+#include "../constants.h"
 
 LlmChat::LlmChat(std::string model_path) {
     this->model_path = model_path;
@@ -46,12 +47,12 @@ bool LlmChat::initialize_model() {
         this->model = llama_model_load_from_file(model_path.c_str(), model_params);
         this->vocab = llama_model_get_vocab(model);
         
-        // Create context pool with initial size of 1 contexts and max size of 2
+        // Create context pool with sizes defined in constants.h
         llama_context_params ctx_params = llama_context_default_params();
         ctx_params.n_ctx = 2048; // Default context size
         ctx_params.n_batch = 512; // Default batch size
         
-        context_pool = std::make_unique<tldr::LlmContextPool>(model, 1, 2, ctx_params);
+        context_pool = std::make_unique<tldr::LlmContextPool>(model, CHAT_MIN_CONTEXTS, CHAT_MAX_CONTEXTS, ctx_params);
         
         return true;
     } catch (const std::exception &e) {

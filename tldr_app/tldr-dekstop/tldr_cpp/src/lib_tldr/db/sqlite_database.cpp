@@ -8,7 +8,7 @@ namespace tldr {
         : db_path_(db_path),
           conn_pool(
               db_path,
-              CONN_POOL_SIZE,
+              DB_CONN_POOL_SIZE,
               [](const std::string &path) {
                   sqlite3 *db = nullptr;
                   int rc = sqlite3_open(path.c_str(), &db);

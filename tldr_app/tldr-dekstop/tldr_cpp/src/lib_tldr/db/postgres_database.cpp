@@ -8,7 +8,7 @@ namespace tldr {
         : connection_string_(connection_string),
           conn_pool(
               connection_string,
-              CONN_POOL_SIZE,
+              DB_CONN_POOL_SIZE,
               [](const std::string &conn_str) {
                   return new pqxx::connection(conn_str);
               },

@@ -18,8 +18,8 @@
 #define DB_HASH_PRESENT_DO_NOTHING 2
 #define DB_HASH_PRESENT_ACTION DB_HASH_PRESENT_DO_NOTHING
 
-#define NUM_THREADS 1
-#define CONN_POOL_SIZE NUM_THREADS
+#define NUM_THREADS 4
+#define DB_CONN_POOL_SIZE NUM_THREADS
 
 // Database constants
 #define USE_POSTGRES true  // Set to true to use PostgreSQL, false for SQLite
@@ -41,6 +41,14 @@
 #define EMBEDDING_SIZE "384" // keep it string so that it can be inserted into create table stmt
 #define EMBEDDING_SIZE_INT 384 // keep it string so that it can be inserted into create table stmt
 #define K_SIMILAR_CHUNKS_TO_RETRIEVE 5
+
+// LLM context pool constants
+// Chat model context pool sizes
+#define CHAT_MIN_CONTEXTS 1
+#define CHAT_MAX_CONTEXTS 2
+// Embedding model context pool sizes - can have more contexts since embedding operations are faster
+#define EMBEDDING_MIN_CONTEXTS 4
+#define EMBEDDING_MAX_CONTEXTS 6
 struct embeddings_request {
     std::vector<std::string> input;
 };
