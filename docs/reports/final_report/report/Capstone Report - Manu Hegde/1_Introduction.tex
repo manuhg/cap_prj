@@ -4,33 +4,43 @@
 
 %----------------------
 \section{Background and Motivation}
-\label{sec:Background and Motivation}
+\label{sec:BackgroundAndMotivation}
 %----------------------
-The increasing volume of academic and research materials necessitates the development of efficient tools capable of processing and interpreting large text corpus \cite{vaswani2017attention, devlin2018bert}. Students and researchers, identified as the primary intended users of this project, frequently interact with numerous papers and books, requiring methods to both understand individual documents and handle collections of documents in a single context for a holistic understanding of subjects or topics \cite{liu2019text}.
 
-Existing tools often require significant manual intervention, particularly when more than one document is involved \cite{beltagy2020longformer}.
+The field of Natural Language Processing (NLP) has undergone a significant transformation with the advent of Large Language Models (LLMs), which are capable of performing complex language understanding and generation tasks. Groundbreaking works such as the Transformer architecture \cite{vaswani2017attention}, BERT \cite{devlin2018bert}, and GPT-family models \cite{brown2020language, openai2023gpt4} have paved the way for highly capable models that support applications such as summarization \cite{liu2019text}, question answering \cite{izacard2021leveraging}, and document understanding \cite{beltagy2020longformer}. These advances have been further systematized in the concept of foundation models \cite{bommasani2021opportunities}, which emphasize the broad applicability and adaptability of pre-trained LLMs.
 
-Furthermore, many current solutions, such as popular online Large Language Models (LLMs) like ChatGPT, Gemini, and Claude, compel users to share potentially sensitive data with third-party servers. This practice raises considerable concerns regarding \textbf{privacy and data security} \cite{bommasani2021opportunities, wolf2019huggingface}. For example, if a researcher needs a summary of survey data, the data needs to be shared with the online tool. Reported instances of leakage of data shared with ChatGPT exacerbate these concerns \cite{openai2023gpt4}. Additionally, online LLMs may include information from \textbf{unknown sources} in their output, leading to loss of credibility of the information.
+Despite their success, most widely used LLM applications operate via cloud-based services, which introduce significant limitations when it comes to privacy, data security, and control over computational resources. This is particularly concerning in academic contexts, where students and researchers often deal with sensitive or proprietary content. Recent studies have raised awareness of the risks associated with exposing private data to generative models, including membership inference \cite{mattern2023membership} and data extraction attacks \cite{nasr2023extraction}. Moreover, surveys indicate increasing usage of LLMs in research and education, highlighting both the demand for such tools and the concerns around data governance \cite{deschenes2024survey, hosseini2023chatgpt}.
 
-While desktop-based solutions like Ollama and LLamaFile do exist, their goals are intended towards enabling a large number of open-source models to run on a diverse set of hardware \cite{touvron2023llama}. This narrows their user base to only those who are \textbf{technically skilled}. Furthermore, it limits their scope to optimize performance and streamline usability for specific use cases. These solutions also do not provide the ability to perform Question-Answering over multiple documents \cite{izacard2021leveraging}.
+Simultaneously, the hardware landscape has evolved to enable local deployment of such models. Apple's M1 and M2 chipsets integrate high-performance CPUs, GPUs, and a dedicated Neural Processing Unit (NPU) through the Apple Neural Engine (ANE). These architectures offer a promising platform for efficient, on-device inference of LLMs, provided the models are adapted appropriately to operate under limited memory and compute budgets.
 
-This project is motivated by the \textbf{need for a convenient, confidential, and productivity-enhancing tool designed specifically for students and researchers}, providing secure, local, and resource-efficient capabilities for interacting with their document collections. It aims to fill the gap in the current set of tools for researching information by leveraging the latest advancements in Natural Language Processing \cite{brown2020language, raffel2020exploring}.
+This convergence of high-capability models, growing privacy concerns, and increasingly powerful consumer hardware forms the backdrop for \textit{Project TLDR}—a standalone desktop application for summarization and question answering over a user-specified corpus. The tool is designed to run entirely offline, preserving user privacy while leveraging optimized LLM inference. The project makes use of modern techniques such as quantization \cite{jacob2017quantization} and low-rank adaptation (LoRA) \cite{hu2021lora} to reduce computational overhead and improve deployment feasibility on M1/M2 hardware. Additionally, the use of Retrieval-Augmented Generation (RAG) \cite{lewis2020rag} ensures that answers and summaries are grounded in user-provided text, enhancing both contextual relevance and factual consistency.
+
+In essence, this project is motivated by the goal of empowering academic users with a practical, secure, and efficient means of engaging with large volumes of textual data. By tying together advances in NLP, secure computing practices, and consumer-grade hardware acceleration, Project TLDR aims to demonstrate that high-quality language understanding can be brought directly to the user's device—without compromise.
 %----------------------
-\section{Research Objective and Solution}
-\label{sec:ResearchObjectiveandSolution}
+\section{Our Contributions}
+\label{sec:OurContributions}
 %----------------------
-This research aims to employ Deep Learning (DL) methods to create Computational Fluid Dynamics (CFD) simulations involving the interaction of fluid flow with an obstacle in a 2-dimensional environment. The objective is to decrease the simulation's execution time compared to conventional simulation techniques. To achieve this goal, a novel neural network architecture incorporating approaches from existing research in DL for CFD and new ideas for this field are proposed. The DL solution proposed is an end-to-end data-driven solution. This means it is a unified process that can use data to learn the complexities of a fluid flow spatial structure's evolution over time. It can also quickly adapt to changing environments represented by different datasets by directly learning from raw data that represents the intrinsic patterns of fluid mechanics. This solution combines an autoencoder and a generator implemented with a ConvLSTM neural network.
 
-Compared to related solutions in DL for CFD that use different datasets (like Homogeneous Isotropic Turbulence data) or focus on the Dimensionality Reduction techniques of the input data, this research's emphasis is on generating a fluid flow simulation interacting with an obstacle and how well it generalize between distinct shapes of obstacles in various positions and sizes. Additionally, this research studies the effectiveness of the Convolutional LSTM neural network by implementing the model using only this type of architecture.
+In this project, we present \textit{Project TLDR}, a privacy-preserving, offline, and resource-efficient desktop application that enables users to perform Question Answering (QA) and Summarization over personal document repositories. Designed primarily for MacOS systems powered by Apple’s M1 and M2 architectures, the application aims to support academic and research workflows where confidentiality, simplicity, and efficiency are paramount.
 
-Two primary metrics are used to evaluate the success of this solution: execution time and accuracy. The execution time of the simulation using the DL model is compared to a traditional CFD simulation. Its accuracy, when compared to the conventional method, is measured using the Mean Squared Error (MSE) (See Equation~\ref{eq:mse}), also known as the Mean Squared Deviation (MSD). The goal is to reduce the execution time while maintaining a good enough accuracy to preserve the pattern structure of the fluid in the generated sequence flow.
+Our key contributions are as follows:
 
-\begin{equation}
-    \begin{aligned}
-        MSE(y, \hat{y}) = \frac{1}{n} \sum_{i=1}^{n}(y_i-\hat{y_i})^2
-    \end{aligned}
-    \label{eq:mse}
-\end{equation}
+\begin{itemize}
+    
+    \item \textbf{Novel Utilization of Apple Neural Engine (ANE)}: A significant technical contribution of this project is our investigation into utilizing Apple’s underused Neural Processing Unit (ANE), capable of up to 11 TOPS in INT8 precision \cite{apple2024ane}. While current LLM deployment frameworks such as LLaMA.cpp \cite{llamacpp2023} or Ollama\cite{ollama2023} do not harness this co-processor, we demonstrate and document methods to tap into the ANE for local inference acceleration. We build on the NPU API reverse-engineering work by tinygrad \cite{tinygrad2023ane} and leverage the learnings to open a new direction for efficient LLM deployment on Apple silicon devices. We hence leverage the NPU outside of traditional CoreML model deployment paradigm and demonstrate how it can be used for various use cases.
+
+    \item \textbf{Retrieval-Augmented Generation (RAG) Architecture}: We implement a lightweight yet effective RAG pipeline \cite{lewis2020rag} for performing QA and summarization tasks over local collections of documents. This enables the application to provide context-grounded, source-aware responses from user-specified corpora while leveraging limited compute resources.
+
+    \item \textbf{Efficient On-Device Inference Using Quantized LLMs}: We leverage quantized transformer models \cite{jacob2017quantization}, reducing memory and compute demands without compromising output quality. Instead of multi-gigabyte model downloads (as required by tools like Ollama \cite{ollama2023} or LLaMA.cpp \cite{llamacpp2023}), we use compact models (50–500MB) that support practical usage scenarios with minimal setup, enhancing portability and usability for non-technical users.
+
+    \item \textbf{User-Friendly and Ready-to-Use Design}: Unlike tools such as Ollama \cite{ollama2023} and LLaMAFile\cite{llamafile2023}, which require technical familiarity and understanding the nuances of various models, our application provides a clean graphical interface with ready-to-use capabilities tailored to common academic needs—eliminating the steep learning curve and reducing operational friction.
+    
+    \item \textbf{Privacy-Preserving Document Analysis}: By running entirely on-device, our application mitigates the risks associated with uploading sensitive or proprietary documents to third-party services (e.g., ChatGPT, Claude, Gemini), which have raised concerns over data leakage \cite{mattern2023membership,nasr2023extraction}. Users can securely summarize, query, and rephrase information without network access or cloud APIs.
+
+\end{itemize}
+
+Through this suite of contributions, \textit{Project TLDR} demonstrates that meaningful and secure LLM-powered applications can be brought directly to end-users without reliance on cloud services or specialized technical knowledge, thereby filling a critical gap in the current LLM applications ecosystem.
+
 
 %----------------------
 \section{Scope}
