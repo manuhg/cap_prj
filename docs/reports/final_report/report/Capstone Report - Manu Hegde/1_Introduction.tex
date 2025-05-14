@@ -1,0 +1,48 @@
+
+\chapter {Introduction}
+\label{ch:Introduction}
+
+%----------------------
+\section{Background and Motivation}
+\label{sec:Background and Motivation}
+%----------------------
+The increasing volume of academic and research materials necessitates the development of efficient tools capable of processing and interpreting large text corpus \cite{vaswani2017attention, devlin2018bert}. Students and researchers, identified as the primary intended users of this project, frequently interact with numerous papers and books, requiring methods to both understand individual documents and handle collections of documents in a single context for a holistic understanding of subjects or topics \cite{liu2019text}.
+
+Existing tools often require significant manual intervention, particularly when more than one document is involved \cite{beltagy2020longformer}.
+
+Furthermore, many current solutions, such as popular online Large Language Models (LLMs) like ChatGPT, Gemini, and Claude, compel users to share potentially sensitive data with third-party servers. This practice raises considerable concerns regarding \textbf{privacy and data security} \cite{bommasani2021opportunities, wolf2019huggingface}. For example, if a researcher needs a summary of survey data, the data needs to be shared with the online tool. Reported instances of leakage of data shared with ChatGPT exacerbate these concerns \cite{openai2023gpt4}. Additionally, online LLMs may include information from \textbf{unknown sources} in their output, leading to loss of credibility of the information.
+
+While desktop-based solutions like Ollama and LLamaFile do exist, their goals are intended towards enabling a large number of open-source models to run on a diverse set of hardware \cite{touvron2023llama}. This narrows their user base to only those who are \textbf{technically skilled}. Furthermore, it limits their scope to optimize performance and streamline usability for specific use cases. These solutions also do not provide the ability to perform Question-Answering over multiple documents \cite{izacard2021leveraging}.
+
+This project is motivated by the \textbf{need for a convenient, confidential, and productivity-enhancing tool designed specifically for students and researchers}, providing secure, local, and resource-efficient capabilities for interacting with their document collections. It aims to fill the gap in the current set of tools for researching information by leveraging the latest advancements in Natural Language Processing \cite{brown2020language, raffel2020exploring}.
+%----------------------
+\section{Research Objective and Solution}
+\label{sec:ResearchObjectiveandSolution}
+%----------------------
+This research aims to employ Deep Learning (DL) methods to create Computational Fluid Dynamics (CFD) simulations involving the interaction of fluid flow with an obstacle in a 2-dimensional environment. The objective is to decrease the simulation's execution time compared to conventional simulation techniques. To achieve this goal, a novel neural network architecture incorporating approaches from existing research in DL for CFD and new ideas for this field are proposed. The DL solution proposed is an end-to-end data-driven solution. This means it is a unified process that can use data to learn the complexities of a fluid flow spatial structure's evolution over time. It can also quickly adapt to changing environments represented by different datasets by directly learning from raw data that represents the intrinsic patterns of fluid mechanics. This solution combines an autoencoder and a generator implemented with a ConvLSTM neural network.
+
+Compared to related solutions in DL for CFD that use different datasets (like Homogeneous Isotropic Turbulence data) or focus on the Dimensionality Reduction techniques of the input data, this research's emphasis is on generating a fluid flow simulation interacting with an obstacle and how well it generalize between distinct shapes of obstacles in various positions and sizes. Additionally, this research studies the effectiveness of the Convolutional LSTM neural network by implementing the model using only this type of architecture.
+
+Two primary metrics are used to evaluate the success of this solution: execution time and accuracy. The execution time of the simulation using the DL model is compared to a traditional CFD simulation. Its accuracy, when compared to the conventional method, is measured using the Mean Squared Error (MSE) (See Equation~\ref{eq:mse}), also known as the Mean Squared Deviation (MSD). The goal is to reduce the execution time while maintaining a good enough accuracy to preserve the pattern structure of the fluid in the generated sequence flow.
+
+\begin{equation}
+    \begin{aligned}
+        MSE(y, \hat{y}) = \frac{1}{n} \sum_{i=1}^{n}(y_i-\hat{y_i})^2
+    \end{aligned}
+    \label{eq:mse}
+\end{equation}
+
+%----------------------
+\section{Scope}
+\label{sec:Scope}
+%----------------------
+The proposed solution focuses on the simple case of a fluid flow interacting with a stationary shape in a 2-dimensional environment and replicates the fluid's behavior using a DL model as accurately as possible while improving the execution time compared to a traditional simulation. 
+
+Because the Navier-Stokes equations used in fluid dynamics are so complex and chaotic (See Section~\ref{ch:TheoreticalBackground}), finding an analytical solution for some problems is impossible. This is why numerical techniques are used to approximate the solutions. Research and industry rely on approximated results to perform their experiments and designs. This means that even when the model solution results are not so precise but provide a fast approximation of the data, it still has value since it is a tool to quickly iterate initial designs that can later be validated with more accurate but slow and resource-demanding methods.
+
+%----------------------
+\section{Paper overview}
+\label{sec:PaperOverview}
+%----------------------
+This paper is organized as follows: Chapter~\ref{ch:TheoreticalBackground} explains the main concepts for this work related to Computational Fluid Dynamics and Deep Learning. Chapter~\ref{ch:RelatedWork} presents related work and the current state of DL research for CFD and discusses previous related research relevant to this study. Chapter~\ref{ch:Methods} explains all the methods involved in developing this research and the solution, including the data collection, the DL model architecture and training, and the evaluation techniques. Chapter~\ref{ch:Results} shows the results with its analysis and discussion. Finally, Chapter~\ref{ch:Conclusion} presents the conclusions of this research, its limitations, and future work based on the results obtained.
+
