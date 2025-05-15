@@ -5,7 +5,7 @@
 This chapter provides the theoretical foundation for the key concepts relevant to the design and implementation of this project. It focuses on topics related to Large Language Models (LLMs) and the architectural characteristics of Apple Silicon (M1/M2). The sections that follow explore essential components of LLM inference, the unique hardware features of Apple Silicon, and optimizations leveraged to enable efficient on-device performance.
 
 %----------------------
-\subsection{Large Language Models and Inference Components}
+\section{Large Language Models and Inference Components}
 \label{sec:LargeLanguageModelsAndInferenceComponents} 
 %----------------------
 
@@ -35,7 +35,7 @@ Therefore, the core components required for consistent text generation in an LLM
 Finally, the inference engine managing the model (e.g., llama.cpp, Hugging Face Transformers, or Apple CoreML) orchestrates the context construction, efficient memory handling of the KV cache, and optimized computation for each transformer layer, accounting for quantization if any. These components together define the responsiveness, accuracy, and resource efficiency of the LLM in real-time applications.
 
 %----------------------
-\subsection{LLM Weight Quantization}
+\section{LLM Weight Quantization}
 \label{sec:LLMWeightQuantization} 
 %----------------------
 Quantization is a model weight compression technique that reduces the precision of the numbers used for representing model parameters. Typically, reducing the precision from 32-bit floating point to lower-bit integers such as 8-bit, 4-bit, or even 3-bit values. This significantly decreases memory usage and computational requirements, making it possible to run large language models (LLMs) efficiently on edge devices or in real-time environments without sacrificing too much accuracy \cite{jacob2017quantization,hubara2016quantized}.
@@ -57,66 +57,34 @@ Q8\_0     & 8 bits   & 1 weight                          & No compression, basel
 \textbf{Q3\_K\_L}  & 3.5 bits avg & 256 weights  & High compression, optimized for SIMD \\ \hline
 \end{tabular}
 \end{table}
+
+
 %----------------------
-\section{Direct Numerical Simulations, RANS and LES}
-\label{sec:DirectNumericalSimulationsRANSAndLES} 
+\section{Apple M1 System-on-Chip (SoC)}
+\label{sec:AppleM1System-on-Chip} 
 %----------------------
 
-In computational fluid dynamics (CFD), Direct Numerical Simulation (DNS), Reynolds-Averaged Navier-Stokes (RANS), and Large Eddy Simulation (LES) are three common approaches for simulating fluid flows, each with its own set of advantages and limitations.
+The Apple M1 chip, introduced in 2020, is a System-on-Chip (SoC) built on the ARM architecture, which integrates the CPU, GPU, and Neural Processing Unit (NPU) on a single die~\cite{apple2020m1}. This architectural design provides several advantages that are particularly relevant for local inference with large language models (LLMs), particularly for tasks like summarization and question answering.
 
-DNS directly solves the Navier-Stokes equations without any modeling assumptions, providing detailed information on all scales of motion in the flow. However, DNS requires high computational resources and is typically only feasible for relatively low Reynolds number flows due to its high computational cost scaling with the cube of the Reynolds number.
-
-RANS averages the Navier-Stokes equations over time to obtain mean flow quantities and then models the effects of turbulent fluctuations using empirical turbulence models. RANS is computationally less expensive than DNS and is suitable for a wide range of engineering applications. However, RANS relies on turbulence models that introduce modeling errors and uncertainties, particularly for complex flows.
-
-LES resolves large-scale turbulent structures explicitly while modeling the effects of smaller-scale turbulence. It strikes a balance between the accuracy of DNS and the computational cost of RANS, making it suitable for simulating moderately high Reynolds number flows. LES captures the essential features of turbulence while reducing modeling errors compared to RANS.
-
-\begin{figure}[H]
+\begin{figure}[h]
     \centering
-    \includegraphics[width=0.4\linewidth]{images/dns_les_rans.png}
-    \caption{Comparison between DNS, LES, and RANS modeling}
-    \label{fig:dns_les_rans}
+    \includegraphics[width=0.8\linewidth]{images/AppleM1SOC.jpeg}
+    \caption{ Apple M1 Architecture - (A12 Bionic) Chip floor plan~\cite{hollemans2020apple}}
+    \label{fig:autoregressive_decoding}
 \end{figure}
 
-The choice between DNS, RANS, and LES depends on the flow's specific characteristics, the desired detail level, and the available computational resources. Figure~\ref{fig:dns_les_rans} shows a comparison between the different modeling approaches. DNS provides the most accurate results but is computationally expensive, while RANS and LES offer compromises between accuracy and computational cost, making them more practical for many engineering applications.
+\subsubsection*{Unified Memory Architecture}
+One of the defining features of the M1 SoC is its Unified Memory Architecture (UMA), which allows the CPU, GPU, and NPU to share the same memory pool \cite{hollemans2020apple}. This eliminates the need for memory copying across processing units and enables zero-copy execution. As a result, applications like retrieval-augmented generation (RAG) benefit from significantly reduced memory overhead and latency. Shared virtual addressing also simplifies software development by allowing seamless access to data structures across different compute units.
 
-%----------------------
-\section{Time series}
-\label{sec:TimeSeries} 
-%----------------------
+\subsubsection*{On-chip Accelerators: GPU and NPU}
+The M1 chip includes a built-in GPU with 7--8 cores, capable of delivering up to 5.2 TOPS of performance in INT8 precision \cite{apple2020metal}. It supports general-purpose computation via Metal Shading Language (MSL), analogous to NVIDIA's CUDA, with added features like managed thread indexing and access to 7+ GB of RAM.
 
-Time Series is a type of data that presents a temporal ordering. It is used in many real-world applications, such as signal processing, finance, weather forecasting, control engineering, communication, human activity recognition, cyber-security, or earthquake prediction. Time series can be described as univariate or multidimensional. Univariate or 1-dimensional time series is an ordered set of real values $X$ of length equal to the number of real values $T$, where $X = [x_1, x_2, ..., x_T]$. While a multidimensional or M-dimensional time series consists of M different univariate time series, where $X = [X^1, X^2, ..., X^M]$ with $X^i \in \mathbb{R}^T$. A Time Series Dataset is defined as $D = \{(X_1, Y_1), (X_2, Y_2), ..., (X_N, Y_N)\}$ as a collection of pairs $(X_i, Y_i)$ where $X_i$ could be a 1-dimensional or M-dimensional time series and an output $Y_i$.
+The Apple Neural Engine (ANE), or NPU, is an application-specific integrated circuit (ASIC) designed for efficient neural network operations. It offers 11 TOPS of INT8 compute and is exclusively used for machine learning tasks. However, it is only accessible via Apple’s CoreML framework, which supports Swift and Python interfaces. The NPU dynamically collaborates with the CPU, handling SIMD operations like matrix multiplication while delegating sequential logic to the CPU \cite{tinygrad2023apple}.
 
-%----------------------
-\section{LSTM}
-\label{sec:LSTM} 
-%----------------------
+Unlike the GPU, the NPU is rarely used by general-purpose applications. This makes it a promising candidate for dedicated LLM inference workloads, as its usage is unlikely to interfere with the system's overall responsiveness.
 
-Recurrent Neural Networks (RNN) are a type of neural network that can keep information about what happened before, they do this with loop connections to their neurons. These neural networks are widely used in speech recognition, language modeling, translation, etc. The main problem with this simple architecture is with “long-term dependencies” when the relevant information happened too long ago. Long Short Term Memory (LSTM) networks are designed to learn long-term dependencies to overcome this issue. The main idea behind the LSTM structure is a memory cell that can accumulate information that can be written and cleared by structures called gates. Fully Connected LSTM (FC-LSTM) is a multivariate version of LSTM, meaning that the input, output, and state are all 1-dimensional vectors.
+\subsubsection*{Implications for Local LLM Inference}
+The M1's integrated architecture is highly beneficial for deploying LLMs locally. Unified memory minimizes data movement, while the GPU and NPU offer parallel computation for matrix-heavy operations common in transformers. Although the NPU cannot be directly accessed via C++ (barring experimental reverse engineering efforts \cite{tinygrad2023apple}), its performance can be leveraged through CoreML model conversion pipelines \cite{apple2024coremlconvert}.
 
-LSTM neural networks are widely used in Natural Language Processing (NLP), where a long sequence of words in a text needs to be analyzed and used for prediction and classification.
-
-%----------------------
-\section{Convolutional Neural Networks}
-\label{sec:CNN}
-%----------------------
-
-Convolutional Neural Networks (CNN) are a type of neural network primarily designed to process and analyze data in a grid-like organization, especially visual data such as images. Inspired by the organization of the animal visual cortex in the brain, CNNs have been successful in computer vision applications. The key operation in CNNs is the convolution mathematical operation, a specialized kind of linear operation. These networks have a structure called filters, which are applied to the input data to extract features, allowing the neural network to learn hierarchical representations.
-
-CNNs have become the cornerstone of various computer vision tasks, including image classification, object detection, facial recognition, and medical image analysis. Their ability to automatically learn relevant features from raw data makes them particularly effective in tasks where traditional algorithms struggle, such as image understanding and pattern recognition. Additionally, CNNs offer advantages such as parameter sharing, which reduces the number of parameters and enhances model efficiency and translational invariance, enabling robust performance even with variations in object position within an image. Overall, CNNs have revolutionized the field of computer vision and continue to drive advancements in artificial intelligence and image processing applications.
-
-%----------------------
-\section{ConvLSTM}
-\label{sec:ConvLSTM} 
-%----------------------
-
-LSTM neural networks are good for long-time series prediction because they are designed to maintain a context memory of important information that happened long ago as well as recent information. In applications with many dimensions, like spatial data, using an LSTM is inefficient as it contains too much redundancy in the connections between the input. 
-
-ConvLSTM extends the Long Short-Term Memory (LSTM) architecture, incorporating convolutional operations within the LSTM units. It is specifically designed to handle spatiotemporal data, such as video sequences or spatial-temporal patterns in data. ConvLSTM preserves the sequential memory capabilities of LSTM while exploiting the spatial information in data through convolutions. This allows it to capture both temporal dependencies and spatial correlations simultaneously, making it ideal for tasks like video prediction, precipitation nowcasting, and motion tracking. Compared to traditional LSTMs, ConvLSTMs excel in modeling spatial dependencies within sequences, enabling more accurate predictions and better handling of spatially structured data.
-
-%----------------------
-\section{Autoencoders}
-\label{sec:Autoencoders} 
-%----------------------
-
-Autoencoders are an artificial neural network used for unsupervised learning tasks, particularly in dimensionality reduction and data compression. Comprising an encoder and a decoder, they aim to reconstruct input data while learning efficient representations. The encoder compresses the input into a lower-dimensional latent space, while the decoder reconstructs the original data from this representation. Advantages include their ability to learn meaningful representations from unlabeled data, aiding in feature extraction and data denoising. They are widely used in anomaly detection, image denoising, and data generation tasks. Additionally, autoencoders can serve as the foundation for generative models, such as variational autoencoders (VAEs) and generative adversarial networks (GANs), enabling the synthesis of new data samples. Their versatility, simplicity, and capability to learn compact representations make them valuable tools in various domains, including computer vision and natural language processing.
+In the context of this project, these capabilities enable a lightweight, resource-efficient desktop application that performs real-time summarization and question answering over a user-provided corpus without relying on cloud resources.
 
