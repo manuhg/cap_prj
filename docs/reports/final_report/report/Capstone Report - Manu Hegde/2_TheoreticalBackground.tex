@@ -2,30 +2,38 @@
 \chapter {Theoretical Background}
 \label{ch:TheoreticalBackground}
 
-This chapter includes the theoretical background for this work discussing related concepts in Computational Fluid Dynamics and Deep Learning.
+This chapter provides the theoretical foundation for the key concepts relevant to the design and implementation of this project. It focuses on topics related to Large Language Models (LLMs) and the architectural characteristics of Apple Silicon (M1/M2). The sections that follow explore essential components of LLM inference, the unique hardware features of Apple Silicon, and optimizations leveraged to enable efficient on-device performance.
 
 %----------------------
-\section{Fluid dynamics and Navier-Stokes equations}
-\label{sec:FluidDynamicsAndNavier-StokesEquations} 
+\subsection{Large Language Models and Inference Components}
+\label{sec:LargeLanguageModelsAndInferenceComponents} 
 %----------------------
 
-Fluid dynamics is the branch of physics that studies the motion of fluids, both liquids and gases and their interactions with solid boundaries and other fluids. It encompasses a wide range of phenomena, from the flow of water in rivers and the atmosphere's motion to blood circulation in organisms and the behavior of fluids in engineering systems.
+Large Language Models (LLMs) are transformer-based neural networks trained on massive text corpora to generate text in human language. They can mimic human-like conversations, storytelling, and can respond to abstract instructions. These models, such as GPT, LLaMA, and Falcon, rely on the transformer architecture introduced by Vaswani et al.~\cite{vaswani2017attention}, where self-attention mechanisms enable the model to capture dependencies across different parts of the input sequence (as seen in Figure ~\ref{fig:transformer_architecture}). Inference in LLMs involves several critical components, each contributing to performance, quality, and resource efficiency.
 
-The Navier-Stokes equations (See Equations~\ref{eq:navier-stokes}) are fundamental partial differential equations governing the motion of viscous fluids. They describe how fluid velocity, pressure, density, and viscosity evolve over time in response to external forces. The equations are derived from Newton's second law of motion, conservation of mass, and conservation of momentum principles.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.4\linewidth]{images/transformer-architecture.png}
+    \caption{Transformer architecture ~\cite{vaswani2017attention}}
+    \label{fig:transformer_architecture}
+\end{figure}
+At the core of LLM inference lies the \textbf{context window}, which denotes the maximum number of tokens the model can attend to at any given time. A token is a piece of input, ranging from a subword to even a phrase, depending on the tokenization scheme of the model. For models like LLaMA-2, the context window can be up to 4,096 or 8,192 tokens~\cite{touvron2023llama}. During inference, the model builds an internal representation of this input context, which is used to generate predictions for the next token.
 
-The equations consist of two main components: 1) the continuity equation, which represents the conservation of mass, and 2) the conservation of momentum equation, derived from Newton's second law, which describes how the velocity of the fluid changes in response to external forces and internal forces (pressure and viscosity). This is defined in Equation~\ref{eq:navier-stokes} with $t$ time, $\rho$ density, $u$ velocity, $p$ pressure, $\mu$ viscosity, and $F$ external forces.
 
-\begin{equation}
-    \begin{aligned}
-        \nabla \cdot u &= 0 \\
-        \rho(\frac{\partial u}{\partial t} + (u\cdot\nabla)u) &= -\nabla p + \mu \nabla^2 u + \rho F
-    \end{aligned}
-    \label{eq:navier-stokes}
-\end{equation}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\linewidth]{images/autoregressive-decoding.png}
+    \caption{Autoregressive decoding ~\cite{nabi2024all}}
+    \label{fig:autoregressive_decoding}
+\end{figure}
 
-The Navier-Stokes equations are nonlinear, leading to complex and sometimes chaotic behavior, such as turbulence. Despite their simplicity, solving these equations analytically for many practical problems is often impossible, leading to the widespread use of numerical methods.
+The \textbf{Key-Value (KV) cache} is a performance optimization central to LLM performance. During autoregressive decoding for text generation, a Large Language Model (LLM) processes the entire input sequence to generate a single output token. This newly generated token is then appended to the sequence, and the model repeats the process iteratively (as seen in Figure ~\ref{fig:autoregressive_decoding}). However, this leads to redundant computation over previously processed tokens at each step. To mitigate this inefficiency, the \textit{key} and \textit{value} vectors computed during the attention mechanism of the transformer can be cached. This \textit{KV caching} technique significantly reduces repeated computation by reusing the stored attention states from prior steps, thereby improving inference speed and memory efficiency. These cached representations allow the model to efficiently attend to all previously generated tokens without recalculating the entire attention graph ~\cite{alammar2018illustrated}. This caching mechanism reduces computational overhead and is especially vital when running LLMs on resource-constrained devices.
 
-The Navier-Stokes equations have vast applications in various fields, including engineering, meteorology, oceanography. They support the design of aircraft, ships, and vehicles, studying weather patterns, and understanding fluid flow in pipes and channels. However, many fundamental aspects of these equations, including turbulence, remain unsolved problems in mathematics and physics.
+Furthermore, the token generation is governed by a sampling algorithm, which yields the output token by sampling on the output probability distribution obtained from the model. Common strategies include greedy sampling, top-$k$ sampling and temperature scaling. A \textbf{token sampler} module is responsible for leveraging these strategies to generate the output token. This can be a resource-hungry step, since this involves processing the probability distribution over the entire vocabulary of the model.
+
+Therefore, the core components required for consistent text generation in an LLM-based system include the model weights, the LLM context (comprising the KV cache and vocabulary), and the token sampler.
+
+Finally, the inference engine managing the model (e.g., llama.cpp, Hugging Face Transformers, or Apple CoreML) orchestrates the context construction, efficient memory handling of the KV cache, and optimized computation for each transformer layer, accounting for quantization if any. These components together define the responsiveness, accuracy, and resource efficiency of the LLM in real-time applications.
 
 %----------------------
 \section{Turbulent flow and Reynolds number}
