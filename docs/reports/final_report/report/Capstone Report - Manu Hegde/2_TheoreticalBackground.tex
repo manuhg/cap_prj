@@ -19,7 +19,6 @@ Large Language Models (LLMs) are transformer-based neural networks trained on ma
 \end{figure}
 At the core of LLM inference lies the \textbf{context window}, which denotes the maximum number of tokens the model can attend to at any given time. A token is a piece of input, ranging from a subword to even a phrase, depending on the tokenization scheme of the model. For models like LLaMA-2, the context window can be up to 4,096 or 8,192 tokens~\cite{touvron2023llama}. During inference, the model builds an internal representation of this input context, which is used to generate predictions for the next token.
 
-
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.6\linewidth]{images/autoregressive-decoding.png}
@@ -36,17 +35,28 @@ Therefore, the core components required for consistent text generation in an LLM
 Finally, the inference engine managing the model (e.g., llama.cpp, Hugging Face Transformers, or Apple CoreML) orchestrates the context construction, efficient memory handling of the KV cache, and optimized computation for each transformer layer, accounting for quantization if any. These components together define the responsiveness, accuracy, and resource efficiency of the LLM in real-time applications.
 
 %----------------------
-\section{Turbulent flow and Reynolds number}
-\label{sec:TurbulentFlowAndReynoldsNumber} 
+\subsection{LLM Weight Quantization}
+\label{sec:LLMWeightQuantization} 
 %----------------------
+Quantization is a model weight compression technique that reduces the precision of the numbers used for representing model parameters. Typically, reducing the precision from 32-bit floating point to lower-bit integers such as 8-bit, 4-bit, or even 3-bit values. This significantly decreases memory usage and computational requirements, making it possible to run large language models (LLMs) efficiently on edge devices or in real-time environments without sacrificing too much accuracy \cite{jacob2017quantization,hubara2016quantized}.
 
-Turbulent flow is characterized by chaotic and unpredictable fluid motion, with irregular fluctuations in velocity, pressure, and flow patterns. It occurs when inertial forces dominate over viscous forces, leading to mixing and eddy formation. The Reynolds number (Re) is a dimensionless parameter that characterizes the flow regime of a fluid. When Re is high, it is a turbulent flow, indicated by the visual appearance of swirling patterns (or eddies), while low Re values indicate a laminar flow type, recognized by a "smooth" flow of the fluid. Thus, turbulent flow is directly correlated to Reynolds numbers, with higher Re values corresponding to more turbulent behavior and lower Re values indicating laminar flow. Equation~\ref{eq:reynolds-numbers} defines Re, with $\rho$ fluid density, L length scale, U velocity, and $\mu$ viscosity.
+Within the \texttt{ggml} framework and its application in \texttt{llama.cpp} \cite{llamacpp2023}, various quantization schemes have been introduced to significantly reduce the size and memory footprint of LLM weights. One such scheme is \texttt{Q3\_K\_L}, a 3-bit quantization format specifically designed to balance compression efficiency and model performance \cite{talamdupula2024guide,li2024quantization}. In \texttt{Q3\_K\_L}, weights are grouped in sets of 256 and quantized with shared scaling factors, offset by a zero-point, enabling fine-grained approximation while preserving hardware efficiency. Notably, \texttt{Q3\_K\_L} makes use of 4-bit storage for each quantized value (3 bits for the quantized magnitude and 1 extra bit for improved alignment and bit-packing efficiency), along with 8-bit scales and 6-bit zero-points per group. This layout ensures better alignment with SIMD instructions and allows for faster matrix-vector multiplications, which are critical during transformer inference \cite{pope2022efficiently}. ~\ref{tab:quantization-comparison} shows the comparison between common quantization schemes used in GGML. While this format slightly increases decoding complexity compared to simpler formats like \texttt{Q4\_0}, it provides a favorable tradeoff between model accuracy and size, especially for models deployed in edge or offline settings \cite{ollama2023,llamafile2023}.
+Therefore, this project primarily employs model weights quantized using the \texttt{Q3\_K\_L} scheme.
 
-\begin{equation}
-    Re = \frac{\rho LU}{\mu}
-    \label{eq:reynolds-numbers}
-\end{equation}
-
+\begin{table}[h]
+\centering
+\caption{Comparison of Common Quantization Formats in \texttt{ggml}/\texttt{llama.cpp}}
+\label{tab:quantization-comparison}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Format} & \textbf{Bits/Weight} & \textbf{Group Size} & \textbf{Remarks} \\ \hline
+Q4\_0     & 4 bits   & 32 weights          & Baseline 4-bit scheme \\ \hline
+Q4\_K     & 4 bits   & 64 weights    & Better accuracy than Q4\_0 \\ \hline
+Q5\_K     & 5 bits   & 64 weights           & Higher accuracy, more storage \\ \hline
+Q8\_0     & 8 bits   & 1 weight                          & No compression, baseline FP8 \\ \hline
+\textbf{Q3\_K\_L}  & 3.5 bits avg & 256 weights  & High compression, optimized for SIMD \\ \hline
+\end{tabular}
+\end{table}
 %----------------------
 \section{Direct Numerical Simulations, RANS and LES}
 \label{sec:DirectNumericalSimulationsRANSAndLES} 
