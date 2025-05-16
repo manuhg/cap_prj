@@ -14,8 +14,8 @@
 
 3. Related Work
 - Ollama & LLaMaFile
+- tinygrad project and its npu API reverse engineering
 - Papers on RAG (ex: by langchain)
-- tinygrad npu API reverse engineering
 
 4. Methodology 
 a) Low level design
