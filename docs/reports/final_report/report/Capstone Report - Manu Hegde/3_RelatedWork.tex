@@ -1,56 +1,165 @@
-
 \chapter{Related Work}
-\label{ch:RelatedWork}
-This chapter summarizes current research on Deep Learning (DL) that can be applied in Computational Fluid Dynamics (CFD) to support this study. It describes the current state of DL for CFD and discusses previous work done in this area that differs from this research. Additionally, it presents research that is outside of other areas that can be applied to CFDs.
+
+This chapter presents an overview of existing technologies and research efforts relevant to the development of efficient, on-device language model-based applications. It focuses on three major areas: Retrieval-Augmented Generation (RAG), efficient LLM runtimes like \texttt{llama.cpp}, and lightweight distribution and serving solutions such as Ollama and Llamafile. It also looks at the work done by tinygrad project in attempting to reverse engineer the NPU API.
 
 
 %----------------------
-\section{Potential areas of impact of DL in CFD}
-\label{sec:DLinCFD}
+\section{Retrieval-Augmented Generation (RAG)}
+\label{sec:RAG}
 %----------------------
-The Computational Fluid Dynamics field deals with numerical simulations of fluid flows. Navier-Stokes equations are Partial Differential Equations (PDE) describing fluid flows. Solving those PDEs for chaotic (turbulent) flows requires computationally intensive numerical methods because of the necessary space and time scales. These turbulent flows can be simulated with different accuracy and resource costs. Data-driven modeling methods are revolutionizing scientific discoveries enabled by advances in scientific computing \cite{brunton_data-driven_2022}. Furthermore, Machine Learning and Deep Learning models have the potential to enhance those CFD simulations \cite{vinuesa_enhancing_2022} \cite{brunton_machine_2020}, and recently, there has been an emerging trend of research applications of ML and DL for CFD \cite{vinuesa_emerging_2022}. ML applications in CFD can be categorized into three main areas: Direct Numerical Simulation, Turbulent Modeling, and Reduce Order Models. 
 
-\subsection*{\textbf{Direct Numerical Simulation}}
-Direct Numerical Simulations (DNS) provide high accuracy for solving Navier-Stokes equations for fluid flows. Typically, there is a trade-off between the solution's accuracy and feasibility because solving this equation at scale is limited by the computational cost. Some proposed solutions focus on accelerating the numerical simulation by using Deep Learning to approximate parts of the computations involved. For example, \cite{kochkov_machine_2021} developed a method to accurately correct errors caused in low-resolution simulations by learning parameters affected by the coarse grid. They got stable results comparable to high-resolution numerical simulations and reduced the computational cost with a low-resolution discretization grid. Other research \cite{ajuria-illaramendi_towards_2020} \cite{ozbay_poisson_2021} focuses on using DL to solve the Poisson equation for corrections in incompressible fluids. This is done by exploiting data from previous examples to map deviations between uncorrected velocity and the resulting pressure field. 
+Retrieval-Augmented Generation (RAG) is an architectural paradigm that enhances the factual accuracy and contextual relevance of large language models (LLMs) by incorporating external knowledge retrieval into the generation process. Unlike traditional LLMs that rely solely on internal model weights, RAG allows the model to fetch and condition its output on relevant documents retrieved from a corpus \cite{lewis2021retrieval}.
 
-Those methods only apply ML techniques in part of the solution but still rely on classical numerical methods to calculate the fluid flow. The solution proposed in this research is an end-to-end deep learning model that will apply DL to the entire simulation pipeline with a unified process. This simpler approach has the benefit of eliminating intermediate tasks in the simulation pipeline and thus reducing its complexity.
+A typical RAG pipeline consists of the following phases:
 
-\subsection*{\textbf{Turbulent Modeling}}
-Resolving direct numerical simulations is computationally expensive, so industry CFD applications use Reynolds-Averaged Navier-Stokes (RANS) and Large-Eddy Simulations (LES) methods. Various ML methods used to improve RANS turbulence modeling are explored in \cite{duraisamy_turbulence_2019} to improve its accuracy. Particularly the use of Physics-Informed Neural Networks (PINNs) \cite{wang_physics-guided_2023} \cite{eivazi_physics-informed_2022}. These PINNS models combine the data-driven modeling approach with using physics equations. This combined approach has the advantage of giving the model consistency with known physics laws; however, it makes the solution more complex to implement than a purely data-driven approach. 
+\begin{enumerate}
+    \item \textbf{Query Formulation:} The input query from the user is either used directly or rephrased using prompt engineering techniques to improve retrieval relevance.
+    \item \textbf{Retrieval:} A vector store or dense retriever (e.g., using FAISS, Milvus, or ElasticSearch) is queried to obtain top-$k$ semantically relevant documents based on vector similarity.
+    \item \textbf{Context Injection:} Retrieved documents are concatenated with the original query and formatted into a prompt.
+    \item \textbf{Generation:} The formatted prompt is passed to the language model to generate a context-aware and informative response.
+\end{enumerate}
 
-In comparison, the model developed in this research is a data-driven approach that can learn from the given data to directly produce predictive results. This approach has the benefit of adapting to the particularities of each use case's data characteristics.
-
-
-\subsection*{\textbf{Reduce Order Models}}
-A useful application of ML in CFD is to develop Reduce Order Models (ROMs) to reduce the data complexity. This can be done because fluid flows contain principal structures that provide essential information about the flow. These ROMs represent the characteristics of the flow in a low-dimension representation that describes the evolution of those principal structures in the fluid, providing a substitute model for faster model predictions. A ROMs technique learns a low-dimensional coordinate system using Proper Orthogonal Decomposition (POD) \cite{taira_modal_2017} \cite{rowley_model_2017}. This technique is related to standard statistics and data-driven modeling techniques for dimensionality reduction: Principal Component Analysis (PCA) and Singular Value Decomposition (SVD) \cite{brunton_data-driven_2022}. Deep Learning can be used to perform those methods in dimensionality reduction by learning the subspace representation from the data \cite{lusch_deep_2018}. Autoencoders are neural networks where the input and output have the same dimensions, but in the middle, there is a bottleneck that reduces the dimensionality of the data. This type of model has two components: the first will take the input and compress it down to a smaller representation with fewer dimensions than the input, and the second one reconstruct the input from the representation. This low-dimensional representation subspace is called latent space and can simplify the original data by compressing it into a smaller representation. Autoencoders can be used to improve the performance of models that rely on classical ROM techniques. Because of the proven advantage of doing dimensionality reduction using DL Autoencoders, this model includes this type of component in its architecture.
-
-%----------------------
-\section{Related solutions of DL for CFD}
-\label{sec:similarworks}
-%----------------------
-Recent works have validated the idea of using DL models for CFD modeling using different types of architectures and techniques. Here, we explore research examples that are the most relevant related work to this research, with similar goals but different solutions. It is important to note that although there are some similarities between them and this research, all of them have significant differences, mainly in the dataset used and the proposed architectures.
-
-The use of an extended LSTM network with a Convolutional Neural Network (CNN) and Autoencoders was explored in \cite{mohan_compressed_2019} and \cite{han_new_2019}. Both used an Encoder-Decoder implemented with CNN to compress the data and an LSTM network enhanced with Convolutional filters that use the compressed data to generate the next part of the sequence. \cite{mohan_compressed_2019} develops a data-driven approach for Homogeneous Isotropic Turbulence data in a three-dimensional space. This solution is a sequence-to-sequence model, meaning it gets an initial sequence as input and produces the following sequence as output. The researchers proved that the model achieves good accuracy with long-term stability of the cyclic predictions while being very computationally efficient. \cite{han_new_2019} use a similar model with the same architecture for two-dimensional fluid flows around an obstacle. Their model shows similar results compared with flow fields calculated by a computational fluid dynamic solver. 
-
-A similar method was proposed by \cite{hasegawa_cnn-lstm_2020} to develop ROMs for two-dimensional unsteady flows around a circular cylinder. They also used a CNN for the Autoencoder, with the goal of learning the temporal evolution of the flow in the latent space, they used a much simpler LSTM network. Additionally, they examined the accuracy dependence of this model with different Reynolds numbers (between 20 and 160). Their model was able to reconstruct flows with Reynolds numbers that were not used during the training of the model.
-
-A DL approach to solving Partial Differential Equation systems was proposed in \cite{kakka_sequence_2022}. They developed a sequence-to-sequence model where the Autoencoder was implemented with a Convolutional LSTM. This model was tested with the moving MNIST dataset and the 2-D viscous Burgers equation. The researchers conclude that this model is an excellent network to use when predicting the time series of a dynamical system. Another solution for solving time-dependent PDEs was done in \cite{stevens_finitenet_2020} where they present a machine-learning approach based on a fully convolutional LSTM network to enhance finite-difference and finite-volume methods (FDM/FVM) common to solve PDEs. This method reduced the error by a factor of 2 or 3 compared to baseline algorithms.
-
-A more advanced architecture of DL for CFD was recently proposed by \cite{wang_towards_2024}. The researchers explore the idea of using a combination of $\beta$-variational autoencoders ($\beta$-VAE) \cite{eivazi_towards_2022} to learn a compact representation of the flow velocity and transformers to predict the temporal-dynamics. They use a dataset of a flow around a square cylinder obtained using an open-source numerical simulation with a Reynolds number of 500. They also perform a study to find the optimal values for the $\beta$-VAE, and the effect on model’s performance of hyperparameters such as architecture complexity, regularization $\beta$, and latent vector size. Their model achieves excellent performance, with a 97.8\% of reconstruction accuracy and 96.5\% in temporal-dynamics predictions, demonstrating that this combination has the potential for developing ROMs in complex flows.
+RAG has become a cornerstone for building knowledge-intensive NLP systems, especially in enterprise search, question answering, and summarization tasks \cite{rag_blog, langchain_rag}.
 
 
 %----------------------
-\section{Research from other domains}
-\label{sec:ResearchOtherDomains}
+\section{llama.cpp}
+\label{sec:llama_cpp}
 %----------------------
 
-We also explored other research ideas in the deep learning domain that are not related to CFD applications but can be extrapolated to be applied in this area. These ideas come from video analytics and weather forecasting. We explored how deep learning research in those areas can also be applied to CFD simulations.
+\texttt{llama.cpp} is a C++ implementation of LLaMA models developed by Meta, optimized for local inference on commodity hardware without GPU requirements. Built upon the GGML tensor library, it provides quantized inference for large models using CPU-friendly formats like 4-bit and 5-bit quantization, making it suitable for running models such as LLaMA, Mistral, and other open-weight transformers on devices ranging from laptops to Raspberry Pi \cite{llamacpp}.
+
+Key features of \texttt{llama.cpp} include:
+\begin{itemize}
+    \item Highly efficient CPU inference with quantized models.
+    \item Cross-platform support (macOS, Linux, Windows).
+    \item Integration with popular tooling such as LangChain and Open Interpreter.
+    \item Support for multi-threaded inference and memory-mapped model weights for efficient memory usage.
+\end{itemize}
+
+This project is a foundation for many desktop LLM applications that require local execution and privacy-aware computation.
 
 
-\subsection*{\textbf{Video representation and prediction}}
-The data for a fluid flow is a sequence of frames representing the state of the fluid at each time; in the same way, a video is a sequence of images in a timeline. Deep learning solutions that can learn features from videos for representation and future prediction have to deal with the same challenges as applications in CFD. In both cases, data has a spatio-temporal structure that requires the model to understand the space and time dimensions to predict future data. In \cite{srivastava_unsupervised_2015}, they use an LSTM neural network to learn representations of video sequences with an autoencoder and then extrapolate the learned video representations into the past and future. They also show that those representations help improve classification accuracy. The architecture is a composite model trained to perform two tasks simultaneously; using the encoded state, the model can predict the next frames as well as input reconstruction. They say that when done separately, the future predictor tends to only store information about the most recent frames, but when the model also has to reconstruct all of the input sequences, it cannot pay attention to just the last frames. This model performance was evaluated using the moving MNIST dataset and 300 hours of YouTube data. It was able to correctly predict the future frames, even when the objects superimpose or bounce while moving.
+%----------------------
+\section{Ollama}
+\label{sec:ollama}
+%----------------------
+
+Ollama is a developer-friendly platform for running LLMs locally with simplified model management and serving. It wraps models like LLaMA 2, Mistral, and Code LLaMA into a streamlined runtime with a CLI and RESTful API, abstracting away hardware-specific setup and providing a plug-and-play experience for developers \cite{ollama}.
+
+Ollama supports:
+\begin{itemize}
+    \item Running quantized models locally with GPU acceleration where available.
+    \item Seamless model downloading and serving.
+    \item Custom model creation using a simple Modelfile syntax.
+\end{itemize}
+
+It is widely used for prototyping private, offline chatbots and assistants. However, the users need to be technically savvy in cases of issues downloading or running the models. Furthermore, models often may not be quantized and could lead to downloading of model weights in order of many GBs.
 
 
-\subsection*{\textbf{ConvLSTM for precipitation nowcasting}}
-Another area where analyzing spatiotemporal data to predict its future evolution is in weather. More specifically, the prediction of future rainfall intensity in a region over a short period of time, also known as precipitation nowcasting. In \cite{shi_convolutional_2015}, they propose a new type of neural network called ConvLSTM by extending the fully connected LSTM by adding convolutional structures. This end-to-end solution is able to outperform LSTM and state-of-the-art methods for the precipitation nowcasting problem. The main reason for this new neural network is that a fully connected LSTM has too much redundancy for spatial data. They mention that this network is not specific for precipitation nowcasting but can also be used for other prediction problems involving spatiotemporal sequence data.
+%----------------------
+\section{Llamafile}
+\label{sec:llamafile}
+%----------------------
 
+
+Llamafile, developed by Mozilla-Ocho, enables packaging a complete LLM runtime into a single, self-contained executable file \cite{llamafile}. It leverages the \texttt{llama.cpp} backend and Cosmopolitan Libc to build universal binaries that run across major operating systems (Windows, macOS, Linux) without requiring dependencies.
+
+Notable features:
+\begin{itemize}
+    \item Distributable as a single file under 1GB (depending on model).
+    \item Useful for shipping LLM-based tools with zero-install requirements.
+    \item Integrates with web frontends for local chatbot deployment.
+\end{itemize}
+
+Llamafile is widely used for prototyping private, offline chatbots and assistants. However, it often requires users to be technically proficient, especially when encountering issues related to downloading or executing models. Moreover, many models are not pre-quantized, potentially resulting in downloads of several gigabytes of model weights.
+%----------------------
+\section{Apple Neural Engine (ANE)}
+\label{sec:ANEAPI}
+%----------------------
+
+The Apple Neural Engine (ANE) is a custom neural processing unit designed by Apple to accelerate machine learning workloads on its silicon platforms. Introduced with the A11 Bionic chip, the ANE has evolved into a high-performance, low-power DMA-based inference engine embedded in Apple's M-series chips. This section synthesizes insights obtained by the reverse-engineering efforts of the \texttt{tinygrad}~\cite{tinygrad2023ane} project, to examine ANE's architecture, capabilities, and compilation flow.
+
+\subsection{Hardware Overview}
+
+The ANE operates primarily as a DMA engine optimized for convolutional operations and supports a wide range of neural network layers and fused operations. Its key hardware features include:
+
+\begin{itemize}
+  \item \textbf{16-core architecture:} A 16-wide Kernel DMA engine for parallel computation.
+  \item \textbf{5D Tensor Support:} Tensors are structured with width (column), height (row), planes (channels), depth, and group (batch).
+  \item \textbf{Supported Data Types:} \texttt{UInt8}, \texttt{Int8}, and \texttt{Float16} (with \texttt{Float32} inputs automatically downcast).
+  \item \textbf{Manually Managed 4MB L2 Cache:} Applied only to input/output data; weights are embedded in the compiled program.
+  \item \textbf{Execution Unit:} Executes up to 0x300 micro-operations per instruction.
+  \item \textbf{Performance:} Approximate 11 TOPS throughput, assuming 32\texttimes32 MAC at ~335 MHz.
+\end{itemize}
+
+All memory strides are constrained to multiples of 0x40 bytes, reflecting hardware alignment requirements.
+
+\subsection{Software and Compilation Stack}
+
+The ANE software stack is heavily abstracted behind Apple's proprietary frameworks but has been reverse-engineered to reveal a structured flow (as shown in Fig~\ref{fig:ane-workflow}):
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.25\linewidth]{images/ane-workflow.jpg}
+    \caption{Apple Neural Engine Workflow}
+    \label{fig:ane-workflow}
+\end{figure}
+
+\begin{enumerate}
+  \item \textbf{Model Definition:} Models are authored in Keras or ONNX.
+  \item \textbf{Conversion:} Models are converted to CoreML format using open-source tools such as \texttt{coremltools}.
+  \item \textbf{Intermediate Representation:} CoreML is internally converted into \texttt{net.plist} by Apple's Espresso framework.
+  \item \textbf{Compilation:} The \texttt{ANECompiler} service transforms \texttt{net.plist} into a hardware-specific binary (.\texttt{hwx}), a Mach-O formatted executable.
+  \item \textbf{Execution:} The \texttt{AppleNeuralEngine} and \texttt{ANEServices} handle execution via the kernel extension \texttt{AppleH11ANEInterface}.
+\end{enumerate}
+
+
+\subsection{Instruction Format and Operation Structure}
+
+Each ANE instruction is 0x300 bytes and comprises multiple segments:
+
+\begin{itemize}
+  \item \textbf{Header:} Includes DMA addresses and next-op offset.
+  \item \textbf{KernelDMASrc:} Specifies weights, bias, and channel usage.
+  \item \textbf{Common:} Describes input/output shapes, types, kernel size, and padding.
+  \item \textbf{TileDMASrc/TDMADst:} Layout and stride configurations for input/output tensors.
+  \item \textbf{L2 and NE:} L2 cache flags and activation parameters.
+\end{itemize}
+
+\subsection{Supported Operations and Activations}
+
+ANE supports a variety of operations:
+
+\begin{itemize}
+  \item \textbf{Core Ops:} CONV, POOL, EW, CONCAT, RESHAPE, MATRIX\_MULT, TRANSPOSE
+  \item \textbf{Advanced:} SCALE\_BIAS, SOFTMAX, INSTANCE\_NORM, BROADCAST, L2\_NORM
+  \item \textbf{Fused Ops:} NEFUSED\_CONV, PEFUSED\_POOL, etc.
+  \item \textbf{Activations:} RELU, SIGMOID, TANH, CLAMPED\_RELU, PRELU, LOG2/EXP2, CUSTOM\_LUT
+\end{itemize}
+
+Over 30 activation functions are supported in hardware.
+
+\subsection{tinygrad Implementation}
+
+The \texttt{tinygrad} project interfaces directly with ANE through a three-stage pipeline:
+
+\begin{itemize}
+  \item \textbf{1\_build:} Generates CoreML models using \texttt{coremltools}.
+  \item \textbf{2\_compile:} Uses Objective-C and Apple's private ANECompiler framework to compile models into HWX binaries.
+  \item \textbf{3\_run:} Loads HWX binaries and executes them on ANE using custom Objective-C wrappers around \texttt{AppleH11ANEInterface}.
+\end{itemize}
+
+The implementation also includes tools like \texttt{hwx\_parse.py} for disassembling HWX files and visualizing internal ops.
+
+\subsection{Security and Access}
+
+Execution on ANE requires system entitlements that are typically unavailable to third-party applications:
+
+\begin{itemize}
+  \item \texttt{com.apple.ane.iokit-user-access}
+  \item Workarounds: amfid patching, kernel extension modification, or use of provisioning profiles.
+\end{itemize}
+
+\subsection{Conclusion}
+
+The ANE represents a proprietary, highly optimized inference accelerator that is difficult to access and understand due to Apple’s closed ecosystem. Reverse engineering, as demonstrated by \texttt{tinygrad}, reveals a modular, DMA-centric architecture capable of executing complex neural network operations at high throughput and low latency. As Apple continues to iterate on the ANE, deeper access and tooling may unlock broader ML deployment options on Apple hardware.
