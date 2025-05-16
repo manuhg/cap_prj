@@ -6,9 +6,9 @@
 
 2. Theoritical Background
 - LLMs, components of inference such as LLM context, sampler, KV cache, etc
-- M1 SOC (System-On-Chip), GPU, NPU, Benefits of Shared virtual address space
-- Zero copy file read: mechanism and existing use cases
 - LLM weight quantization
+- M1 SOC (System-On-Chip), GPU, NPU, Benefits of Shared virtual address space
+- Zero copy file read (using mmap): mechanism and existing use cases
 - LLM data leakage
 - How coreML leverages NPU
 
@@ -17,20 +17,21 @@
 - Papers on RAG (ex: by langchain)
 - tinygrad npu API reverse engineering
 
-4. Methodology & Low level design
+4. Methodology 
+a) Low level design
 - Vector dump & mem map IO
 - Working with NPU
 - RAG pipeline and its components
 
-5. Implementation & Software Architecture
+b) Implementation & Software Architecture
 - Swift UI, static library linkage
 - llama context pool and db thread pool (& choice of postgre over sqlite)
 - all the sub modules
 
-6. Experimentation
+5. Experimentation
 - bertscore x models x quantization levels
 - result analysis
 
-7. Conclusion & Future work
+6. Conclusion & Future work
 - limitations
 - npu backend for llama.cpp
