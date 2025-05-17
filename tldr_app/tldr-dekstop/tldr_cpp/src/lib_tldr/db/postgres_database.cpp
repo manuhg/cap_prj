@@ -55,24 +55,76 @@ namespace tldr {
 
             // Enable required extensions
             txn.exec("CREATE EXTENSION IF NOT EXISTS vector");
+            txn.exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"");
 
-            // Create embeddings table with vector column
+            // Create documents table
+            txn.exec(
+                "CREATE TABLE IF NOT EXISTS documents ("
+                "id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),"
+                "file_hash TEXT NOT NULL UNIQUE,"
+                "file_path TEXT NOT NULL,"
+                "file_name TEXT NOT NULL,"
+                "title TEXT,"
+                "author TEXT,"
+                "subject TEXT,"
+                "keywords TEXT,"
+                "creator TEXT,"
+                "producer TEXT,"
+                "page_count INTEGER,"
+                "created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,"
+                "updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"
+                ")"
+            );
+
+
+            // Create embeddings table with vector column and foreign key to documents
             txn.exec(
                 "CREATE TABLE IF NOT EXISTS embeddings ("
                 "id BIGSERIAL PRIMARY KEY,"
+                "document_id UUID REFERENCES documents(id) ON DELETE CASCADE,"
                 "chunk_text TEXT NOT NULL,"
                 "text_hash BIGINT NOT NULL,"
                 "embedding_hash TEXT," // Store as TEXT to avoid sign issues with uint64_t
                 "embedding vector(" EMBEDDING_SIZE ") NOT NULL,"  // Assuming 2048-dimensional embeddings
-                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+                "created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"
+                ")"
             );
 
-            // Create unique index on text_hash to prevent duplicates
+            // Create indexes for documents table
+            txn.exec("CREATE INDEX IF NOT EXISTS documents_file_hash_idx ON documents (file_hash)");
+            txn.exec("CREATE INDEX IF NOT EXISTS documents_created_at_idx ON documents (created_at)");
+
+            // Create indexes for embeddings table
             txn.exec("CREATE UNIQUE INDEX IF NOT EXISTS embeddings_text_hash_idx ON embeddings (text_hash)");
             txn.exec("CREATE UNIQUE INDEX IF NOT EXISTS embeddings_hash_idx ON embeddings (embedding_hash)");
+            txn.exec("CREATE INDEX IF NOT EXISTS embeddings_document_id_idx ON embeddings (document_id)");
 
             // Create index for vector similarity search
             txn.exec("CREATE INDEX IF NOT EXISTS embeddings_vector_idx ON embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)");
+
+            // Create a function to update the updated_at column
+            txn.exec(
+                "CREATE OR REPLACE FUNCTION update_updated_at_column()\n"
+                "RETURNS TRIGGER AS $$\n"
+                "BEGIN\n"
+                "    NEW.updated_at = NOW();\n"
+                "    RETURN NEW;\n"
+                "END;\n"
+                "$$ language 'plpgsql'"
+            );
+
+            // Create a trigger to update the updated_at column on documents
+            txn.exec(
+                "DO $$\n"
+                "BEGIN\n"
+                "    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_documents_updated_at') THEN\n"
+                "        CREATE TRIGGER update_documents_updated_at\n"
+                "        BEFORE UPDATE ON documents\n"
+                "        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();\n"
+                "    END IF;\n"
+                "END\n"
+                "$$;"
+            );
 
             txn.commit();
             closeConnection(conn);

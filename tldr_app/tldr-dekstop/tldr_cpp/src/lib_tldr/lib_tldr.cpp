@@ -755,19 +755,18 @@ WorkResult addCorpus(const std::string &sourcePath) {
     try {
         WorkResult result;
         // Collect PDF files - using move semantics for efficiency
-        std::vector<std::string> filesToProcess = collectPdfFiles(sourcePath);
-        if (filesToProcess.empty()) {
+        std::vector<std::string> pdfFiles = collectPdfFiles(sourcePath);
+        if (pdfFiles.empty()) {
             return WorkResult::Error("No PDF files found to process");
         }
-        std::cout << "Found " << filesToProcess.size() << " PDF files to process" << std::endl;
+        std::cout << "Found " << pdfFiles.size() << " PDF files to process" << std::endl;
 
         std::map<std::string, std::string> fileHashes;
-        if (!computeFileHashes(filesToProcess, fileHashes, result))
+        if (!computeFileHashes(pdfFiles, fileHashes, result))
             return result;
 
-
         std::vector<std::pair<std::string, std::string> > filesToEmbed;
-        if (!getFilesToBeEmbedded(filesToProcess, fileHashes, filesToEmbed, result))
+        if (!getFilesToBeEmbedded(pdfFiles, fileHashes, filesToEmbed, result))
             return result;
 
         if (!addFilesToCorpus(filesToEmbed, result))
