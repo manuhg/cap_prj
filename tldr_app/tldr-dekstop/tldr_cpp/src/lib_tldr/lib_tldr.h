@@ -6,14 +6,21 @@
 #include "db/database.h"
 #include "db/postgres_database.h"
 #include "db/sqlite_database.h"
-#include "constants.h"
+#include <libpq-fe.h>
+#include <nlohmann/json.hpp>
 #include <vector>
 #include <string>
-#include <cstdint>
-#include <map>
+#include <memory>
+#include <stdexcept>
+#include <cstring>
+#include <sstream>
 
-// Directory name for storing vector cache files
-constexpr const char* VECDUMP_DIR = "_vecdumps";
+// Constants
+const std::string PAGE_DELIMITER = "\n--- PAGE BREAK ---\n";
+
+// Helper function to extract content from XML tags
+std::string extract_xml_content(const std::string& xml);
+
 // #include "libs/sqlite_modern_cpp.h"
 #include "vec_dump.h"
 #include "npu_accelerator.h"
@@ -50,24 +57,77 @@ public:
 
 // Function declarations
 std::string translatePath(const std::string &path);
+// Structure to hold PDF metadata
+struct PdfMetadata {
+    std::string title;
+    std::string author;
+    std::string subject;
+    std::string keywords;
+    std::string creator;
+    std::string producer;
+    int pageCount;
+};
+
+// Structure to hold document data including metadata and page texts
+struct DocumentData {
+    PdfMetadata metadata;
+    std::vector<std::string> pageTexts; // Index N-1 contains text of page N
+    std::vector<std::string> chunks;    // Text chunks for processing
+    std::vector<int> chunkPageNums;     // Page number for each chunk
+};
+
+// Extract metadata from a PDF file
+PdfMetadata getPdfMetadata(const std::string &filename);
+
+// Extract document data including metadata and page texts from a PDF file
+DocumentData extractDocumentDataFromPDF(const std::string &filename);
+
+// Kept for backward compatibility
+[[deprecated("Use extractDocumentDataFromPDF instead")]]
 std::string extractTextFromPDF(const std::string &filename);
-std::vector<std::string>
-splitTextIntoChunks(const std::string &text, size_t max_chunk_size = 2000, size_t overlap = 20);
-bool initializeDatabase();
-int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, const std::vector<std::vector<float>> &embeddings, const std::vector<uint64_t> &embeddings_hash = {});
+// Get page boundaries (end positions) for a document
+std::vector<size_t> getPageBoundaries(const DocumentData& docData);
+
+// Split document text into chunks with page tracking
+void splitTextIntoChunks(DocumentData& docData, size_t max_chunk_size = 2000, size_t overlap = 20);
+// Database connection management
+bool initializeDatabase(const std::string& conninfo = "");
+void closeDatabase();
+
+// Save or update document metadata in the database
+bool saveOrUpdateDocument(const std::string& fileHash, 
+                         const std::string& filePath,
+                         const DocumentData& docData);
+
+// Save embeddings to the database with page numbers and file hash reference
+int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, 
+                          const std::vector<std::vector<float>> &embeddings, 
+                          const std::vector<uint64_t> &embeddings_hash,
+                          const std::vector<int>& chunkPageNums,
+                          const std::string& fileHash);
 std::string sendEmbeddingsRequest(const json &request, const std::string& url);
 json parseEmbeddingsResponse(const std::string &response_data);
-int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch, const std::vector<std::vector<float>> &batch_embeddings, const std::vector<uint64_t> &embeddings_hash);
+int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
+    const std::vector<std::vector<float>> &batch_embeddings, 
+    const std::vector<uint64_t> &embeddings_hash,
+    const std::vector<int>& chunkPageNums,
+    const std::string &fileHash);
 
 // Returns gathered embeddings and their hashes
 std::pair<std::vector<std::vector<float>>, std::vector<uint64_t>> 
-obtainEmbeddings(const std::vector<std::string> &chunks, const std::vector<std::string> &fileHashes, size_t batch_size = 2, size_t num_threads = 2);
+obtainEmbeddings(const std::vector<std::string> &chunks, 
+                const std::vector<int>& chunkPageNums,
+                const std::string &fileHash,
+                size_t batch_size, size_t num_threads);
 
 // Process a single PDF file and add it to the corpus
 void processPdfFile(const std::string& filePath, const std::string& fileHash);
 
+// Delete all embeddings for a specific file hash
+bool deleteFileEmbeddings(const std::string& fileHash);
+
 // Function to add a file to the corpus
-void addFileToCorpus(const std::string &sourcePath, const std::string &fileHash);
+bool addFileToCorpus(const std::string &sourcePath, const std::string &fileHash);
 
 // Find all PDF files in a directory recursively
 void findPdfFiles(const std::filesystem::path& path, std::vector<std::string>& pdfFiles);

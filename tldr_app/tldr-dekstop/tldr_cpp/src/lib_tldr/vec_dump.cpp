@@ -4,19 +4,31 @@
 #include <filesystem>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <cmath>
+#include "constants.h"
 
 namespace tldr {
 
 // Dump vectors and hashes to a binary file for memory mapping
 bool dump_vectors_to_file(const std::string& source_path, 
                          const std::vector<std::vector<float>>& embeddings,
-                         const std::vector<uint64_t>& hashes) {
+                         const std::vector<uint64_t>& hashes,
+                         const std::string& fileHash) {
     
     if (embeddings.empty() || hashes.empty() || embeddings.size() != hashes.size()) {
         std::cerr << "Error: Invalid embeddings or hashes for dumping to file" << std::endl;
         return false;
     }
+
+    // Create a directory for vecdump files if it doesn't exist
+    if (!std::filesystem::exists(VECDUMP_DIR)) {
+        std::filesystem::create_directory(VECDUMP_DIR);
+    }
+
+    // Create vecdump filename using the file hash
+    std::string vecdump_path = std::string(VECDUMP_DIR) + "/" + fileHash + ".vecdump";
+    
+    // Log the save operation
+    std::cout << "Vecdump saved to: " << vecdump_path << std::endl;
     
     // Extract the base filename from source path
     std::filesystem::path path(source_path);
@@ -24,6 +36,7 @@ bool dump_vectors_to_file(const std::string& source_path,
     
     std::ofstream out(filename, std::ios::binary);
     if (!out) {
+        std::cerr << "Failed to save vecdump for " << source_path << std::endl;
         std::cerr << "Error: Could not open file " << filename << " for writing" << std::endl;
         return false;
     }
@@ -178,7 +191,7 @@ bool test_vector_cache() {
     
     // Step 1: Dump the test data
     std::cout << "\nStep 1: Dumping test embeddings to " << test_file << std::endl;
-    if (!dump_vectors_to_file(test_file, test_embeddings, test_hashes)) {
+    if (!dump_vectors_to_file(test_file, test_embeddings, test_hashes, "test_hash")) {
         std::cerr << "Error: Failed to dump test embeddings" << std::endl;
         return false;
     }

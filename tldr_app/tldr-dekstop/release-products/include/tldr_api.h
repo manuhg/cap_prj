@@ -30,7 +30,7 @@ void cleanupSystem();
  * @param sourcePath Path to the PDF file or directory containing PDFs to add
  */
 void addCorpus(const std::string& sourcePath);
-    
+
 /**
  * @brief Delete a document from the corpus
  * @param corpusId ID of the corpus to delete

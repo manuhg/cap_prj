@@ -26,6 +26,19 @@
 #include <functional> // Include for std::hash
 
 #include "lib_tldr.h"
+#include <curl/curl.h>
+
+// Helper function to extract content from XML tags
+std::string extract_xml_content(const std::string& xml) {
+    size_t start = xml.find('>');
+    if (start == std::string::npos) return "";
+    
+    size_t end = xml.rfind("<");
+    if (end == std::string::npos || end <= start) return "";
+    
+    return xml.substr(start + 1, end - start - 1);
+}
+
 #include "llama.h"
 #include "llm/llm-wrapper.h"
 #include "lib_tldr/constants.h"
@@ -39,6 +52,50 @@ std::unique_ptr<tldr::Database> g_db;
 // Global mutex for thread synchronization
 // std::mutex g_mutex;
 #endif
+PdfMetadata getPdfMetadata(const std::string &filename) {
+    PdfMetadata metadata;
+    std::string expanded_path = translatePath(filename);
+    auto doc = std::unique_ptr<poppler::document>(poppler::document::load_from_file(expanded_path));
+
+    if (!doc) {
+        std::cerr << "Error opening PDF file at path: " << expanded_path << std::endl;
+        metadata.pageCount = -1;  // Indicate error with page count -1
+        return metadata;
+    }
+    
+    // Get page count
+    metadata.pageCount = doc->pages();
+
+    // Extract metadata fields
+    poppler::ustring metadata_ustr = doc->metadata();
+    if (!metadata_ustr.empty()) {
+        std::string metadata_str = metadata_ustr.to_latin1();
+        std::istringstream meta_stream(metadata_str);
+        std::string line;
+        
+        while (std::getline(meta_stream, line)) {
+            if (line.find("<dc:title>") != std::string::npos) {
+                metadata.title = extract_xml_content(line);
+            } else if (line.find("<dc:creator>") != std::string::npos) {
+                metadata.author = extract_xml_content(line);
+            } else if (line.find("<dc:subject>") != std::string::npos) {
+                metadata.subject = extract_xml_content(line);
+            } else if (line.find("<dc:description>") != std::string::npos) {
+                // Use description for keywords if needed
+                if (metadata.keywords.empty()) {
+                    metadata.keywords = extract_xml_content(line);
+                }
+            } else if (line.find("<pdf:Producer>") != std::string::npos) {
+                metadata.producer = extract_xml_content(line);
+            } else if (line.find("<pdf:Creator>") != std::string::npos) {
+                metadata.creator = extract_xml_content(line);
+            }
+        }
+    }
+
+    return metadata;
+}
+
 std::string translatePath(const std::string &path) {
     std::string result = path;
 
@@ -80,89 +137,141 @@ int calc_batch_chars(const std::vector<std::string_view> &batch) {
     return total_length;
 }
 
-// Simple function to extract text from a PDF file
-std::string extractTextFromPDF(const std::string &filename) {
-    // Load the PDF document
+// Extract document data including metadata and page texts from a PDF file
+DocumentData extractDocumentDataFromPDF(const std::string &filename) {
+    DocumentData docData;
     std::string expanded_path = translatePath(filename);
-    poppler::document *doc = poppler::document::load_from_file(expanded_path);
+    auto doc = std::unique_ptr<poppler::document>(poppler::document::load_from_file(expanded_path));
 
     // Check if the document loaded successfully
     if (!doc) {
         std::cerr << "Error opening PDF file at path: " << expanded_path << std::endl;
-        return "";
+        docData.metadata.pageCount = -1;  // Indicate error with page count -1
+        return docData;
     }
+    
+    // Get metadata
+    docData.metadata = getPdfMetadata(filename);
+    
+    // Pre-allocate space for page texts
+    int pageCount = doc->pages();
+    docData.pageTexts.reserve(pageCount);
 
-    std::string text;
-
-    // Iterate through all pages
-    for (int i = 0; i < doc->pages(); ++i) {
-        // Get the current page
-        poppler::page *page = doc->create_page(i);
-        std::string page_text;
-        page_text.reserve(1024 * 4);
+    // Extract text from each page
+    for (int i = 0; i < pageCount; ++i) {
+        auto page = std::unique_ptr<poppler::page>(doc->create_page(i));
         if (page) {
-            page_text.clear();
-            // Extract text from the page and sanitize UTF-8
+            std::string page_text;
             poppler::byte_array utf8_data = page->text().to_utf8();
-
+            
             // Only keep ASCII characters for now
-            for (unsigned char c: utf8_data) {
-                if (c < 128) {
-                    // ASCII range
+            page_text.reserve(utf8_data.size());
+            for (unsigned char c : utf8_data) {
+                if (c < 128) {  // ASCII range
                     page_text += c;
                 }
             }
-
-            text.append(page_text + PAGE_DELIMITER);
-            delete page;
+            
+            docData.pageTexts.push_back(page_text);
+        } else {
+            docData.pageTexts.push_back(""); // Push empty string for unreadable pages
         }
     }
 
-    // Clean up the document
-    delete doc;
-
-    return text;
+    return docData;
 }
 
-// function to split text into fixed-size chunks with overlap
-std::vector<std::string> splitTextIntoChunks(const std::string &text, size_t max_chunk_size, size_t overlap) {
-    std::vector<std::string> chunks;
-    size_t pos = 0;
-    const size_t text_len = text.length();
+// Kept for backward compatibility
+std::string extractTextFromPDF(const std::string &filename) {
+    DocumentData docData = extractDocumentDataFromPDF(filename);
+    std::string fullText;
+    
+    // Concatenate all page texts with delimiters
+    for (const auto& pageText : docData.pageTexts) {
+        if (!pageText.empty()) {
+            fullText += pageText + PAGE_DELIMITER;
+        }
+    }
+    
+    return fullText;
+}
 
+
+
+// Split document text into chunks with page tracking
+void splitTextIntoChunks(DocumentData& docData, size_t max_chunk_size, size_t overlap) {
+    // Clear any existing chunks
+    docData.chunks.clear();
+    docData.chunkPageNums.clear();
+    
+    // Concatenate all page texts with delimiters
+    std::string fullText;
+    std::vector<size_t> pageBoundaries;
+    size_t current_pos = 0;
+
+    for (const auto& pageText : docData.pageTexts) {
+        fullText += pageText;
+        current_pos += pageText.length();
+        pageBoundaries.push_back(current_pos);
+    }
+    
+    const size_t text_len = fullText.length();
+    
+    size_t pos = 0;
+    size_t currentPage = 0;
+    
     while (pos < text_len) {
         // Calculate end position for this chunk
         size_t chunk_end = std::min(pos + max_chunk_size, text_len);
-
+        
+        // Find which page this chunk starts in
+        while (currentPage < pageBoundaries.size() && pos >= pageBoundaries[currentPage]) {
+            currentPage++;
+        }
+        
         // Add the chunk
         int num_chars = chunk_end - pos;
-        chunks.push_back(text.substr(pos, num_chars));
-
+        docData.chunks.push_back(fullText.substr(pos, num_chars));
+        docData.chunkPageNums.push_back(currentPage + 1); // 1-based page numbers
+        
         // Move position for next chunk, accounting for overlap
         pos = num_chars > overlap ? chunk_end - overlap : chunk_end;
     }
-
-    return chunks;
 }
 
-bool initializeDatabase() {
-    std::cout << "Initialize the database" << std::endl;
-    if (!g_db) {
-        if (USE_POSTGRES) {
-            g_db = std::make_unique<tldr::PostgresDatabase>(PG_CONNECTION);
-        } else {
-            g_db = std::make_unique<tldr::SQLiteDatabase>(translatePath(DB_PATH));
-        }
+bool initializeDatabase(const std::string& conninfo) {
+    std::cout << "Initializing database..." << std::endl;
+    
+    // If no connection string is provided, use the default from constants.h
+    const std::string& connection_string = conninfo.empty() ? PG_CONNECTION : conninfo;
+    
+    try {
+        if (!g_db) {
+            if (USE_POSTGRES) {
+                g_db = std::make_unique<tldr::PostgresDatabase>(connection_string);
+            } else {
+                g_db = std::make_unique<tldr::SQLiteDatabase>(translatePath(DB_PATH));
+            }
 
-        if (!g_db->initialize()) {
-            std::cerr << "Failed to initialize database" << std::endl;
-            return false;
+            if (!g_db->initialize()) {
+                std::cerr << "Failed to initialize database" << std::endl;
+                g_db.reset();
+                return false;
+            }
         }
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Database initialization error: " << e.what() << std::endl;
+        g_db.reset();
+        return false;
     }
-    return true;
 }
 
-int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, const std::vector<std::vector<float>> &embeddings, const std::vector<uint64_t> &embeddings_hash) {
+int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, 
+                         const std::vector<std::vector<float>> &embeddings, 
+                         const std::vector<uint64_t> &embeddings_hash,
+                         const std::vector<int>& chunkPageNums,
+                         const std::string& fileHash) {
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return -1;
@@ -181,53 +290,39 @@ int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, const st
     }
 
     // Pass the computed embeddings_hash to the database
-    return g_db->saveEmbeddings(chunks, embeddings_json, embeddings_hash);
-}
-/*
-size_t WriteCallback(char *contents, size_t size, size_t nmemb, void *userp) {
-    ((std::string *) userp)->append((char *) contents, size * nmemb);
-    return size * nmemb;
+    return g_db->saveEmbeddings(chunks, embeddings_json, embeddings_hash, chunkPageNums, fileHash);
 }
 
-// CURL wrapper class implementation
-CurlHandle::CurlHandle() : curl_(curl_easy_init()), headers_(nullptr) {
-    if (!curl_) {
-        throw std::runtime_error("Failed to initialize CURL");
-    }
-    headers_ = curl_slist_append(headers_, "Content-Type: application/json");
-}
-
-CurlHandle::~CurlHandle() {
-    if (headers_) curl_slist_free_all(headers_);
-    if (curl_) curl_easy_cleanup(curl_);
-}
-
-void CurlHandle::setupEmbeddingsRequest(const std::string &json_str, std::string &response_data) {
-    curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, json_str.c_str());
-    curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, headers_);
-    curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &response_data);
-    curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, CONNECT_TIMEOUT_SECONDS);
-    curl_easy_setopt(curl_, CURLOPT_TIMEOUT, REQUEST_TIMEOUT_SECONDS);
-}
-
-// Send HTTP request to embeddings service
-std::string sendEmbeddingsRequest(const json &request, const std::string& url) {
-    CurlHandle curl;
-    std::string json_str = request.dump();
-    std::string response_data;
-
-    curl.setupEmbeddingsRequest(json_str, response_data);
-    curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
-
-    CURLcode res = curl_easy_perform(curl.get());
-    if (res != CURLE_OK) {
-        throw std::runtime_error(std::string("CURL request failed: ") + curl_easy_strerror(res));
+// Save or update document metadata in the database
+bool saveOrUpdateDocument(const std::string& fileHash, 
+                         const std::string& filePath,
+                         const DocumentData& docData) {
+    if (!g_db || fileHash.empty() || filePath.empty()) {
+        std::cerr << "Error: Database not initialized or invalid file hash/path" << std::endl;
+        return false;
     }
 
-    return response_data;
+    // Extract filename from path
+    std::filesystem::path fsPath(filePath);
+    std::string fileName = fsPath.filename().string();
+
+    // Use the database interface to save document metadata
+    return g_db->saveDocumentMetadata(
+        fileHash,
+        filePath,
+        fileName,
+        docData.metadata.title,
+        docData.metadata.author,
+        docData.metadata.subject,
+        docData.metadata.keywords,
+        docData.metadata.creator,
+        docData.metadata.producer,
+        docData.metadata.pageCount
+    );
+
 }
-*/
+
+
 // Parse response and extract embeddings
 json parseEmbeddingsResponse(const std::string &response_data) {
     try {
@@ -282,7 +377,10 @@ static std::vector<uint64_t> computeEmbeddingHashes(const std::vector<std::vecto
 
 // Save embeddings to database with thread safety
 int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
-    const std::vector<std::vector<float>> &batch_embeddings, const std::vector<uint64_t> &embeddings_hash) {
+    const std::vector<std::vector<float>> &batch_embeddings, 
+    const std::vector<uint64_t> &embeddings_hash,
+    const std::vector<int>& chunkPageNums,
+    const std::string& fileHash) {
 
     json embeddings_json;
     embeddings_json["embeddings"] = json::array();
@@ -300,7 +398,7 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
     // std::lock_guard<std::mutex> lock(g_mutex);
 #endif
     // Pass the raw embeddings and computed hashes to saveEmbeddingsToDb
-    int64_t saved_id = saveEmbeddingsToDb(batch, batch_embeddings, embeddings_hash);
+    int64_t saved_id = saveEmbeddingsToDb(batch, batch_embeddings, embeddings_hash, chunkPageNums, fileHash);
     if (saved_id < 0) {
         std::cerr<<"Failed to save embeddings to database";
         // throw std::runtime_error("Failed to save embeddings to database");
@@ -308,58 +406,6 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
     return saved_id;
 }
 
-/*
-void processChunkBatch(const std::vector<std::string_view> &batch, size_t batch_num, size_t total_batches,
-                       int &result_id) {
-    // Process each text chunk individually since llama.cpp server expects single text input
-    std::vector<json> embeddings_list;
-    embeddings_list.reserve(batch.size());
-
-    int total_length = 0;
-    for (const auto &chunk: batch) {
-        total_length += chunk.length();
-    }
-    result_id = -1;
-
-    if (batch.empty() || total_length <= 0) {
-        std::cerr << "Error: Empty Batch!" << std::endl;
-        return;
-    }
-    std::cout << "Received text length: " << total_length << "; batch size:" << batch.size() << std::endl;
-
-    for (int retry = 0; retry < MAX_RETRIES; retry++) {
-        if (retry > 0) {
-            std::cout << "Retrying batch " << batch_num + 1 << " (attempt " << retry + 1
-                    << " of " << MAX_RETRIES << ")" << std::endl;
-            std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
-        }
-
-        std::cout << "Processing batch " << batch_num + 1 << " of " << total_batches << std::endl;
-
-        try {
-            std::vector<std::vector<float>> batch_embeddings = tldr::get_llm_manager().get_embeddings(batch);
-            if (batch_embeddings.size() != batch.size()) {
-                std::cerr << "  Warning: Mismatch between input chunks (" << batch.size()
-                          << ") and generated embeddings (" << batch_embeddings.size()
-                          << ") for this batch. " << std::endl;
-            }
-
-
-            result_id = saveEmbeddingsThreadSafe(std::vector<std::string>(batch.begin(), batch.end()), batch_embeddings);
-            return; // Success
-        } catch (const std::exception &e) {
-            if (retry == MAX_RETRIES - 1) {
-                throw std::runtime_error("Failed after " + std::to_string(MAX_RETRIES) +
-                                         " attempts: " + std::string(e.what()));
-            }
-            std::cerr << "Attempt " << retry + 1 << " failed: " << e.what() << std::endl;
-        }
-    }
-
-    std::cerr << "Failed to process batch after " << MAX_RETRIES << " attempts" << std::endl;
-    result_id = -1;
-}
-*/
 bool initializeSystem() {
     std::cout << "Initialize the system" << std::endl;
 
@@ -387,12 +433,17 @@ bool initializeSystem() {
     return true;
 }
 
-void cleanupSystem() {
-    // Cleanup CURL (If it was ever initialized - check initializeSystem)
-    // curl_global_cleanup();
+void closeDatabase() {
+    // Reset the global database instance, which will clean up the connection pool
+    g_db.reset();
+    std::cout << "Database connection closed." << std::endl;
+}
 
-    // Database is managed by unique_ptr, will clean up automatically.
-    // g_db.reset();
+void cleanupSystem() {
+    // Close the database connection
+    closeDatabase();
+    
+    // Clean up the LLM manager
     tldr::get_llm_manager().cleanup();
 
     std::cout << "System cleaned up." << std::endl;
@@ -400,8 +451,11 @@ void cleanupSystem() {
 
 // Vector dump functionality is now in vec_dump.h/cpp
 
-std::pair<std::vector<std::vector<float>>, std::vector<uint64_t>>
-obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size_t num_threads) {
+std::pair<std::vector<std::vector<float>>, std::vector<uint64_t>> 
+obtainEmbeddings(const std::vector<std::string> &chunks, 
+                const std::vector<int>& chunkPageNums,
+                const std::string& fileHash,
+                size_t batch_size, size_t num_threads) {
     // System initialization is now handled by initializeSystem()
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
     std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
@@ -430,8 +484,8 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
                 size_t end = std::min(start + batch_size, chunks.size());
 
                 threads.emplace_back(
-                    [&chunks, start, end, batch_start, batch_size, total_batches, &ids, j, num_threads,
-                     &thread_embeddings, &thread_hashes]() {
+                    [&chunks, &chunkPageNums, start, end, batch_start, batch_size, total_batches, &ids, j, num_threads,
+                     &thread_embeddings, &thread_hashes, fileHash]() {
                         try {
                             // Create a vector of string_view for the current batch
                             std::vector<std::string_view> batch_chunks(
@@ -447,7 +501,18 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
 
                             // Compute hashes for these embeddings
                             std::vector<uint64_t> batch_hashes = computeEmbeddingHashes(batch_emb);
-                            saveEmbeddingsThreadSafe(batch_chunks, batch_emb, batch_hashes);
+// Get the page numbers for this batch
+                            std::vector<int> batch_page_nums(
+                                chunkPageNums.begin() + start,
+                                chunkPageNums.begin() + end
+                            );
+                            saveEmbeddingsThreadSafe(
+                                batch_chunks, 
+                                batch_emb, 
+                                batch_hashes, 
+                                batch_page_nums,
+                                fileHash
+                            );
 
                             // Save the embeddings and hashes for this thread
                             thread_embeddings[j] = std::move(batch_emb);
@@ -491,40 +556,62 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
     return {all_embeddings, all_hashes};
 }
 
-void addFileToCorpus(const std::string &sourcePath, const std::string &fileHash) {
+bool addFileToCorpus(const std::string &sourcePath, const std::string &fileHash) {
     std::string expanded_path = translatePath(sourcePath);
-    std::string doc_text = extractTextFromPDF(expanded_path);
-
-    if (doc_text.empty()) {
-        std::cerr << "Error: No text extracted from PDF." << std::endl;
-        return;
-    }
-
-    // Print text length only
-    std::cout << "Extracted text length: " << doc_text.length() << std::endl;
-    const std::vector<std::string> chunks = splitTextIntoChunks(doc_text, MAX_CHUNK_SIZE, CHUNK_N_OVERLAP);
-    std::cout << "Number of chunks: " << chunks.size() << std::endl;
-
-    // Get embeddings and their hashes
-    auto [embeddings, hashes] = obtainEmbeddings(chunks, BATCH_SIZE, NUM_THREADS);
-
-    // Create a directory for vecdump files if it doesn't exist
-    if (!std::filesystem::exists(VECDUMP_DIR)) {
-        std::filesystem::create_directory(VECDUMP_DIR);
-    }
-
-    // Create vecdump filename using the file hash
-    std::string vecdump_path = std::string(VECDUMP_DIR) + "/" + fileHash + ".vecdump";
     
-    // Dump vectors and hashes to file for memory mapping
-    if (tldr::dump_vectors_to_file(vecdump_path, embeddings, hashes)) {
-        std::cout << "Vecdump saved to: " << vecdump_path << std::endl;
-    } else {
-        std::cerr << "Failed to save vecdump for " << sourcePath << std::endl;
-        return;
+    // Extract document data and metadata
+    DocumentData docData = extractDocumentDataFromPDF(expanded_path);
+    if (docData.pageTexts.empty()) {
+        std::cerr << "Error: No text extracted from PDF." << std::endl;
+        return false;
     }
 
-    std::cout << "Corpus added successfully." << std::endl;
+    // Save or update document metadata in the database
+    if (!saveOrUpdateDocument(fileHash, sourcePath, docData)) {
+        std::cerr << "Error: Failed to save document metadata to database" << std::endl;
+        return false;
+    }
+    
+    // Delete any existing embeddings for this file hash
+    if (!deleteFileEmbeddings(fileHash)) {
+        std::cerr << "Warning: Failed to delete existing embeddings for file hash: " << fileHash << std::endl;
+        // Continue anyway, as we'll try to add new embeddings
+    }
+
+    // Split into chunks with page tracking
+    splitTextIntoChunks(docData, MAX_CHUNK_SIZE, CHUNK_N_OVERLAP);
+    
+    // Print text length and chunk info
+    std::cout << "Extracted " << docData.pageTexts.size() << " pages with " 
+              << docData.chunks.size() << " chunks" << std::endl;
+
+    // Get embeddings and their hashes, and save them directly in the worker threads
+    auto [embeddings, hashes] = obtainEmbeddings(
+        docData.chunks,docData.chunkPageNums,fileHash,BATCH_SIZE, NUM_THREADS);
+    
+    // The embeddings are now saved in the database by obtainEmbeddings
+    // We just need to verify that we got the expected number of embeddings
+    if (embeddings.size() != docData.chunks.size()) {
+        std::cerr << "Error: Mismatch between number of chunks (" << docData.chunks.size()
+                  << ") and embeddings (" << embeddings.size() << ")" << std::endl;
+        return false;
+    }
+
+    // Dump vectors and hashes to file for memory mapping
+    if (!tldr::dump_vectors_to_file(expanded_path, embeddings, hashes, fileHash)) {
+        // Even if file dump fails, we still have the data in the database
+        std::cerr << "Warning: Failed to save vector dump file, but data is saved in database" << std::endl;
+    }
+
+    std::cout << "Document added to corpus successfully." << std::endl;
+    return true;
+}
+
+bool deleteFileEmbeddings(const std::string& fileHash) {
+    if (g_db) {
+        return g_db->deleteEmbeddings(fileHash);
+    }
+    return false;
 }
 
 void processPdfFile(const std::string& filePath, const std::string& fileHash) {
@@ -865,7 +952,7 @@ bool test_vector_cache() {
 
     // Step 1: Dump the test data
     std::cout << "\nStep 1: Dumping test embeddings to " << test_file << std::endl;
-    if (!tldr::dump_vectors_to_file(test_file, test_embeddings, test_hashes)) {
+    if (!tldr::dump_vectors_to_file(test_file, test_embeddings, test_hashes,"test_hash")) {
         std::cerr << "Error: Failed to dump test embeddings" << std::endl;
         return false;
     }

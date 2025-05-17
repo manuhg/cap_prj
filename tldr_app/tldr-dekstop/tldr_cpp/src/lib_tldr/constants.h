@@ -4,7 +4,6 @@
 #include <vector>
 
 // Text processing constants
-#define PAGE_DELIMITER "\n\n"
 #define AVG_WORDS_PER_SENTENCE 6
 #define AVG_CHARS_PER_WORD 5
 #define CHUNK_N_SENTENCES 10
@@ -18,10 +17,12 @@
 #define DB_HASH_PRESENT_DO_NOTHING 2
 #define DB_HASH_PRESENT_ACTION DB_HASH_PRESENT_DO_NOTHING
 
-#define NUM_THREADS 4
-#define ADD_CORPUS_N_THREADS 4  // Maximum number of threads for processing PDFs in parallel
-#define DB_CONN_POOL_SIZE NUM_THREADS
+#define NUM_THREADS 2
+#define ADD_CORPUS_N_THREADS 2  // Maximum number of threads for processing PDFs in parallel
+#define DB_CONN_POOL_SIZE (NUM_THREADS*ADD_CORPUS_N_THREADS)
 
+// Directory name for storing vector cache files
+constexpr const char* VECDUMP_DIR = "_vecdumps";
 // Database constants
 #define USE_POSTGRES true  // Set to true to use PostgreSQL, false for SQLite
 #define DB_PATH "~/proj_tldr/datastore/embeddings.db"
@@ -48,8 +49,8 @@
 #define CHAT_MIN_CONTEXTS 1
 #define CHAT_MAX_CONTEXTS 2
 // Embedding model context pool sizes - can have more contexts since embedding operations are faster
-#define EMBEDDING_MIN_CONTEXTS 4
-#define EMBEDDING_MAX_CONTEXTS 6
+#define EMBEDDING_MIN_CONTEXTS (ADD_CORPUS_N_THREADS*1)
+#define EMBEDDING_MAX_CONTEXTS (ADD_CORPUS_N_THREADS*NUM_THREADS)
 struct embeddings_request {
     std::vector<std::string> input;
 };

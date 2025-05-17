@@ -12,9 +12,12 @@ namespace tldr {
         ~PostgresDatabase() override;
 
         bool initialize() override;
-        int64_t saveEmbeddings(const std::vector<std::string_view> &chunks,
-                               const json &embeddings_response,
-                               const std::vector<uint64_t> &embedding_hashes = {}) override;
+        int64_t saveEmbeddings(
+            const std::vector<std::string_view> &chunks,
+            const json &embeddings_response,
+            const std::vector<uint64_t> &embedding_hashes,
+            const std::vector<int> &chunk_page_nums,
+            const std::string &file_hash) override;
         bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) override;
 
         // Perform vector similarity search
@@ -23,6 +26,22 @@ namespace tldr {
         
         // Get text chunks by their hash values (for NPU-accelerated similarity search)
         std::map<uint64_t, std::string> getChunksByHashes(const std::vector<uint64_t>& hashes) override;
+
+        // Save or update document metadata
+        bool saveDocumentMetadata(
+            const std::string& fileHash,
+            const std::string& filePath,
+            const std::string& fileName,
+            const std::string& title,
+            const std::string& author,
+            const std::string& subject,
+            const std::string& keywords,
+            const std::string& creator,
+            const std::string& producer,
+            int pageCount) override;
+            
+        // Delete all embeddings for a specific file hash
+        bool deleteEmbeddings(const std::string& file_hash) override;
 
     private:
         std::string connection_string_;

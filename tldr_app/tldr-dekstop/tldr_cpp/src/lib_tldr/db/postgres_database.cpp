@@ -84,7 +84,13 @@ namespace tldr {
         }
     }
 
-    int64_t PostgresDatabase::saveEmbeddings(const std::vector<std::string_view> &chunks, const json &embeddings_response, const std::vector<uint64_t> &embedding_hashes) {
+    int64_t PostgresDatabase::saveEmbeddings(
+        const std::vector<std::string_view> &chunks,
+        const json &embeddings_response,
+        const std::vector<uint64_t> &embedding_hashes,
+        const std::vector<int> &chunk_page_nums,
+        const std::string &file_hash) {
+
         pqxx::connection *conn = nullptr;
         if (!openConnection(conn)) {
             return -1;
@@ -92,69 +98,53 @@ namespace tldr {
 
         try {
             pqxx::work txn(*conn);
+            int64_t last_id = -1;
+
+            
 
             // Prepare the insert statement with a unique name to avoid conflicts in multithreaded environment
             static std::atomic<int> statement_counter{0};
             std::string stmt_name = "insert_embedding_" + std::to_string(statement_counter++);
 
-            // Prepare the statement with a unique name
-#if DB_HASH_PRESENT_ACTION==DB_HASH_PRESENT_UPSERT
-            txn.conn().prepare(
-                stmt_name,
-                "INSERT INTO embeddings (chunk_text, text_hash, embedding_hash, embedding) "
-                "VALUES ($1, hashtextextended($1::text, 0), $2, $3) "
-                "ON CONFLICT (text_hash) DO UPDATE SET "
-                "chunk_text = EXCLUDED.chunk_text, "
-                "text_hash = EXCLUDED.text_hash, "
-                "embedding = EXCLUDED.embedding, "
-                "created_at = CURRENT_TIMESTAMP "
-                "RETURNING id"
-            );
-#else
-            txn.conn().prepare(
-                stmt_name,
-                "INSERT INTO embeddings (chunk_text, text_hash, embedding_hash, embedding) "
-                "VALUES ($1, hashtextextended($1::text, 0), $2, $3) "
-                "ON CONFLICT (text_hash) DO UPDATE SET "
-                "chunk_text = EXCLUDED.chunk_text, "
-                "text_hash = EXCLUDED.text_hash, "
-                "embedding = EXCLUDED.embedding, "
-                "created_at = CURRENT_TIMESTAMP "
-                "RETURNING id"
-            );
-#endif
-            int64_t last_id = -1;
-            // Get the embeddings array from the response
-            const auto& embeddings = embeddings_response["embeddings"];
             
-            // Insert each chunk and its embedding
-            for (size_t i = 0; i < chunks.size(); ++i) {
-                // Convert embedding vector to PostgreSQL array string
-                std::string vector_str = "[";
-                for (size_t j = 0; j < embeddings[i].size(); ++j) {
-                    if (j > 0) vector_str += ",";
-                    vector_str += std::to_string(embeddings[i][j].get<float>());
-                }
-                vector_str += "]";
+                // New functionality with page numbers and file hash
+                conn->prepare(
+                    stmt_name,
+                    "INSERT INTO embeddings (chunk_text, embedding_data, embedding_hash, chunk_page_num, file_hash) "
+                    "VALUES ($1, $2, $3, $4, $5) RETURNING id"
+                );
 
-                // Get hash if available, or use 0 as default
-                uint64_t hash = i < embedding_hashes.size() ? embedding_hashes[i] : 0;
-                
-                // Execute the prepared statement with parameters
-                pqxx::params params;
-                params.append(chunks[i]);
-                
-                // Store the hash as a string to avoid sign issues when converting between uint64_t and BIGINT
-                params.append(std::to_string(hash));
-                params.append(vector_str);
-                // Use exec_prepared directly
-                auto result = txn.exec_prepared(stmt_name, params);
+                for (size_t i = 0; i < chunks.size(); ++i) {
+                    // Convert embedding to string
+                    std::string vector_str = "[";
+                    const auto &embedding = embeddings_response["embeddings"][i];
+                    for (size_t j = 0; j < embedding.size(); ++j) {
+                        if (j > 0) vector_str += ",";
+                        vector_str += std::to_string(embedding[j].get<float>());
+                    }
+                    vector_str += "]";
 
-                // Get the last inserted id
-                if (!result.empty()) {
-                    last_id = result[0][0].as<int64_t>();
+                    // Prepare parameters
+                    std::string chunk_str(chunks[i]);
+                    std::string hash_str = std::to_string(embedding_hashes[i]);
+                    int page_num = i < chunk_page_nums.size() ? chunk_page_nums[i] : 0;
+                    
+                    // Execute the prepared statement
+                    auto result = txn.exec_prepared(
+                        stmt_name,
+                        chunk_str,
+                        vector_str,
+                        hash_str,
+                        page_num,
+                        file_hash
+                    );
+
+                    // Get the last inserted id
+                    if (!result.empty()) {
+                        last_id = result[0][0].as<int64_t>();
+                    }
                 }
-            }
+            
 
             txn.commit();
             closeConnection(conn);
@@ -301,5 +291,118 @@ namespace tldr {
         
         closeConnection(conn);
         return results;
+    }
+
+    bool PostgresDatabase::saveDocumentMetadata(
+        const std::string& fileHash,
+        const std::string& filePath,
+        const std::string& fileName,
+        const std::string& title,
+        const std::string& author,
+        const std::string& subject,
+        const std::string& keywords,
+        const std::string& creator,
+        const std::string& producer,
+        int pageCount) {
+        
+        pqxx::connection *conn = nullptr;
+        if (!openConnection(conn)) {
+            return false;
+        }
+
+        try {
+            pqxx::work txn(*conn);
+            
+            // First check if document with this hash already exists
+            auto result = txn.exec_params(
+                "SELECT 1 FROM documents WHERE file_hash = $1",
+                fileHash
+            );
+
+            if (result.empty()) {
+                // Insert new document
+                txn.exec_params(
+                    "INSERT INTO documents (file_hash, file_path, file_name, title, author, "
+                    "subject, keywords, creator, producer, page_count, created_at, updated_at) "
+                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                    fileHash,
+                    filePath,
+                    fileName,
+                    title.empty() ? nullptr : title,
+                    author.empty() ? nullptr : author,
+                    subject.empty() ? nullptr : subject,
+                    keywords.empty() ? nullptr : keywords,
+                    creator.empty() ? nullptr : creator,
+                    producer.empty() ? nullptr : producer,
+                    pageCount
+                );
+            } else {
+                // Update existing document
+                txn.exec_params(
+                    "UPDATE documents SET "
+                    "file_path = $1, "
+                    "file_name = $2, "
+                    "title = $3, "
+                    "author = $4, "
+                    "subject = $5, "
+                    "keywords = $6, "
+                    "creator = $7, "
+                    "producer = $8, "
+                    "page_count = $9, "
+                    "updated_at = CURRENT_TIMESTAMP "
+                    "WHERE file_hash = $10",
+                    filePath,
+                    fileName,
+                    title.empty() ? nullptr : title,
+                    author.empty() ? nullptr : author,
+                    subject.empty() ? nullptr : subject,
+                    keywords.empty() ? nullptr : keywords,
+                    creator.empty() ? nullptr : creator,
+                    producer.empty() ? nullptr : producer,
+                    pageCount,
+                    fileHash
+                );
+            }
+            
+            txn.commit();
+            closeConnection(conn);
+            return true;
+        } catch (const std::exception &e) {
+            std::cerr << "Error in saveDocumentMetadata: " << e.what() << std::endl;
+            closeConnection(conn);
+            return false;
+        }
+    }
+}
+
+bool tldr::PostgresDatabase::deleteEmbeddings(const std::string& file_hash) {
+    if (file_hash.empty()) {
+        std::cerr << "Cannot delete embeddings: empty file hash provided" << std::endl;
+        return false;
+    }
+
+    pqxx::connection* conn = nullptr;
+    if (!openConnection(conn)) {
+        return false;
+    }
+
+    try {
+        pqxx::work txn(*conn);
+        
+        // Delete all embeddings for the given file hash
+        std::string delete_sql = "DELETE FROM embeddings WHERE file_hash = $1";
+        auto result = txn.exec_params(delete_sql, file_hash);
+        
+        txn.commit();
+        closeConnection(conn);
+        
+        std::cout << "Deleted " << result.affected_rows() << " embeddings for file hash: " << file_hash << std::endl;
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Error deleting embeddings: " << e.what() << std::endl;
+        if (conn) {
+            closeConnection(conn);
+        }
+        return false;
     }
 }

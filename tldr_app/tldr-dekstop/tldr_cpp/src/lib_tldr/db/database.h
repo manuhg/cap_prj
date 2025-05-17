@@ -16,9 +16,12 @@ namespace tldr {
         virtual bool initialize() = 0;
 
         // Save embeddings to the database
-        virtual int64_t saveEmbeddings(const std::vector<std::string_view> &chunks, 
-                                      const json &embeddings_response,
-                                      const std::vector<uint64_t> &embedding_hashes = {}) = 0;
+        virtual int64_t saveEmbeddings(
+            const std::vector<std::string_view> &chunks,
+            const json &embeddings_response,
+            const std::vector<uint64_t> &embedding_hashes,
+            const std::vector<int> &chunk_page_nums,
+            const std::string &file_hash) = 0;
 
         // Get embeddings by ID
         virtual bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) = 0;
@@ -28,6 +31,22 @@ namespace tldr {
         
         // Get text chunks by hash values
         virtual std::map<uint64_t, std::string> getChunksByHashes(const std::vector<uint64_t>& hashes) = 0;
+
+        // Save or update document metadata
+        virtual bool saveDocumentMetadata(
+            const std::string& fileHash,
+            const std::string& filePath,
+            const std::string& fileName,
+            const std::string& title,
+            const std::string& author,
+            const std::string& subject,
+            const std::string& keywords,
+            const std::string& creator,
+            const std::string& producer,
+            int pageCount) = 0;
+            
+        // Delete all embeddings for a specific file hash
+        virtual bool deleteEmbeddings(const std::string& file_hash) = 0;
     };
 }
 
