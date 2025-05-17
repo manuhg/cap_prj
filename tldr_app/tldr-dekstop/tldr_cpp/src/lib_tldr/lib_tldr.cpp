@@ -295,7 +295,7 @@ int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks,
 }
 
 // Save or update document metadata in the database
-bool saveOrUpdateDocument(const std::string& fileHash, 
+bool saveOrUpdateDocumentInDB(const std::string& fileHash,
                          const std::string& filePath,
                          const DocumentData& docData) {
     if (!g_db || fileHash.empty() || filePath.empty()) {
@@ -558,71 +558,69 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
 }
 
 bool addFileToCorpus(const std::string &sourcePath, const std::string &fileHash) {
-    std::string expanded_path = translatePath(sourcePath);
-    
-    // Extract document data and metadata
-    DocumentData docData = extractDocumentDataFromPDF(expanded_path);
-    if (docData.pageTexts.empty()) {
-        std::cerr << "Error: No text extracted from PDF." << std::endl;
-        return false;
-    }
+    std::cout << "Processing file: " << sourcePath << std::endl;
+    try {
+        std::string expanded_path = translatePath(sourcePath);
 
-    // Save or update document metadata in the database
-    if (!saveOrUpdateDocument(fileHash, sourcePath, docData)) {
-        std::cerr << "Error: Failed to save document metadata to database" << std::endl;
-        return false;
-    }
-    
-    // Delete any existing embeddings for this file hash
-    if (!deleteFileEmbeddings(fileHash)) {
-        std::cerr << "Warning: Failed to delete existing embeddings for file hash: " << fileHash << std::endl;
-        // Continue anyway, as we'll try to add new embeddings
-    }
+        // Extract document data and metadata
+        DocumentData docData = extractDocumentDataFromPDF(expanded_path);
+        if (docData.pageTexts.empty()) {
+            std::cerr << "Error: No text extracted from PDF." << std::endl;
+            return false;
+        }
 
-    // Split into chunks with page tracking
-    splitTextIntoChunks(docData, MAX_CHUNK_SIZE, CHUNK_N_OVERLAP);
-    
-    // Print text length and chunk info
-    std::cout << "Extracted " << docData.pageTexts.size() << " pages with " 
-              << docData.chunks.size() << " chunks" << std::endl;
+        // Save or update document metadata in the database
+        if (!saveOrUpdateDocumentInDB(fileHash, expanded_path, docData)) {
+            std::cerr << "Error: Failed to save document metadata to database" << std::endl;
+            return false;
+        }
 
-    // Get embeddings and their hashes, and save them directly in the worker threads
-    auto [embeddings, hashes] = obtainEmbeddings(
-        docData.chunks,docData.chunkPageNums,fileHash,BATCH_SIZE, NUM_THREADS);
-    
-    // The embeddings are now saved in the database by obtainEmbeddings
-    // We just need to verify that we got the expected number of embeddings
-    if (embeddings.size() != docData.chunks.size()) {
-        std::cerr << "Error: Mismatch between number of chunks (" << docData.chunks.size()
-                  << ") and embeddings (" << embeddings.size() << ")" << std::endl;
-        return false;
+        // Delete any existing embeddings for this file hash
+        if (!deleteFileEmbeddingsFromDB(fileHash)) {
+            std::cerr << "Warning: Failed to delete existing embeddings for file hash: " << fileHash << std::endl;
+            // Continue anyway, as we'll try to add new embeddings
+        }
+
+        // Split into chunks with page tracking
+        splitTextIntoChunks(docData, MAX_CHUNK_SIZE, CHUNK_N_OVERLAP);
+
+        // Print text length and chunk info
+        std::cout << "Extracted " << docData.pageTexts.size() << " pages with "
+                << docData.chunks.size() << " chunks" << std::endl;
+
+        // Get embeddings and their hashes, and save them directly in the worker threads
+        auto [embeddings, hashes] = obtainEmbeddings(
+            docData.chunks, docData.chunkPageNums, fileHash,BATCH_SIZE, NUM_THREADS);
+
+        // The embeddings are now saved in the database by obtainEmbeddings
+        // We just need to verify that we got the expected number of embeddings
+        if (embeddings.size() != docData.chunks.size()) {
+            std::cerr << "Error: Mismatch between number of chunks (" << docData.chunks.size()
+                    << ") and embeddings (" << embeddings.size() << ")" << std::endl;
+            return false;
+        }
+
+        // Dump vectors and hashes to file for memory mapping
+        if (!tldr::dump_vectors_to_file(expanded_path, embeddings, hashes, fileHash)) {
+            // Even if file dump fails, we still have the data in the database
+            std::cerr << "Warning: Failed to save vector dump file, but data is saved in database" << std::endl;
+        }
+
+        std::cout << "Document added to corpus successfully." << std::endl;
+        return true;
+    } catch (const std::exception &e) {
+        std::cerr << "Error processing " << sourcePath << ": " << e.what() << std::endl;
     }
-
-    // Dump vectors and hashes to file for memory mapping
-    if (!tldr::dump_vectors_to_file(expanded_path, embeddings, hashes, fileHash)) {
-        // Even if file dump fails, we still have the data in the database
-        std::cerr << "Warning: Failed to save vector dump file, but data is saved in database" << std::endl;
-    }
-
-    std::cout << "Document added to corpus successfully." << std::endl;
-    return true;
+    return false;
 }
 
-bool deleteFileEmbeddings(const std::string& fileHash) {
+bool deleteFileEmbeddingsFromDB(const std::string& fileHash) {
     if (g_db) {
         return g_db->deleteEmbeddings(fileHash);
     }
     return false;
 }
 
-void processPdfFile(const std::string& filePath, const std::string& fileHash) {
-    try {
-        std::cout << "Processing file: " << filePath << std::endl;
-        addFileToCorpus(filePath, fileHash);
-    } catch (const std::exception& e) {
-        std::cerr << "Error processing " << filePath << ": " << e.what() << std::endl;
-    }
-}
 
 void findFilesOfTypeRecursively(const std::filesystem::path& path, std::vector<std::string>& files, const std::string& extension) {
     try {
@@ -715,7 +713,7 @@ bool getFilesToBeEmbedded(const std::string &sourcePath, std::vector<std::string
         if (it != fileHashes.end()) {
             // Check if this hash already exists in the set of vecdump hashes
             if (existingHashes.find(it->second) != existingHashes.end()) {
-                std::cout << "Skipping (vecdump exists): " << file << std::endl;
+                std::cout << "Skipping (vecdump exists) for : " << file<<" - "<<it->second << std::endl;
             } else {
                 filesWithHashes.emplace_back(file, it->second);
                 std::cout << "Will process: " << file << " Hash: " << it->second << std::endl;
@@ -739,7 +737,7 @@ bool addFilesToCorpus(std::vector<std::pair<std::string, std::string>> filesWith
     // Determine number of threads to use
     const size_t numThreads = std::min(filesWithHashes.size(), static_cast<size_t>(ADD_CORPUS_N_THREADS));
 
-    std::cout << "Using " << numThreads << " threads for processing" << std::endl;
+    std::cout << "Using " << numThreads << " threads for processing "<<filesWithHashes.size()<<" files" << std::endl;
     // Process files in parallel
     std::vector<std::thread> threads;
     std::atomic<bool> has_errors{false};
@@ -763,7 +761,7 @@ bool addFilesToCorpus(std::vector<std::pair<std::string, std::string>> filesWith
 
                     try {
                         // Process the file
-                        processPdfFile(filePath, fileHash);
+                        addFileToCorpus(filePath, fileHash);
 
                         // Print progress
                         std::cout << "Processed: " << filePath << std::endl;
@@ -796,10 +794,11 @@ bool addFilesToCorpus(std::vector<std::pair<std::string, std::string>> filesWith
 }
 
 WorkResult addCorpus(const std::string &sourcePath) {
+    std::string expanded_path = translatePath(sourcePath);
     try {
         WorkResult result;
         // Collect PDF files - using move semantics for efficiency
-        std::vector<std::string> pdfFiles = collectPdfFiles(sourcePath);
+        std::vector<std::string> pdfFiles = collectPdfFiles(expanded_path);
         if (pdfFiles.empty()) {
             return WorkResult::Error("No PDF files found to process");
         }
@@ -810,7 +809,7 @@ WorkResult addCorpus(const std::string &sourcePath) {
             return result;
 
         std::vector<std::pair<std::string, std::string> > filesToEmbed;
-        if (!getFilesToBeEmbedded(sourcePath, pdfFiles, fileHashes, filesToEmbed, result))
+        if (!getFilesToBeEmbedded(expanded_path, pdfFiles, fileHashes, filesToEmbed, result))
             return result;
 
         if (!addFilesToCorpus(filesToEmbed, result))

@@ -472,7 +472,7 @@ public func retrieve_similar_vectors_from_corpus(
     print("Swift: modelPath = \(modelPath)")
     print("Swift: corpusDir = \(corpusDir)")
     print("Swift: k = \(k)")
-    
+
     do {
         // Step 1: Load the model once for reuse
         let model = try loadCosineSimilarityModel(from: modelPath)

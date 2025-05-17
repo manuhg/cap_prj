@@ -114,7 +114,7 @@ bool initializeDatabase(const std::string& conninfo = "");
 void closeDatabase();
 
 // Save or update document metadata in the database
-bool saveOrUpdateDocument(const std::string& fileHash, 
+bool saveOrUpdateDocumentInDB(const std::string& fileHash,
                          const std::string& filePath,
                          const DocumentData& docData);
 
@@ -139,11 +139,8 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
                 const std::string &fileHash,
                 size_t batch_size, size_t num_threads);
 
-// Process a single PDF file and add it to the corpus
-void processPdfFile(const std::string& filePath, const std::string& fileHash);
-
 // Delete all embeddings for a specific file hash
-bool deleteFileEmbeddings(const std::string& fileHash);
+bool deleteFileEmbeddingsFromDB(const std::string& fileHash);
 
 // Function to add a file to the corpus
 bool addFileToCorpus(const std::string &sourcePath, const std::string &fileHash);
