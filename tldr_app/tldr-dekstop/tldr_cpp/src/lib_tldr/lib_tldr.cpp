@@ -25,6 +25,7 @@
 #include <memory>
 #include <functional> // Include for std::hash
 #include<vector>
+#include<unordered_set>
 #include "lib_tldr.h"
 #include <curl/curl.h>
 
@@ -623,18 +624,24 @@ void processPdfFile(const std::string& filePath, const std::string& fileHash) {
     }
 }
 
-void findPdfFiles(const std::filesystem::path& path, std::vector<std::string>& pdfFiles) {
+void findFilesOfTypeRecursively(const std::filesystem::path& path, std::vector<std::string>& files, const std::string& extension) {
     try {
         if (std::filesystem::exists(path)) {
             for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
-                if (entry.is_regular_file() && entry.path().extension() == ".pdf") {
-                    pdfFiles.push_back(entry.path().string());
+                if (entry.is_regular_file() && entry.path().extension() == extension) {
+                    files.push_back(entry.path().string());
                 }
             }
         }
     } catch (const std::exception& e) {
         std::cerr << "Error scanning directory " << path << ": " << e.what() << std::endl;
     }
+}
+
+// Deprecated: Use findFilesOfTypeRecursively instead
+void findPdfFiles(const std::filesystem::path& path, std::vector<std::string>& pdfFiles) {
+    // Call the new generic function with ".pdf" extension
+    findFilesOfTypeRecursively(path, pdfFiles, ".pdf");
 }
 
 std::vector<std::string> collectPdfFiles(const std::string& path) {
@@ -652,8 +659,8 @@ std::vector<std::string> collectPdfFiles(const std::string& path) {
     } 
     
     if (std::filesystem::is_directory(expanded_path)) {
-        // Find all PDF files recursively
-        findPdfFiles(expanded_path, files);
+        // Find all PDF files recursively using the new generic function
+        findFilesOfTypeRecursively(expanded_path, files, ".pdf");
         
         if (files.empty()) {
             std::cerr << "No PDF files found in " << expanded_path << std::endl;
@@ -665,12 +672,49 @@ std::vector<std::string> collectPdfFiles(const std::string& path) {
     return {}; // Return empty vector on error
 }
 
-bool getFilesToBeEmbedded(std::vector<std::string> filesToProcess, std::map<std::string, std::string> fileHashes, std::vector<std::pair<std::string, std::string>> &filesWithHashes, WorkResult &value1) {
+bool getFilesToBeEmbedded(const std::string &sourcePath, std::vector<std::string> filesToProcess, std::map<std::string, std::string> fileHashes, std::vector<std::pair<std::string, std::string>> &filesWithHashes, WorkResult &value1) {
+    // Determine the search directory for vecdump files
+    std::filesystem::path searchPath;
+    
+    if (std::filesystem::exists(sourcePath)) {
+        if (std::filesystem::is_directory(sourcePath)) {
+            // If sourcePath is a directory, use it directly
+            searchPath = sourcePath;
+        } else if (std::filesystem::is_regular_file(sourcePath)) {
+            // If sourcePath is a file, use its parent directory
+            searchPath = std::filesystem::path(sourcePath).parent_path();
+            std::cout << "Source path is a file, using parent directory: " << searchPath.string() << std::endl;
+        }
+    } else {
+        std::cerr << "Warning: Source path does not exist: " << sourcePath << std::endl;
+        // Use sourcePath anyway, in case it's a valid path that just doesn't exist yet
+        searchPath = sourcePath;
+    }
+    
+    // Find all existing vecdump files in the search directory
+    std::vector<std::string> existingVecdumps;
+    if (std::filesystem::exists(searchPath) && std::filesystem::is_directory(searchPath)) {
+        findFilesOfTypeRecursively(searchPath, existingVecdumps, ".vecdump");
+        std::cout << "Found " << existingVecdumps.size() << " existing vecdump files in " << searchPath.string() << std::endl;
+    }
+    
+    // Create a set of existing vecdump hashes for faster lookup
+    std::unordered_set<std::string> existingHashes;
+    for (const auto& vecdumpPath : existingVecdumps) {
+        // Extract the hash from the filename (remove path and extension)
+        std::filesystem::path path(vecdumpPath);
+        std::string filename = path.filename().string();
+        // Remove the .vecdump extension
+        std::string hash = filename.substr(0, filename.length() - 8); // Remove ".vecdump"
+        existingHashes.insert(hash);
+    }
+    
+    // Process files and check if their hashes already exist
     for (const auto& file : filesToProcess) {
         auto it = fileHashes.find(file);
         if (it != fileHashes.end()) {
-            std::string vecdump_path = std::string(VECDUMP_DIR) + "/" + it->second + ".vecdump";
-            if (std::filesystem::exists(vecdump_path)) {
+            // Check if this hash already exists in the set of vecdump hashes
+            if (existingHashes.find(it->second) != existingHashes.end()) {
                 std::cout << "Skipping (vecdump exists): " << file << std::endl;
             } else {
                 filesWithHashes.emplace_back(file, it->second);
@@ -766,7 +810,7 @@ WorkResult addCorpus(const std::string &sourcePath) {
             return result;
 
         std::vector<std::pair<std::string, std::string> > filesToEmbed;
-        if (!getFilesToBeEmbedded(pdfFiles, fileHashes, filesToEmbed, result))
+        if (!getFilesToBeEmbedded(sourcePath, pdfFiles, fileHashes, filesToEmbed, result))
             return result;
 
         if (!addFilesToCorpus(filesToEmbed, result))

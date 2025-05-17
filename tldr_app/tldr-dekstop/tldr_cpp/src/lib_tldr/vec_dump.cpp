@@ -19,20 +19,22 @@ bool dump_vectors_to_file(const std::string& source_path,
         return false;
     }
 
-    // Create a directory for vecdump files if it doesn't exist
-    if (!std::filesystem::exists(VECDUMP_DIR)) {
-        std::filesystem::create_directory(VECDUMP_DIR);
+    // Extract the corpus directory from the source path
+    std::filesystem::path sourcePath(source_path);
+    std::filesystem::path corpusDir = sourcePath.parent_path();
+    
+    // Create _vecdump directory inside the corpus directory if it doesn't exist
+    std::filesystem::path vecdumpDir = corpusDir / "_vecdump";
+    if (!std::filesystem::exists(vecdumpDir)) {
+        std::filesystem::create_directory(vecdumpDir);
     }
 
     // Create vecdump filename using the file hash
-    std::string vecdump_path = std::string(VECDUMP_DIR) + "/" + fileHash + ".vecdump";
+    std::filesystem::path vecdumpPath = vecdumpDir / (fileHash + ".vecdump");
+    std::string filename = vecdumpPath.string();
     
     // Log the save operation
-    std::cout << "Vecdump saved to: " << vecdump_path << std::endl;
-    
-    // Extract the base filename from source path
-    std::filesystem::path path(source_path);
-    std::string filename = path.string() + ".vecdump";
+    std::cout << "Vecdump saved to: " << filename << std::endl;
     
     std::ofstream out(filename, std::ios::binary);
     if (!out) {

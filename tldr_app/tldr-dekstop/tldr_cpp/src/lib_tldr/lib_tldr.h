@@ -149,6 +149,10 @@ bool deleteFileEmbeddings(const std::string& fileHash);
 bool addFileToCorpus(const std::string &sourcePath, const std::string &fileHash);
 
 // Find all PDF files in a directory recursively
+// Generic function to find files of a specific type recursively
+void findFilesOfTypeRecursively(const std::filesystem::path& path, std::vector<std::string>& files, const std::string& extension);
+
+// Deprecated: Use findFilesOfTypeRecursively instead
 void findPdfFiles(const std::filesystem::path& path, std::vector<std::string>& pdfFiles);
 
 // Include vector dump functionality
