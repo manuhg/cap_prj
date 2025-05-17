@@ -5,7 +5,7 @@
 - Paper Overview
 
 2. Theoritical Background
-- LLMs, components of inference such as LLM context, sampler, KV cache, etc
+- LLMs, components of inference such as LLM context, sampler, KV cache, etc.
 - LLM weight quantization
 - M1 SOC (System-On-Chip), GPU, NPU, Benefits of Shared virtual address space
 - Zero copy file read (using mmap): mechanism and existing use cases
@@ -29,7 +29,7 @@ b) Implementation & Software Architecture
 - all the sub modules
 
 5. Experimentation
-- bertscore x models x quantization levels
+- bertscore x models x quantization levels & resource consumption.
 - result analysis
 
 6. Conclusion & Future work
