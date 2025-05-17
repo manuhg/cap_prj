@@ -1,6 +1,6 @@
 [submodule "ref_projects/tinygrad"]
 	path = ref_projects/tinygrad
-	url = git@github.com:tinygrad/tinygrad.git
+	url = git@github.com:manuhg/tinygrad.git
 [submodule "ref_projects/swift-transformers"]
 	path = ref_projects/swift-transformers
 	url = git@github.com:huggingface/swift-transformers.git
