@@ -83,7 +83,7 @@ namespace tldr {
                 "id BIGSERIAL PRIMARY KEY,"
                 "document_id UUID REFERENCES documents(id) ON DELETE CASCADE,"
                 "chunk_text TEXT NOT NULL,"
-                "text_hash BIGINT NOT NULL,"
+                "text_hash TEXT NOT NULL," // Store as TEXT to handle large uint64_t values
                 "embedding_hash TEXT," // Store as TEXT to avoid sign issues with uint64_t
                 "embedding vector(" EMBEDDING_SIZE ") NOT NULL,"  // Assuming 2048-dimensional embeddings
                 "created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"
@@ -159,10 +159,22 @@ namespace tldr {
             std::string stmt_name = "insert_embedding_" + std::to_string(statement_counter++);
 
             
-                // New functionality with page numbers and file hash
+                // First, get the document_id from the documents table
+                pqxx::result doc_result = txn.exec(
+                    "SELECT id FROM documents WHERE file_hash = $1",
+                    pqxx::params{file_hash}
+                );
+                
+                if (doc_result.empty()) {
+                    throw std::runtime_error("Document with hash " + file_hash + " not found in database");
+                }
+                
+                std::string document_id = doc_result[0][0].as<std::string>();
+                
+                // Prepare statement with updated column names and document_id
                 conn->prepare(
                     stmt_name,
-                    "INSERT INTO embeddings (chunk_text, embedding_data, embedding_hash, chunk_page_num, file_hash) "
+                    "INSERT INTO embeddings (document_id, chunk_text, embedding, text_hash, embedding_hash) "
                     "VALUES ($1, $2, $3, $4, $5) RETURNING id"
                 );
 
@@ -181,15 +193,16 @@ namespace tldr {
                     std::string hash_str = std::to_string(embedding_hashes[i]);
                     int page_num = i < chunk_page_nums.size() ? chunk_page_nums[i] : 0;
                     
-                    // Execute the prepared statement
-                    auto result = txn.exec_prepared(
-                        stmt_name,
-                        chunk_str,
-                        vector_str,
-                        hash_str,
-                        page_num,
-                        file_hash
-                    );
+                    // Create params object for the prepared statement
+                    pqxx::params params;
+                    params.append(document_id);
+                    params.append(chunk_str);
+                    params.append(vector_str);
+                    params.append(std::to_string(embedding_hashes[i]));  // text_hash as TEXT
+                    params.append(hash_str);                             // embedding_hash as TEXT
+                    
+                    // Execute the prepared statement with the new parameter order
+                    auto result = txn.exec_prepared(stmt_name, params);
 
                     // Get the last inserted id
                     if (!result.empty()) {
@@ -310,8 +323,8 @@ namespace tldr {
             pqxx::work txn(*conn);
             
             // Build the query with parameter placeholders
-            // Note: embedding_hash is now TEXT in the database
-            std::string query = "SELECT embedding_hash, chunk_text FROM embeddings WHERE embedding_hash IN (";
+            // Note: both text_hash and embedding_hash are now TEXT in the database
+            std::string query = "SELECT text_hash, chunk_text FROM embeddings WHERE text_hash IN (";
             
             // Create parameters list and placeholder string
             std::cout << "hashes for search_query:" << std::endl;
@@ -329,7 +342,7 @@ namespace tldr {
             // Process results
             for (const auto& row : db_result) {
                 // Convert the hash from string to uint64_t
-                std::string hash_str = row["embedding_hash"].as<std::string>();
+                std::string hash_str = row["text_hash"].as<std::string>();
                 uint64_t hash = std::stoull(hash_str);
                 std::string text = row["chunk_text"].as<std::string>();
                 results[hash] = text;
@@ -357,6 +370,22 @@ namespace tldr {
         const std::string& producer,
         int pageCount) {
         
+        // Validate input parameters
+        if (fileHash.empty()) {
+            std::cerr << "Error in saveDocumentMetadata: fileHash is empty" << std::endl;
+            return false;
+        }
+        
+        if (filePath.empty()) {
+            std::cerr << "Error in saveDocumentMetadata: filePath is empty" << std::endl;
+            return false;
+        }
+        
+        if (fileName.empty()) {
+            std::cerr << "Error in saveDocumentMetadata: fileName is empty" << std::endl;
+            return false;
+        }
+        
         pqxx::connection *conn = nullptr;
         if (!openConnection(conn)) {
             return false;
@@ -366,31 +395,136 @@ namespace tldr {
             pqxx::work txn(*conn);
             
             // First check if document with this hash already exists
-            auto result = txn.exec_params(
+            auto result = txn.exec(
                 "SELECT 1 FROM documents WHERE file_hash = $1",
-                fileHash
+                pqxx::params{fileHash}
             );
 
             if (result.empty()) {
-                // Insert new document
-                txn.exec_params(
+                // Insert new document - create a copy of all parameters to ensure they stay in scope
+                std::string fileHashCopy = fileHash;
+                std::string filePathCopy = filePath;
+                std::string fileNameCopy = fileName;
+                std::string titleCopy = title.empty() ? "" : title;
+                std::string authorCopy = author.empty() ? "" : author;
+                std::string subjectCopy = subject.empty() ? "" : subject;
+                std::string keywordsCopy = keywords.empty() ? "" : keywords;
+                std::string creatorCopy = creator.empty() ? "" : creator;
+                std::string producerCopy = producer.empty() ? "" : producer;
+                int pageCountCopy = pageCount;
+                
+                // Create params object with copies of all parameters
+                pqxx::params insertParams;
+                insertParams.append(fileHashCopy);
+                insertParams.append(filePathCopy);
+                insertParams.append(fileNameCopy);
+                
+                // Handle optional string fields safely
+                if (titleCopy.empty()) {
+                    insertParams.append(nullptr);
+                } else {
+                    insertParams.append(titleCopy);
+                }
+                
+                if (authorCopy.empty()) {
+                    insertParams.append(nullptr);
+                } else {
+                    insertParams.append(authorCopy);
+                }
+                
+                if (subjectCopy.empty()) {
+                    insertParams.append(nullptr);
+                } else {
+                    insertParams.append(subjectCopy);
+                }
+                
+                if (keywordsCopy.empty()) {
+                    insertParams.append(nullptr);
+                } else {
+                    insertParams.append(keywordsCopy);
+                }
+                
+                if (creatorCopy.empty()) {
+                    insertParams.append(nullptr);
+                } else {
+                    insertParams.append(creatorCopy);
+                }
+                
+                if (producerCopy.empty()) {
+                    insertParams.append(nullptr);
+                } else {
+                    insertParams.append(producerCopy);
+                }
+                
+                insertParams.append(pageCountCopy);
+                
+                // Execute the query with the params object
+                txn.exec(
                     "INSERT INTO documents (file_hash, file_path, file_name, title, author, "
                     "subject, keywords, creator, producer, page_count, created_at, updated_at) "
                     "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                    fileHash,
-                    filePath,
-                    fileName,
-                    title.empty() ? nullptr : title,
-                    author.empty() ? nullptr : author,
-                    subject.empty() ? nullptr : subject,
-                    keywords.empty() ? nullptr : keywords,
-                    creator.empty() ? nullptr : creator,
-                    producer.empty() ? nullptr : producer,
-                    pageCount
+                    insertParams
                 );
             } else {
-                // Update existing document
-                txn.exec_params(
+                // Update existing document - create a copy of all parameters to ensure they stay in scope
+                std::string fileHashCopy = fileHash;
+                std::string filePathCopy = filePath;
+                std::string fileNameCopy = fileName;
+                std::string titleCopy = title.empty() ? "" : title;
+                std::string authorCopy = author.empty() ? "" : author;
+                std::string subjectCopy = subject.empty() ? "" : subject;
+                std::string keywordsCopy = keywords.empty() ? "" : keywords;
+                std::string creatorCopy = creator.empty() ? "" : creator;
+                std::string producerCopy = producer.empty() ? "" : producer;
+                int pageCountCopy = pageCount;
+                
+                // Create params object with copies of all parameters
+                pqxx::params updateParams;
+                updateParams.append(filePathCopy);
+                updateParams.append(fileNameCopy);
+                
+                // Handle optional string fields safely
+                if (titleCopy.empty()) {
+                    updateParams.append(nullptr);
+                } else {
+                    updateParams.append(titleCopy);
+                }
+                
+                if (authorCopy.empty()) {
+                    updateParams.append(nullptr);
+                } else {
+                    updateParams.append(authorCopy);
+                }
+                
+                if (subjectCopy.empty()) {
+                    updateParams.append(nullptr);
+                } else {
+                    updateParams.append(subjectCopy);
+                }
+                
+                if (keywordsCopy.empty()) {
+                    updateParams.append(nullptr);
+                } else {
+                    updateParams.append(keywordsCopy);
+                }
+                
+                if (creatorCopy.empty()) {
+                    updateParams.append(nullptr);
+                } else {
+                    updateParams.append(creatorCopy);
+                }
+                
+                if (producerCopy.empty()) {
+                    updateParams.append(nullptr);
+                } else {
+                    updateParams.append(producerCopy);
+                }
+                
+                updateParams.append(pageCountCopy);
+                updateParams.append(fileHashCopy);
+                
+                // Execute the query with the params object
+                txn.exec(
                     "UPDATE documents SET "
                     "file_path = $1, "
                     "file_name = $2, "
@@ -403,16 +537,7 @@ namespace tldr {
                     "page_count = $9, "
                     "updated_at = CURRENT_TIMESTAMP "
                     "WHERE file_hash = $10",
-                    filePath,
-                    fileName,
-                    title.empty() ? nullptr : title,
-                    author.empty() ? nullptr : author,
-                    subject.empty() ? nullptr : subject,
-                    keywords.empty() ? nullptr : keywords,
-                    creator.empty() ? nullptr : creator,
-                    producer.empty() ? nullptr : producer,
-                    pageCount,
-                    fileHash
+                    updateParams
                 );
             }
             
@@ -441,9 +566,23 @@ bool tldr::PostgresDatabase::deleteEmbeddings(const std::string& file_hash) {
     try {
         pqxx::work txn(*conn);
         
-        // Delete all embeddings for the given file hash
-        std::string delete_sql = "DELETE FROM embeddings WHERE file_hash = $1";
-        auto result = txn.exec_params(delete_sql, file_hash);
+        // First get the document_id for the file_hash
+        pqxx::result doc_result = txn.exec(
+            "SELECT id FROM documents WHERE file_hash = $1",
+            pqxx::params{file_hash}
+        );
+        
+        if (doc_result.empty()) {
+            std::cerr << "No document found with hash: " << file_hash << std::endl;
+            closeConnection(conn);
+            return false;
+        }
+        
+        std::string document_id = doc_result[0][0].as<std::string>();
+        
+        // Delete all embeddings for the given document_id
+        std::string delete_sql = "DELETE FROM embeddings WHERE document_id = $1";
+        auto result = txn.exec(delete_sql, pqxx::params{document_id});
         
         txn.commit();
         closeConnection(conn);
