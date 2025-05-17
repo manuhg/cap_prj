@@ -49,6 +49,7 @@ add_library(tldr STATIC
     ${SOURCE_DIR}/lib_tldr/llm/LlmContextPool.h
     ${SOURCE_DIR}/lib_tldr/vec_dump.cpp
     ${SOURCE_DIR}/lib_tldr/vec_dump.h
+    ${SOURCE_DIR}/lib_tldr/file_hashes.cpp
 )
 
 # Include directories for the library

@@ -9,6 +9,11 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <pqxx/pqxx>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
+#include <array>
+#include <algorithm>
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-page.h>
 #include <thread>
@@ -486,7 +491,7 @@ obtainEmbeddings(const std::vector<std::string> &chunks, size_t batch_size, size
     return {all_embeddings, all_hashes};
 }
 
-void addCorpus(const std::string &sourcePath) {
+void addFileToCorpus(const std::string &sourcePath, const std::string &fileHash) {
     std::string expanded_path = translatePath(sourcePath);
     std::string doc_text = extractTextFromPDF(expanded_path);
 
@@ -503,10 +508,144 @@ void addCorpus(const std::string &sourcePath) {
     // Get embeddings and their hashes
     auto [embeddings, hashes] = obtainEmbeddings(chunks, BATCH_SIZE, NUM_THREADS);
 
+    // Create a directory for vecdump files if it doesn't exist
+    if (!std::filesystem::exists(VECDUMP_DIR)) {
+        std::filesystem::create_directory(VECDUMP_DIR);
+    }
+
+    // Create vecdump filename using the file hash
+    std::string vecdump_path = std::string(VECDUMP_DIR) + "/" + fileHash + ".vecdump";
+    
     // Dump vectors and hashes to file for memory mapping
-    tldr::dump_vectors_to_file(expanded_path, embeddings, hashes);
+    if (tldr::dump_vectors_to_file(vecdump_path, embeddings, hashes)) {
+        std::cout << "Vecdump saved to: " << vecdump_path << std::endl;
+    } else {
+        std::cerr << "Failed to save vecdump for " << sourcePath << std::endl;
+        return;
+    }
 
     std::cout << "Corpus added successfully." << std::endl;
+}
+
+void processPdfFile(const std::string& filePath, const std::string& fileHash) {
+    try {
+        std::cout << "Processing file: " << filePath << std::endl;
+        addFileToCorpus(filePath, fileHash);
+    } catch (const std::exception& e) {
+        std::cerr << "Error processing " << filePath << ": " << e.what() << std::endl;
+    }
+}
+
+void findPdfFiles(const std::filesystem::path& path, std::vector<std::string>& pdfFiles) {
+    try {
+        if (std::filesystem::exists(path)) {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+                if (entry.is_regular_file() && entry.path().extension() == ".pdf") {
+                    pdfFiles.push_back(entry.path().string());
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error scanning directory " << path << ": " << e.what() << std::endl;
+    }
+}
+
+void addCorpus(const std::string &sourcePath) {
+    std::string expanded_path = translatePath(sourcePath);
+    std::vector<std::string> filesToProcess;
+    
+    // Build the file list
+    if (std::filesystem::is_regular_file(expanded_path)) {
+        // If it's a PDF file, add it to the list
+        if (expanded_path.ends_with(".pdf")) {
+            filesToProcess.push_back(expanded_path);
+        } else {
+            std::cerr << "Error: Unsupported file type. Only PDF files are supported." << std::endl;
+            return;
+        }
+    } else if (std::filesystem::is_directory(expanded_path)) {
+        // Find all PDF files recursively
+        findPdfFiles(expanded_path, filesToProcess);
+        
+        if (filesToProcess.empty()) {
+            std::cerr << "No PDF files found in " << expanded_path << std::endl;
+            return;
+        }
+    } else {
+        std::cerr << "Error: Path is neither a file nor a directory: " << expanded_path << std::endl;
+        return;
+    }
+    
+    std::cout << "Found " << filesToProcess.size() << " PDF files to process" << std::endl;
+    if (filesToProcess.empty()) {
+        return;
+    }
+    
+    // Compute hashes for all files
+    std::map<std::string, std::string> fileHashes = computeFileHashes(filesToProcess);
+    
+    // Create a vector of pairs (filePath, fileHash) and check for existing vecdumps
+    std::vector<std::pair<std::string, std::string>> filesWithHashes;
+    
+    for (const auto& file : filesToProcess) {
+        auto it = fileHashes.find(file);
+        if (it != fileHashes.end()) {
+            std::string vecdump_path = std::string(VECDUMP_DIR) + "/" + it->second + ".vecdump";
+            if (std::filesystem::exists(vecdump_path)) {
+                std::cout << "Skipping (vecdump exists): " << file << std::endl;
+            } else {
+                filesWithHashes.emplace_back(file, it->second);
+                std::cout << "Will process: " << file << " Hash: " << it->second << std::endl;
+            }
+        } else {
+            std::cerr << "Warning: Could not compute hash for file: " << file << std::endl;
+        }
+    }
+    
+    if (filesWithHashes.empty()) {
+        std::cout << "All files already have corresponding vecdumps. Nothing to process." << std::endl;
+        return;
+    }
+    
+    std::cout << "Found " << filesWithHashes.size() << " files to process (after filtering existing vecdumps)" << std::endl;
+    
+    // Determine number of threads to use
+    const size_t numThreads = std::min(filesWithHashes.size(), 
+                                     static_cast<size_t>(ADD_CORPUS_N_THREADS));
+    
+    if (numThreads == 1) {
+        // Process files in the current thread if only one thread is needed
+        for (const auto& [file, hash] : filesWithHashes) {
+            processPdfFile(file, hash);
+        }
+    } else {
+        // Process files in parallel with multiple threads
+        std::vector<std::thread> workers;
+        size_t filesPerThread = (filesWithHashes.size() + numThreads - 1) / numThreads;
+        
+        for (size_t i = 0; i < numThreads; ++i) {
+            size_t start = i * filesPerThread;
+            if (start >= filesWithHashes.size()) break;
+            
+            size_t end = std::min(start + filesPerThread, filesWithHashes.size());
+            
+            workers.emplace_back([&filesWithHashes, start, end]() {
+                for (size_t j = start; j < end; ++j) {
+                    const auto& [file, hash] = filesWithHashes[j];
+                    processPdfFile(file, hash);
+                }
+            });
+        }
+        
+        // Wait for all threads to complete
+        for (auto& worker : workers) {
+            if (worker.joinable()) {
+                worker.join();
+            }
+        }
+    }
+    
+    std::cout << "Finished processing " << filesToProcess.size() << " PDF files" << std::endl;
 }
 
 void deleteCorpus(const std::string &corpusId) {
@@ -536,21 +675,21 @@ void doRag(const std::string &conversationId) {
     }
 }
 
-void queryRag(const std::string& user_query, const std::string& corpus_dir) {
+RagResult queryRag(const std::string& user_query, const std::string& corpus_dir) {
+    RagResult result;
+    
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
-        return;
+        return result;
     }
 
     try {
         // Get embeddings for the user query using LlmManager
-        std::vector<std::string_view> query_vec = {user_query};
-        std::vector<std::vector<float>> query_embeddings = tldr::get_llm_manager().get_embeddings(query_vec);
-
+        auto query_embeddings = tldr::get_llm_manager().get_embeddings({user_query});
+        
         if (query_embeddings.empty() || query_embeddings[0].empty()) {
             std::cerr << "Failed to get embeddings for the query." << std::endl;
-            // Handle error - maybe return or throw
-            return;
+            return result;
         }
 
         std::cout << "Using NPU-accelerated similarity search..." << std::endl;
@@ -562,49 +701,41 @@ void queryRag(const std::string& user_query, const std::string& corpus_dir) {
             K_SIMILAR_CHUNKS_TO_RETRIEVE // Number of results to return
         );
 
+        // Fallback to traditional database search if NPU search returns no results
         if (similar_chunks.empty()) {
             std::cerr << "No results from NPU search, falling back to database search..." << std::endl;
-
-            // Fallback to traditional database search if NPU search returns no results
             similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
         }
-
-
-        // 3. Prepare context from similar chunks
-        std::cout << "obtained embedding hashes:" << std::endl;
+        
+        // Prepare context string for the LLM and store context chunks
         std::string context_str;
         for (const auto& chunk_data : similar_chunks) {
             const auto& [chunk, similarity, hash] = chunk_data;
-            context_str += chunk + "\n\n"; // Simple concatenation
-            std::cout  <<hash<< std::endl;
-            // You can now use the hash if needed
+            
+            // Add to context string for LLM
+            context_str += chunk + "\n\n";
+            
+            // Add to result chunks
+            ContextChunk context_chunk;
+            context_chunk.text = chunk;
+            context_chunk.similarity = similarity;
+            context_chunk.hash = hash;
+            result.context_chunks.push_back(std::move(context_chunk));
         }
-        std::cout << std::endl;
+        
         if (context_str.empty()) {
-            context_str = "No relevant context found.";
-            std::cerr << "No relevant context found in DB either!" << std::endl;
+            std::cerr << "No relevant context found in DB!" << std::endl;
+            return result;
         }
 
-        // 4. Generate response using LlmManager's chat model
-        std::string final_response = tldr::get_llm_manager().get_chat_response(context_str, user_query);
-        // Old way:
-
-        // 5. Print results
-        std::cout << "\nGenerated Response:\n";
-        std::cout << final_response << "\n";
-        std::cout << "\nContext used:\n";
-        for (const auto& chunk_data : similar_chunks) {
-            const auto& [chunk, similarity, hash] = chunk_data;
-            std::cout << "\nSimilarity: " << similarity << "\n";
-            std::cout << "Content: " << chunk << "\n";
-            std::cout << "Hash: " << hash << "\n";
-            std::cout << "----------------------------------------\n";
-        }
+        // Generate response using LlmManager's chat model
+        result.response = tldr::get_llm_manager().get_chat_response(context_str, user_query);
 
     } catch (const std::exception &e) {
         std::cerr << "RAG Query error: " << e.what() << std::endl;
-        // Handle error appropriately
     }
+    
+    return result;
 }
 
 std::map<uint64_t, float> npuCosineSimSearchWrapper(
@@ -648,38 +779,44 @@ std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectorsNPU(
     int k) {
     std::vector<std::tuple<std::string, float, uint64_t>> similar_chunks;
 
-
     // We'll collect the hashes from the results and only then query the database
     // This is more efficient than loading all embeddings upfront
-    if (query_vector.size() != EMBEDDING_SIZE_INT)
+    if (query_vector.size() != EMBEDDING_SIZE_INT) {
         throw std::runtime_error(std::format(
-            "Query vector size does not match the pre-defined embedding size! Expected {}, got {}",EMBEDDING_SIZE,
-            query_vector.size()));
+            "Query vector size does not match the pre-defined embedding size! Expected {}, got {}",
+            EMBEDDING_SIZE, query_vector.size()));
+    }
 
     try {
-        std::map<uint64_t, float> hash_scores = npuCosineSimSearchWrapper(query_vector.data(),
-                                                                           query_vector.size(), k, corpus_dir.c_str());
+        // Get hash scores from NPU-accelerated search
+        std::map<uint64_t, float> hash_scores = npuCosineSimSearchWrapper(
+            query_vector.data(),
+            query_vector.size(),
+            k,
+            corpus_dir.c_str()
+        );
 
         // Print the hash values returned by the NPU search
         std::cout << "NPU search returned the following hashes:" << std::endl;
-        for (const auto &pair: hash_scores) {
-            std::cout << "Hash: " << pair.first << ", Score: " << pair.second << std::endl;
+        for (const auto &[hash, score] : hash_scores) {
+            std::cout << "Hash: " << hash << ", Score: " << score << std::endl;
         }
 
+        // Extract hashes for database lookup
         std::vector<uint64_t> hashes_to_lookup;
-        for (const auto &pair: hash_scores) {
-            hashes_to_lookup.push_back(pair.first);
+        hashes_to_lookup.reserve(hash_scores.size());
+        for (const auto &[hash, _] : hash_scores) {
+            hashes_to_lookup.push_back(hash);
         }
 
-
-        // Query the database for just these specific hashes
+        // Query the database for the text chunks corresponding to these hashes
         std::map<uint64_t, std::string> hash_to_text;
         if (g_db) {
             hash_to_text = g_db->getChunksByHashes(hashes_to_lookup);
         }
 
-        // Convert results to the expected format using the looked-up text chunks
-        for (const auto &[hash, score]: hash_scores) {
+        // Convert results to the expected format
+        for (const auto &[hash, score] : hash_scores) {
             auto it = hash_to_text.find(hash);
             if (it != hash_to_text.end()) {
                 similar_chunks.emplace_back(it->second, score, hash);
@@ -692,6 +829,7 @@ std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectorsNPU(
     } catch (const std::exception &e) {
         std::cerr << "Error in NPU similarity search: " << e.what() << std::endl;
     }
+    
     return similar_chunks;
 }
 

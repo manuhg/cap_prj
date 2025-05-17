@@ -20,13 +20,27 @@ void deleteCorpus(const std::string& corpusId) {
     ::deleteCorpus(corpusId);
 }
 
-void queryRag(const std::string& user_query) {
-    // Call the actual implementation in lib_tldr.cpp (global namespace)
-    // Note: We might need to adjust how URLs are passed if the underlying function changes
-    ::queryRag(user_query);
+RagResult queryRag(const std::string& user_query, const std::string& corpus_dir) {
+    // Call the global queryRag function
+    auto result = ::queryRag(user_query, corpus_dir);
+    
+    // Convert to tldr_cpp_api::RagResult
+    RagResult api_result;
+    api_result.response = result.response;
+    
+    // Convert context chunks
+    for (const auto& chunk : result.context_chunks) {
+        api_result.context_chunks.emplace_back(
+            chunk.text,
+            chunk.similarity,
+            chunk.hash
+        );
+    }
+    
+    return api_result;
 }
 
-} // namespace tldr_cpp_api 
+} // namespace tldr_cpp_api
 
 // C linkage function for Swift to call
 extern "C" {
