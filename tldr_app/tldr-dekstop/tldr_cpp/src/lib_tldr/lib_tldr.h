@@ -21,9 +21,28 @@ const std::string PAGE_DELIMITER = "\n--- PAGE BREAK ---\n";
 // Helper function to extract content from XML tags
 std::string extract_xml_content(const std::string& xml);
 
+// Collect PDF files from a path (file or directory)
+// Returns a vector of PDF file paths, or an empty vector if no files found or on error
+std::vector<std::string> collectPdfFiles(const std::string& path);
+
 // #include "libs/sqlite_modern_cpp.h"
 #include "vec_dump.h"
 #include "npu_accelerator.h"
+
+// Structure for operation results
+struct WorkResult {
+    bool error{false};
+    std::string error_message{};
+    std::string success_message{};
+    
+    // Helper function to create an error result
+    static WorkResult Error(const std::string& message) {
+        return {true, message};
+    }
+    
+    // Implicit bool conversion for easy error checking
+    operator bool() const { return !error; }
+};
 
 // Structure for similarity search results from the NPU accelerator
 struct VectorSimilarityMatch {
@@ -142,7 +161,7 @@ std::map<uint64_t, float> npuCosineSimSearchWrapper(
 
 bool initializeSystem();
 void cleanupSystem();
-void addCorpus(const std::string &sourcePath);
+WorkResult addCorpus(const std::string &sourcePath);
 void deleteCorpus(const std::string &corpusId);
 // Structure to hold context chunk information
 struct ContextChunk {
@@ -166,7 +185,7 @@ void command_loop();
  * @return std::map<std::string, std::string> Map of file paths to their corresponding SHA-256 hashes
  * @throws std::runtime_error If the shasum command fails or a file cannot be read
  */
-std::map<std::string, std::string> computeFileHashes(const std::vector<std::string>& file_paths);
+bool computeFileHashes(const std::vector<std::string>& file_paths, std::map<std::string, std::string> &file_hashes, WorkResult &result);
 
 RagResult queryRag(const std::string& user_query, const std::string& corpus_dir = "/Users/manu/proj_tldr/corpus/current/");
 

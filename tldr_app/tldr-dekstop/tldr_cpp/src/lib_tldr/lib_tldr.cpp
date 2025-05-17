@@ -24,7 +24,7 @@
 #include <nlohmann/json.hpp>
 #include <memory>
 #include <functional> // Include for std::hash
-
+#include<vector>
 #include "lib_tldr.h"
 #include <curl/curl.h>
 
@@ -637,43 +637,35 @@ void findPdfFiles(const std::filesystem::path& path, std::vector<std::string>& p
     }
 }
 
-void addCorpus(const std::string &sourcePath) {
-    std::string expanded_path = translatePath(sourcePath);
-    std::vector<std::string> filesToProcess;
+std::vector<std::string> collectPdfFiles(const std::string& path) {
+    std::vector<std::string> files;
+    std::string expanded_path = translatePath(path);
     
-    // Build the file list
     if (std::filesystem::is_regular_file(expanded_path)) {
         // If it's a PDF file, add it to the list
         if (expanded_path.ends_with(".pdf")) {
-            filesToProcess.push_back(expanded_path);
+            files.push_back(expanded_path);
         } else {
             std::cerr << "Error: Unsupported file type. Only PDF files are supported." << std::endl;
-            return;
         }
-    } else if (std::filesystem::is_directory(expanded_path)) {
+        return files; // Will be empty if not a PDF
+    } 
+    
+    if (std::filesystem::is_directory(expanded_path)) {
         // Find all PDF files recursively
-        findPdfFiles(expanded_path, filesToProcess);
+        findPdfFiles(expanded_path, files);
         
-        if (filesToProcess.empty()) {
+        if (files.empty()) {
             std::cerr << "No PDF files found in " << expanded_path << std::endl;
-            return;
         }
-    } else {
-        std::cerr << "Error: Path is neither a file nor a directory: " << expanded_path << std::endl;
-        return;
+        return files; // Will be empty if no PDFs found
     }
     
-    std::cout << "Found " << filesToProcess.size() << " PDF files to process" << std::endl;
-    if (filesToProcess.empty()) {
-        return;
-    }
-    
-    // Compute hashes for all files
-    std::map<std::string, std::string> fileHashes = computeFileHashes(filesToProcess);
-    
-    // Create a vector of pairs (filePath, fileHash) and check for existing vecdumps
-    std::vector<std::pair<std::string, std::string>> filesWithHashes;
-    
+    std::cerr << "Error: Path is neither a file nor a directory: " << expanded_path << std::endl;
+    return {}; // Return empty vector on error
+}
+
+bool getFilesToBeEmbedded(std::vector<std::string> filesToProcess, std::map<std::string, std::string> fileHashes, std::vector<std::pair<std::string, std::string>> &filesWithHashes, WorkResult &value1) {
     for (const auto& file : filesToProcess) {
         auto it = fileHashes.find(file);
         if (it != fileHashes.end()) {
@@ -688,51 +680,103 @@ void addCorpus(const std::string &sourcePath) {
             std::cerr << "Warning: Could not compute hash for file: " << file << std::endl;
         }
     }
-    
+
     if (filesWithHashes.empty()) {
         std::cout << "All files already have corresponding vecdumps. Nothing to process." << std::endl;
-        return;
+        value1 = WorkResult{false,"","All files are already processed"};
+        return false; // Success, just nothing to do
     }
-    
+
     std::cout << "Found " << filesWithHashes.size() << " files to process (after filtering existing vecdumps)" << std::endl;
-    
+    return true;
+}
+
+bool addFilesToCorpus(std::vector<std::pair<std::string, std::string>> filesWithHashes, WorkResult &value1) {
     // Determine number of threads to use
-    const size_t numThreads = std::min(filesWithHashes.size(), 
-                                     static_cast<size_t>(ADD_CORPUS_N_THREADS));
-    
-    if (numThreads == 1) {
-        // Process files in the current thread if only one thread is needed
-        for (const auto& [file, hash] : filesWithHashes) {
-            processPdfFile(file, hash);
-        }
-    } else {
-        // Process files in parallel with multiple threads
-        std::vector<std::thread> workers;
-        size_t filesPerThread = (filesWithHashes.size() + numThreads - 1) / numThreads;
-        
-        for (size_t i = 0; i < numThreads; ++i) {
-            size_t start = i * filesPerThread;
-            if (start >= filesWithHashes.size()) break;
-            
-            size_t end = std::min(start + filesPerThread, filesWithHashes.size());
-            
-            workers.emplace_back([&filesWithHashes, start, end]() {
+    const size_t numThreads = std::min(filesWithHashes.size(), static_cast<size_t>(ADD_CORPUS_N_THREADS));
+
+    std::cout << "Using " << numThreads << " threads for processing" << std::endl;
+    // Process files in parallel
+    std::vector<std::thread> threads;
+    std::atomic<bool> has_errors{false};
+    std::string last_error;
+
+    // Split work among threads
+    const size_t filesPerThread = (filesWithHashes.size() + numThreads - 1) / numThreads;
+
+    for (size_t i = 0; i < numThreads; ++i) {
+        const size_t start = i * filesPerThread;
+        if (start >= filesWithHashes.size()) break;
+
+        const size_t end = std::min(start + filesPerThread, filesWithHashes.size());
+
+        threads.emplace_back([&filesWithHashes, start, end, &has_errors, &last_error]() {
+            try {
                 for (size_t j = start; j < end; ++j) {
-                    const auto& [file, hash] = filesWithHashes[j];
-                    processPdfFile(file, hash);
+                    // if (has_errors) break; // Early exit if another thread failed
+
+                    const auto& [filePath, fileHash] = filesWithHashes[j];
+
+                    try {
+                        // Process the file
+                        processPdfFile(filePath, fileHash);
+
+                        // Print progress
+                        std::cout << "Processed: " << filePath << std::endl;
+                    } catch (const std::exception& e) {
+                        has_errors = true;
+                        last_error = std::string("Error processing ") + filePath + ": " + e.what();
+                        std::cerr << last_error << std::endl;
+                    }
                 }
-            });
-        }
-        
-        // Wait for all threads to complete
-        for (auto& worker : workers) {
-            if (worker.joinable()) {
-                worker.join();
+            } catch (const std::exception& e) {
+                has_errors = true;
+                last_error = std::string("Thread error: ") + e.what();
+                std::cerr << last_error << std::endl;
             }
+        });
+    }
+
+    // Wait for all threads to complete
+    for (auto& thread : threads) {
+        if (thread.joinable()) {
+            thread.join();
         }
     }
-    
-    std::cout << "Finished processing " << filesToProcess.size() << " PDF files" << std::endl;
+
+    if (has_errors) {
+        value1 = WorkResult::Error(last_error.empty() ? "Unknown error during processing" : last_error);
+        return false;
+    }
+    return true;
+}
+
+WorkResult addCorpus(const std::string &sourcePath) {
+    try {
+        WorkResult result;
+        // Collect PDF files - using move semantics for efficiency
+        std::vector<std::string> filesToProcess = collectPdfFiles(sourcePath);
+        if (filesToProcess.empty()) {
+            return WorkResult::Error("No PDF files found to process");
+        }
+        std::cout << "Found " << filesToProcess.size() << " PDF files to process" << std::endl;
+
+        std::map<std::string, std::string> fileHashes;
+        if (!computeFileHashes(filesToProcess, fileHashes, result))
+            return result;
+
+
+        std::vector<std::pair<std::string, std::string> > filesToEmbed;
+        if (!getFilesToBeEmbedded(filesToProcess, fileHashes, filesToEmbed, result))
+            return result;
+
+        if (!addFilesToCorpus(filesToEmbed, result))
+            return result;
+
+        return WorkResult{false, "", std::format("Processed {} files", filesToEmbed.size())}; // Success
+    } catch (const std::exception &e) {
+        return WorkResult::Error(std::string("Error in addCorpus: ") + e.what());
+    }
 }
 
 void deleteCorpus(const std::string &corpusId) {

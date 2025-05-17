@@ -20,12 +20,12 @@ static std::string exec(const std::string& cmd) {
     return result;
 }
 
-std::map<std::string, std::string> computeFileHashes(const std::vector<std::string>& file_paths) {
-    std::map<std::string, std::string> file_hashes;
-    
+bool computeFileHashes(const std::vector<std::string>& file_paths, std::map<std::string, std::string> &file_hashes, WorkResult &result) {
+
     // Check if shasum is available
     if (system("which shasum > /dev/null 2>&1") != 0) {
-        throw std::runtime_error("shasum command not found. Please install shasum utility.");
+        result = WorkResult::Error("shasum command not found. Please install shasum utility.");
+        return false;
     }
     
     // Process files in chunks to avoid command line length limits
@@ -47,7 +47,8 @@ std::map<std::string, std::string> computeFileHashes(const std::vector<std::stri
         try {
             output = exec(cmd);
         } catch (const std::exception& e) {
-            throw std::runtime_error(std::string("Failed to execute shasum command: ") + e.what());
+            result = WorkResult::Error(std::string("Failed to execute shasum command: ") + e.what());
+            return false;
         }
         
         // Parse the output
@@ -70,12 +71,13 @@ std::map<std::string, std::string> computeFileHashes(const std::vector<std::stri
                 })) {
                 file_hashes[file_path] = hash;
             } else {
-                throw std::runtime_error("Invalid hash format for file: " + file_path);
+                result = WorkResult::Error("Invalid hash format for file: " + file_path);
+                return false;
             }
             
             current_idx++;
         }
     }
     
-    return file_hashes;
+    return true;
 }
