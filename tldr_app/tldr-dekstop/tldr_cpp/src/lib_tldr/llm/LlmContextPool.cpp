@@ -22,6 +22,7 @@ LlmContextPool::~LlmContextPool() {
 
 std::shared_ptr<ContextHandle> LlmContextPool::acquire_context() {
     std::unique_lock<std::mutex> lock(mutex_);
+    std::cout<<"acquire_context: available_contexts="<<available_contexts_.size()<<std::endl;
     
     // Wait for an available context if none are available and we're at max capacity
     while (available_contexts_.empty() && all_contexts_.size() >= max_size_) {

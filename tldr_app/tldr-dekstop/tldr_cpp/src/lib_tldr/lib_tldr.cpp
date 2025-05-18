@@ -455,139 +455,90 @@ void cleanupSystem() {
 
 // Function declarations moved to the top of the file
 
-std::pair<std::vector<std::vector<float>>, std::vector<uint64_t>> 
-obtainEmbeddings(const std::vector<std::string> &chunks, 
-                const std::vector<int>& chunkPageNums,
-                const std::string& fileHash,
-                size_t batch_size, size_t num_threads) {
-
+std::pair<std::vector<std::vector<float> >, std::vector<uint64_t> >
+obtainEmbeddings(const std::vector<std::string> &chunks,
+                 const std::vector<int> &chunkPageNums,
+                 const std::string &fileHash,
+                 size_t batch_size, size_t num_threads) {
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
     std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
             << " batches using OpenMP with " << num_threads << " threads\n";
 
     // We'll collect all embeddings and hashes
-    std::vector<std::vector<float>> all_embeddings;
+    std::vector<std::vector<float> > all_embeddings;
     std::vector<uint64_t> all_hashes;
     all_embeddings.reserve(chunks.size());
     all_hashes.reserve(chunks.size());
-    
+
     try {
         // Force OpenMP to use the specified number of threads
-        omp_set_dynamic(0);  // Disable dynamic adjustment of threads
+        omp_set_dynamic(0); // Disable dynamic adjustment of threads
         omp_set_num_threads(num_threads);
-        
+
         std::cout << "OpenMP max threads: " << omp_get_max_threads() << std::endl;
-        
+
         // Process batches in parallel using OpenMP
-        #pragma omp parallel num_threads(num_threads)
+#pragma omp parallel num_threads(num_threads)
         {
             // Thread-local vectors to store results
-            std::vector<std::vector<float>> local_embeddings;
+            std::vector<std::vector<float> > local_embeddings;
             std::vector<uint64_t> local_hashes;
-            
+
             // Thread ID for logging - get this inside the parallel region
             int thread_id = omp_get_thread_num();
             int total_threads = omp_get_num_threads();
-            
-            #pragma omp critical
-            {
-                std::cout << "Thread " << thread_id << " of " << total_threads << " started" << std::endl;
-            }
-            
-            // Get a database connection for this thread
-            pqxx::connection* thread_conn = nullptr;
-            if (g_db) {
-                // Cast to PostgresDatabase to access the connection pool directly
-                auto* postgres_db = dynamic_cast<tldr::PostgresDatabase*>(g_db.get());
-                if (postgres_db) {
-                    thread_conn = postgres_db->acquireConnection();
-                    #pragma omp critical
-                    {
-                        std::cout << "Thread " << thread_id << " acquired database connection" << std::endl;
-                    }
-                }
-            }
-            
+
+
+            std::cout << "Thread " << thread_id << " of " << total_threads << " started" << std::endl;
+
             // Process batches in parallel using OpenMP
-            #pragma omp for schedule(dynamic,10)
+#pragma omp for schedule(static,10)
             for (size_t batch_start = 0; batch_start < chunks.size(); batch_start += batch_size) {
                 // Calculate the end of this batch
+
                 size_t batch_end = std::min(batch_start + batch_size, chunks.size());
-                
+
                 // Create a vector of string_view for the current batch
                 std::vector<std::string_view> batch_chunks(
                     chunks.begin() + batch_start,
                     chunks.begin() + batch_end
                 );
 
-                std::cout << "Thread " << thread_id << " processing chunks: " << batch_start << "-" << batch_end << std::endl;
-                
+                std::cout << "Thread " << thread_id << " processing chunks: " << batch_start
+                << "-" << batch_end << std::endl;
+
                 // Get embeddings for this batch
-                std::vector<std::vector<float>> batch_emb = 
-                    tldr::get_llm_manager().get_embeddings(batch_chunks);
-                
+                std::vector<std::vector<float> > batch_emb =
+                        tldr::get_llm_manager().get_embeddings(batch_chunks);
+
                 // Compute hashes for these embeddings
                 std::vector<uint64_t> batch_hashes = computeEmbeddingHashes(batch_emb);
-                
+
                 // Get the page numbers for this batch
                 std::vector<int> batch_page_nums(
-                    chunkPageNums.begin() + batch_start,
-                    chunkPageNums.begin() + batch_end
-                );
-                
-                // Save embeddings to database using thread's connection if available
-                if (thread_conn && g_db) {
-                    // Convert embeddings to JSON format
-                    json embeddings_json;
-                    embeddings_json["embeddings"] = json::array();
-                    for(const auto& emb : batch_emb) {
-                        embeddings_json["embeddings"].push_back(emb);
-                    }
-                    
-                    // Use the thread's connection directly
-                    auto* postgres_db = dynamic_cast<tldr::PostgresDatabase*>(g_db.get());
-                    if (postgres_db) {
-                        postgres_db->saveEmbeddingsWithConnection(
-                            thread_conn,
-                            batch_chunks, 
-                            embeddings_json, 
-                            batch_hashes, 
-                            batch_page_nums,
-                            fileHash
-                        );
-                    }
-                } else {
-                    // Fall back to regular method if no thread connection
-                    saveEmbeddingsThreadSafe(
-                        batch_chunks, 
-                        batch_emb, 
-                        batch_hashes, 
-                        batch_page_nums,
-                        fileHash
-                    );
-                }
-                
+                    chunkPageNums.begin() + batch_start, chunkPageNums.begin() + batch_end);
+                saveEmbeddingsThreadSafe(batch_chunks, batch_emb, batch_hashes, batch_page_nums, fileHash);
+
                 // Append to thread-local vectors
                 local_embeddings.insert(local_embeddings.end(), batch_emb.begin(), batch_emb.end());
                 local_hashes.insert(local_hashes.end(), batch_hashes.begin(), batch_hashes.end());
             }
-            
+
             // Merge results into the global vectors
-            #pragma omp critical
+#pragma omp critical
             {
-                all_embeddings.insert(all_embeddings.end(), 
-                                    local_embeddings.begin(), 
-                                    local_embeddings.end());
-                all_hashes.insert(all_hashes.end(), 
-                                local_hashes.begin(), 
-                                local_hashes.end());
+                all_embeddings.insert(all_embeddings.end(),
+                                      local_embeddings.begin(),
+                                      local_embeddings.end());
+                all_hashes.insert(all_hashes.end(),
+                                  local_hashes.begin(),
+                                  local_hashes.end());
             }
         }
-        
-        std::cout << "Completed processing all chunks. Total embeddings: " 
-                  << all_embeddings.size() << ", total hashes: " 
-                  << all_hashes.size() << std::endl;
-                  
+
+        std::cout << "Completed processing all chunks. Total embeddings: "
+                << all_embeddings.size() << ", total hashes: "
+                << all_hashes.size() << std::endl;
     } catch (const std::exception &e) {
         std::cerr << "Error processing chunks: " << e.what() << std::endl;
         throw; // Re-throw to allow proper cleanup
