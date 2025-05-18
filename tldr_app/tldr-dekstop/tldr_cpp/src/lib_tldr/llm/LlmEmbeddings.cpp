@@ -103,7 +103,7 @@ bool LlmEmbeddings::initialize_model() {
 }
 
 std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<std::string_view> input_batch) {
-    std::cout<<"Embeddings input batch size:"<<input_batch.size()<<"x"<<input_batch[0].size() <<std::endl;
+    // std::cout<<"Embeddings input batch size:"<<input_batch.size()<<"x"<<input_batch[0].size() <<std::endl;
     // max batch size
     const uint64_t n_batch = params.n_batch;
     auto call_start = std::chrono::high_resolution_clock::now();

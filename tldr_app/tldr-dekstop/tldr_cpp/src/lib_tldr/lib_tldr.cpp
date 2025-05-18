@@ -452,12 +452,103 @@ void cleanupSystem() {
 
 // Vector dump functionality is now in vec_dump.h/cpp
 
+// Process a batch of chunks in a separate thread
+void processChunkBatch(
+    const std::vector<std::string>& chunks,
+    const std::vector<int>& chunkPageNums,
+    size_t batch_start,
+    size_t batch_size,
+    size_t thread_index,
+
+    std::vector<std::vector<std::vector<float>>>& thread_embeddings,
+    std::vector<std::vector<uint64_t>>& thread_hashes,
+    const std::string& fileHash
+) {
+    try {
+        size_t batch_end = std::min(batch_start + batch_size, chunks.size());
+        // Create a vector of string_view for the current batch
+        std::vector<std::string_view> batch_chunks(
+            chunks.begin() + batch_start,
+            chunks.begin() + batch_end
+        );
+        std::cout<<"Processing chunks: "<<batch_start<<"-"<<batch_end<<std::endl;
+
+        // Get embeddings for this batch
+        std::vector<std::vector<float>> batch_emb = tldr::get_llm_manager().get_embeddings(batch_chunks);
+
+        // Compute hashes for these embeddings
+        std::vector<uint64_t> batch_hashes = computeEmbeddingHashes(batch_emb);
+        
+        // Get the page numbers for this batch
+        std::vector<int> batch_page_nums(
+            chunkPageNums.begin() + batch_start,
+            chunkPageNums.begin() + batch_end
+        );
+        
+        saveEmbeddingsThreadSafe(
+            batch_chunks, 
+            batch_emb, 
+            batch_hashes, 
+            batch_page_nums,
+            fileHash
+        );
+
+        // Append the embeddings and hashes to this thread's results
+        thread_embeddings[thread_index].insert(
+            thread_embeddings[thread_index].end(),
+            std::make_move_iterator(batch_emb.begin()),
+            std::make_move_iterator(batch_emb.end())
+        );
+        
+        thread_hashes[thread_index].insert(
+            thread_hashes[thread_index].end(),
+            std::make_move_iterator(batch_hashes.begin()),
+            std::make_move_iterator(batch_hashes.end())
+        );
+
+    } catch (const std::exception &e) {
+        std::cerr << "Thread " << thread_index << " error: " << e.what() << std::endl;
+    }
+}
+
+// Process multiple batches sequentially in a thread
+void processThreadBatches(
+    const std::vector<std::string>& chunks,
+    const std::vector<int>& chunkPageNums,
+    size_t thread_index,
+    size_t num_threads,
+    size_t batch_size,
+    std::vector<std::vector<std::vector<float>>>& thread_embeddings,
+    std::vector<std::vector<uint64_t>>& thread_hashes,
+    const std::string& fileHash
+) {
+    // Calculate how many batches this thread will process
+    const size_t total_chunks = chunks.size();
+    
+    // Process each batch assigned to this thread
+    for (size_t start_chunk = thread_index * batch_size; 
+         start_chunk < total_chunks; 
+         start_chunk += num_threads * batch_size) {
+        // Process this batch
+        processChunkBatch(
+            chunks, 
+            chunkPageNums, 
+            start_chunk, 
+            batch_size,
+            thread_index, 
+            thread_embeddings, 
+            thread_hashes, 
+            fileHash
+        );
+    }
+}
+
 std::pair<std::vector<std::vector<float>>, std::vector<uint64_t>> 
 obtainEmbeddings(const std::vector<std::string> &chunks, 
                 const std::vector<int>& chunkPageNums,
                 const std::string& fileHash,
                 size_t batch_size, size_t num_threads) {
-    // System initialization is now handled by initializeSystem()
+
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
     std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
             << " batches using " << num_threads << " threads\n";
@@ -468,85 +559,45 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
     all_embeddings.reserve(chunks.size());
     all_hashes.reserve(chunks.size());
 
-    std::vector<int> ids(num_threads, -1);
-
     try {
-        for (size_t batch_start = 0; batch_start < chunks.size(); batch_start += batch_size * num_threads) {
-            std::vector<std::thread> threads;
-            std::vector<std::vector<std::vector<float>>> thread_embeddings(num_threads);
-            std::vector<std::vector<uint64_t>> thread_hashes(num_threads);
-
-            // Create a mutex to protect access to the embeddings and hashes collections
-            // std::mutex collection_mutex;
-
-            // Launch threads
-            for (size_t j = 0; j < num_threads && batch_start + j * batch_size < chunks.size(); ++j) {
-                size_t start = batch_start + j * batch_size;
-                size_t end = std::min(start + batch_size, chunks.size());
-
+        // Create thread storage for results - each thread will accumulate its results here
+        std::vector<std::vector<std::vector<float>>> thread_embeddings(num_threads);
+        std::vector<std::vector<uint64_t>> thread_hashes(num_threads);
+        
+        // Launch threads - each thread processes all its assigned batches
+        std::vector<std::thread> threads;
+        for (size_t j = 0; j < num_threads; ++j) {
+            // Only create threads that will have work to do
+            if (j * batch_size < chunks.size()) {
                 threads.emplace_back(
-                    [&chunks, &chunkPageNums, start, end, batch_start, batch_size, total_batches, &ids, j, num_threads,
-                     &thread_embeddings, &thread_hashes, fileHash]() {
-                        try {
-                            // Create a vector of string_view for the current batch
-                            std::vector<std::string_view> batch_chunks(
-                                chunks.begin() + start,
-                                chunks.begin() + end
-                            );
-
-                            // Process chunks directly without creating a copy
-                            size_t batch_num = batch_start / (batch_size * num_threads) * num_threads + j;
-
-                            // Get embeddings for this batch
-                            std::vector<std::vector<float>> batch_emb = tldr::get_llm_manager().get_embeddings(batch_chunks);
-
-                            // Compute hashes for these embeddings
-                            std::vector<uint64_t> batch_hashes = computeEmbeddingHashes(batch_emb);
-// Get the page numbers for this batch
-                            std::vector<int> batch_page_nums(
-                                chunkPageNums.begin() + start,
-                                chunkPageNums.begin() + end
-                            );
-                            saveEmbeddingsThreadSafe(
-                                batch_chunks, 
-                                batch_emb, 
-                                batch_hashes, 
-                                batch_page_nums,
-                                fileHash
-                            );
-
-                            // Save the embeddings and hashes for this thread
-                            thread_embeddings[j] = std::move(batch_emb);
-                            thread_hashes[j] = std::move(batch_hashes);
-
-
-                            // Also save to database for consistency with previous behavior
-                            // processChunkBatch(batch_chunks, batch_num, total_batches, ids[j]);
-
-                        } catch (const std::exception &e) {
-                            std::cerr << "Thread " << j << " error: " << e.what() << std::endl;
-                        }
-                    });
+                    [&chunks, &chunkPageNums, j, num_threads, batch_size, 
+                     &thread_embeddings, &thread_hashes, &fileHash]() {
+                        processThreadBatches(
+                            chunks, chunkPageNums, j, num_threads, batch_size,
+                            thread_embeddings, thread_hashes, fileHash
+                        );
+                    }
+                );
             }
+        }
 
-            // Wait for all threads in this group to complete
-            for (auto &thread: threads) {
-                if (thread.joinable()) {
-                    thread.join();
-                }
+        // Wait for all threads to complete
+        for (auto &thread: threads) {
+            if (thread.joinable()) {
+                thread.join();
             }
+        }
 
-            // Collect all embeddings and hashes from this batch of threads
-            for (size_t j = 0; j < num_threads; ++j) {
-                if (!thread_embeddings[j].empty()) {
-                    all_embeddings.insert(all_embeddings.end(),
-                                         thread_embeddings[j].begin(),
-                                         thread_embeddings[j].end());
+        // Collect all embeddings and hashes from all threads
+        for (size_t j = 0; j < num_threads; ++j) {
+            if (!thread_embeddings[j].empty()) {
+                all_embeddings.insert(all_embeddings.end(),
+                                    thread_embeddings[j].begin(),
+                                    thread_embeddings[j].end());
 
-                    all_hashes.insert(all_hashes.end(),
-                                     thread_hashes[j].begin(),
-                                     thread_hashes[j].end());
-                }
+                all_hashes.insert(all_hashes.end(),
+                                thread_hashes[j].begin(),
+                                thread_hashes[j].end());
             }
         }
     } catch (const std::exception &e) {
