@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <omp.h>
+
 #include <pqxx/pqxx>
 #include <cstdio>
 #include <memory>
@@ -31,13 +31,13 @@
 #include <curl/curl.h>
 
 // Helper function to extract content from XML tags
-std::string extract_xml_content(const std::string& xml) {
+std::string extract_xml_content(const std::string &xml) {
     size_t start = xml.find('>');
     if (start == std::string::npos) return "";
-    
+
     size_t end = xml.rfind("<");
     if (end == std::string::npos || end <= start) return "";
-    
+
     return xml.substr(start + 1, end - start - 1);
 }
 
@@ -61,10 +61,10 @@ PdfMetadata getPdfMetadata(const std::string &filename) {
 
     if (!doc) {
         std::cerr << "Error opening PDF file at path: " << expanded_path << std::endl;
-        metadata.pageCount = -1;  // Indicate error with page count -1
+        metadata.pageCount = -1; // Indicate error with page count -1
         return metadata;
     }
-    
+
     // Get page count
     metadata.pageCount = doc->pages();
 
@@ -74,7 +74,7 @@ PdfMetadata getPdfMetadata(const std::string &filename) {
         std::string metadata_str = metadata_ustr.to_latin1();
         std::istringstream meta_stream(metadata_str);
         std::string line;
-        
+
         while (std::getline(meta_stream, line)) {
             if (line.find("<dc:title>") != std::string::npos) {
                 metadata.title = extract_xml_content(line);
@@ -148,13 +148,13 @@ DocumentData extractDocumentDataFromPDF(const std::string &filename) {
     // Check if the document loaded successfully
     if (!doc) {
         std::cerr << "Error opening PDF file at path: " << expanded_path << std::endl;
-        docData.metadata.pageCount = -1;  // Indicate error with page count -1
+        docData.metadata.pageCount = -1; // Indicate error with page count -1
         return docData;
     }
-    
+
     // Get metadata
     docData.metadata = getPdfMetadata(filename);
-    
+
     // Pre-allocate space for page texts
     int pageCount = doc->pages();
     docData.pageTexts.reserve(pageCount);
@@ -165,15 +165,16 @@ DocumentData extractDocumentDataFromPDF(const std::string &filename) {
         if (page) {
             std::string page_text;
             poppler::byte_array utf8_data = page->text().to_utf8();
-            
+
             // Only keep ASCII characters for now
             page_text.reserve(utf8_data.size());
-            for (unsigned char c : utf8_data) {
-                if (c < 128) {  // ASCII range
+            for (unsigned char c: utf8_data) {
+                if (c < 128) {
+                    // ASCII range
                     page_text += c;
                 }
             }
-            
+
             docData.pageTexts.push_back(page_text);
         } else {
             docData.pageTexts.push_back(""); // Push empty string for unreadable pages
@@ -187,72 +188,71 @@ DocumentData extractDocumentDataFromPDF(const std::string &filename) {
 std::string extractTextFromPDF(const std::string &filename) {
     DocumentData docData = extractDocumentDataFromPDF(filename);
     std::string fullText;
-    
+
     // Concatenate all page texts with delimiters
-    for (const auto& pageText : docData.pageTexts) {
+    for (const auto &pageText: docData.pageTexts) {
         if (!pageText.empty()) {
             fullText += pageText + PAGE_DELIMITER;
         }
     }
-    
+
     return fullText;
 }
 
 
-
 // Split document text into chunks with page tracking
-void splitTextIntoChunks(DocumentData& docData, size_t max_chunk_size, size_t overlap) {
+void splitTextIntoChunks(DocumentData &docData, size_t max_chunk_size, size_t overlap) {
     // Clear any existing chunks
     docData.chunks.clear();
     docData.chunkPageNums.clear();
-    
+
     // Concatenate all page texts with delimiters
     std::string fullText;
     std::vector<size_t> pageBoundaries;
     size_t current_pos = 0;
 
-    for (const auto& pageText : docData.pageTexts) {
+    for (const auto &pageText: docData.pageTexts) {
         fullText += pageText;
         current_pos += pageText.length();
         pageBoundaries.push_back(current_pos);
     }
-    
+
     const size_t text_len = fullText.length();
-    
+
     size_t pos = 0;
     size_t currentPage = 0;
-    
+
     while (pos < text_len) {
         // Calculate end position for this chunk
         size_t chunk_end = std::min(pos + max_chunk_size, text_len);
-        
+
         // Find which page this chunk starts in
         while (currentPage < pageBoundaries.size() && pos >= pageBoundaries[currentPage]) {
             currentPage++;
         }
-        
+
         // Add the chunk
         int num_chars = chunk_end - pos;
         docData.chunks.push_back(fullText.substr(pos, num_chars));
         docData.chunkPageNums.push_back(currentPage + 1); // 1-based page numbers
-        
+
         // Move position for next chunk, accounting for overlap
         pos = num_chars > overlap ? chunk_end - overlap : chunk_end;
     }
 }
 
-bool initializeDatabase(const std::string& conninfo) {
+bool initializeDatabase(const std::string &conninfo) {
     std::cout << "Initializing database..." << std::endl;
-    
+
     // If no connection string is provided, use the default from constants.h
-    const std::string& connection_string = conninfo.empty() ? PG_CONNECTION : conninfo;
-    
+    const std::string &connection_string = conninfo.empty() ? PG_CONNECTION : conninfo;
+
     try {
         if (!g_db) {
             // if (USE_POSTGRES) {
-                g_db = std::make_unique<tldr::PostgresDatabase>(connection_string);
+            g_db = std::make_unique<tldr::PostgresDatabase>(connection_string);
             // } else {
-                // g_db = std::make_unique<tldr::SQLiteDatabase>(translatePath(DB_PATH));
+            // g_db = std::make_unique<tldr::SQLiteDatabase>(translatePath(DB_PATH));
             // }
 
             if (!g_db->initialize()) {
@@ -262,18 +262,18 @@ bool initializeDatabase(const std::string& conninfo) {
             }
         }
         return true;
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "Database initialization error: " << e.what() << std::endl;
         g_db.reset();
         return false;
     }
 }
 
-int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks, 
-                         const std::vector<std::vector<float>> &embeddings, 
-                         const std::vector<uint64_t> &embeddings_hash,
-                         const std::vector<int>& chunkPageNums,
-                         const std::string& fileHash) {
+int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks,
+                           const std::vector<std::vector<float> > &embeddings,
+                           const std::vector<uint64_t> &embeddings_hash,
+                           const std::vector<int> &chunkPageNums,
+                           const std::string &fileHash) {
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return -1;
@@ -282,7 +282,7 @@ int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks,
     // Convert embeddings to JSON format
     json embeddings_json;
     embeddings_json["embeddings"] = json::array();
-    for(const auto& emb : embeddings) {
+    for (const auto &emb: embeddings) {
         embeddings_json["embeddings"].push_back(emb);
     }
 
@@ -296,9 +296,9 @@ int64_t saveEmbeddingsToDb(const std::vector<std::string_view> &chunks,
 }
 
 // Save or update document metadata in the database
-bool saveOrUpdateDocumentInDB(const std::string& fileHash,
-                         const std::string& filePath,
-                         const DocumentData& docData) {
+bool saveOrUpdateDocumentInDB(const std::string &fileHash,
+                              const std::string &filePath,
+                              const DocumentData &docData) {
     if (!g_db || fileHash.empty() || filePath.empty()) {
         std::cerr << "Error: Database not initialized or invalid file hash/path" << std::endl;
         return false;
@@ -321,7 +321,6 @@ bool saveOrUpdateDocumentInDB(const std::string& fileHash,
         docData.metadata.producer,
         docData.metadata.pageCount
     );
-
 }
 
 
@@ -361,14 +360,14 @@ json parseEmbeddingsResponse(const std::string &response_data) {
 }
 
 // Helper: Compute hash for each embedding
-static std::vector<uint64_t> computeEmbeddingHashes(const std::vector<std::vector<float>>& embeddings_list) {
+static std::vector<uint64_t> computeEmbeddingHashes(const std::vector<std::vector<float> > &embeddings_list) {
     std::vector<uint64_t> hashes;
     hashes.reserve(embeddings_list.size());
 
     std::hash<float> float_hasher;
-    for (const auto& emb : embeddings_list) {
+    for (const auto &emb: embeddings_list) {
         uint64_t seed = 0;
-        for (float v : emb) {
+        for (float v: emb) {
             // Combine hash (similar to boost::hash_combine)
             seed ^= float_hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
         }
@@ -379,14 +378,13 @@ static std::vector<uint64_t> computeEmbeddingHashes(const std::vector<std::vecto
 
 // Save embeddings to database with thread safety
 int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
-    const std::vector<std::vector<float>> &batch_embeddings, 
-    const std::vector<uint64_t> &embeddings_hash,
-    const std::vector<int>& chunkPageNums,
-    const std::string& fileHash) {
-
+                             const std::vector<std::vector<float> > &batch_embeddings,
+                             const std::vector<uint64_t> &embeddings_hash,
+                             const std::vector<int> &chunkPageNums,
+                             const std::string &fileHash) {
     json embeddings_json;
     embeddings_json["embeddings"] = json::array();
-    for(const auto& emb : batch_embeddings) {
+    for (const auto &emb: batch_embeddings) {
         embeddings_json["embeddings"].push_back(emb);
     }
 
@@ -402,7 +400,7 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
     // Pass the raw embeddings and computed hashes to saveEmbeddingsToDb
     int64_t saved_id = saveEmbeddingsToDb(batch, batch_embeddings, embeddings_hash, chunkPageNums, fileHash);
     if (saved_id < 0) {
-        std::cerr<<"Failed to save embeddings to database";
+        std::cerr << "Failed to save embeddings to database";
         // throw std::runtime_error("Failed to save embeddings to database");
     }
     return saved_id;
@@ -423,11 +421,11 @@ bool initializeSystem() {
     // Initialize CURL globally (Restored)
     // CURLcode curl_init_ret = curl_global_init(CURL_GLOBAL_DEFAULT);
     // if (curl_init_ret != CURLE_OK) {
-        // std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
-        // Cleanup already initialized components
-        // LlmManager destructor will handle chat model cleanup.
-        // Database unique_ptr handles db connection
-        // return false;
+    // std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
+    // Cleanup already initialized components
+    // LlmManager destructor will handle chat model cleanup.
+    // Database unique_ptr handles db connection
+    // return false;
     // }
     tldr::initialize_llm_manager_once();
 
@@ -444,7 +442,7 @@ void closeDatabase() {
 void cleanupSystem() {
     // Close the database connection
     closeDatabase();
-    
+
     // Clean up the LLM manager
     tldr::get_llm_manager().cleanup();
 
@@ -455,6 +453,73 @@ void cleanupSystem() {
 
 // Function declarations moved to the top of the file
 
+// Process a block of batches for embedding generation
+void processBatchBlocks(
+    size_t thread_id,
+    size_t start_batch,
+    size_t end_batch,
+    const std::vector<std::string> &chunks,
+    const std::vector<int> &chunkPageNums,
+    const std::string &fileHash,
+    size_t batch_size,
+    std::vector<std::vector<float> > &all_embeddings,
+    std::vector<uint64_t> &all_hashes,
+    std::mutex &result_mutex
+) {
+    // Thread-local vectors to store results
+    std::vector<std::vector<float> > local_embeddings;
+    std::vector<uint64_t> local_hashes;
+
+    std::cout << "Thread " << thread_id << " started, processing batches from "
+            << start_batch << " to " << end_batch << std::endl;
+
+    // Calculate actual chunk indices from batch numbers
+    size_t start_chunk = start_batch * batch_size;
+    size_t end_chunk = std::min(end_batch * batch_size, chunks.size());
+
+    // Process all chunks assigned to this thread
+    for (size_t chunk_idx = start_chunk; chunk_idx < end_chunk; chunk_idx += batch_size) {
+        // Calculate the end of this batch
+        size_t batch_end = std::min(chunk_idx + batch_size, chunks.size());
+
+        // Create a vector of string_view for the current batch
+        std::vector<std::string_view> batch_chunks(
+            chunks.begin() + chunk_idx,
+            chunks.begin() + batch_end
+        );
+
+        // Get the page numbers for this batch
+        std::vector<int> batch_page_nums(
+            chunkPageNums.begin() + chunk_idx,
+            chunkPageNums.begin() + batch_end);
+
+        // std::cout << "Thread " << thread_id << " processing chunks: " << chunk_idx
+        //           << "-" << batch_end << std::endl;
+
+        // Get embeddings for this batch
+        std::vector<std::vector<float> > batch_emb = tldr::get_llm_manager().get_embeddings(batch_chunks);
+
+        // Compute hashes for these embeddings
+        std::vector<uint64_t> batch_hashes = computeEmbeddingHashes(batch_emb);
+
+        // Save to DB
+        saveEmbeddingsThreadSafe(batch_chunks, batch_emb, batch_hashes, batch_page_nums, fileHash);
+
+        // Append to thread-local vectors
+        local_embeddings.insert(local_embeddings.end(), batch_emb.begin(), batch_emb.end());
+        local_hashes.insert(local_hashes.end(), batch_hashes.begin(), batch_hashes.end());
+    }
+
+    // Merge results into the global vectors using mutex for thread safety
+    std::lock_guard<std::mutex> lock(result_mutex);
+    all_embeddings.insert(all_embeddings.end(),
+                          local_embeddings.begin(),
+                          local_embeddings.end());
+    all_hashes.insert(all_hashes.end(),
+                      local_hashes.begin(),
+                      local_hashes.end());
+}
+
 std::pair<std::vector<std::vector<float> >, std::vector<uint64_t> >
 obtainEmbeddings(const std::vector<std::string> &chunks,
                  const std::vector<int> &chunkPageNums,
@@ -462,7 +527,7 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
                  size_t batch_size, size_t num_threads) {
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
     std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
-            << " batches using OpenMP with " << num_threads << " threads\n";
+            << " batches using " << num_threads << " threads\n";
 
     // We'll collect all embeddings and hashes
     std::vector<std::vector<float> > all_embeddings;
@@ -470,67 +535,34 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
     all_embeddings.reserve(chunks.size());
     all_hashes.reserve(chunks.size());
 
+    // Mutex for thread synchronization when merging results
+    std::mutex result_mutex;
+
     try {
-        // Force OpenMP to use the specified number of threads
-        omp_set_num_threads(num_threads);
-        omp_set_max_active_levels(3);
-        omp_set_dynamic(0); // Disable dynamic adjustment
+        // Calculate how many batches each thread should process
+        size_t batches_per_thread = (total_batches + num_threads - 1) / num_threads;
 
-        // Process batches in parallel using OpenMP
-#pragma omp parallel private(id)
-        {
-            // Thread-local vectors to store results
-            std::vector<std::vector<float> > local_embeddings;
-            std::vector<uint64_t> local_hashes;
+        // Vector to hold all thread objects
+        std::vector<std::thread> threads;
 
-            // Thread ID for logging - get this inside the parallel region
-            int thread_id = omp_get_thread_num();
-            int total_threads = omp_get_num_threads();
+        // Create and start threads
+        for (size_t t = 0; t < num_threads; ++t) {
+            size_t start_batch = t * batches_per_thread;
+            size_t end_batch = std::min((t + 1) * batches_per_thread, total_batches);
 
-
-            std::cout << "Thread " << thread_id << " of " << total_threads << " started" << std::endl;
-
-            // Process batches in parallel using OpenMP
-#pragma omp for schedule(static,10)
-            for (size_t batch_start = 0; batch_start < chunks.size(); batch_start += batch_size) {
-                // Calculate the end of this batch
-                size_t batch_end = std::min(batch_start + batch_size, chunks.size());
-                // Create a vector of string_view for the current batch
-                std::vector<std::string_view> batch_chunks(
-                    chunks.begin() + batch_start,
-                    chunks.begin() + batch_end
-                );
-                // Get the page numbers for this batch
-                std::vector<int> batch_page_nums(
-                    chunkPageNums.begin() + batch_start, chunkPageNums.begin() + batch_end);
-
-                std::cout << "Thread " << thread_id << " processing chunks: " << batch_start
-                << "-" << batch_end << std::endl;
-
-                // Start the processing //
-                // Get embeddings for this batch
-                std::vector<std::vector<float> > batch_emb = tldr::get_llm_manager().get_embeddings(batch_chunks);
-
-                // Compute hashes for these embeddings
-                std::vector<uint64_t> batch_hashes = computeEmbeddingHashes(batch_emb);
-
-                // Save to DB
-                saveEmbeddingsThreadSafe(batch_chunks, batch_emb, batch_hashes, batch_page_nums, fileHash);
-
-                // Append to thread-local vectors
-                local_embeddings.insert(local_embeddings.end(), batch_emb.begin(), batch_emb.end());
-                local_hashes.insert(local_hashes.end(), batch_hashes.begin(), batch_hashes.end());
+            // Only create a thread if there's work to do
+            if (start_batch < total_batches) {
+                threads.emplace_back(processBatchBlocks, t, start_batch, end_batch,
+                                     std::ref(chunks), std::ref(chunkPageNums), std::ref(fileHash),
+                                     batch_size, std::ref(all_embeddings), std::ref(all_hashes),
+                                     std::ref(result_mutex));
             }
+        }
 
-            // Merge results into the global vectors
-#pragma omp critical
-            {
-                all_embeddings.insert(all_embeddings.end(),
-                                      local_embeddings.begin(),
-                                      local_embeddings.end());
-                all_hashes.insert(all_hashes.end(),
-                                  local_hashes.begin(),
-                                  local_hashes.end());
+        // Wait for all threads to complete
+        for (auto &thread: threads) {
+            if (thread.joinable()) {
+                thread.join();
             }
         }
 
@@ -601,7 +633,7 @@ bool addFileToCorpus(const std::string &sourcePath, const std::string &fileHash)
     return false;
 }
 
-bool deleteFileEmbeddingsFromDB(const std::string& fileHash) {
+bool deleteFileEmbeddingsFromDB(const std::string &fileHash) {
     if (g_db) {
         return g_db->deleteEmbeddings(fileHash);
     }
@@ -609,30 +641,31 @@ bool deleteFileEmbeddingsFromDB(const std::string& fileHash) {
 }
 
 
-void findFilesOfTypeRecursively(const std::filesystem::path& path, std::vector<std::string>& files, const std::string& extension) {
+void findFilesOfTypeRecursively(const std::filesystem::path &path, std::vector<std::string> &files,
+                                const std::string &extension) {
     try {
         if (std::filesystem::exists(path)) {
-            for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+            for (const auto &entry: std::filesystem::recursive_directory_iterator(path)) {
                 if (entry.is_regular_file() && entry.path().extension() == extension) {
                     files.push_back(entry.path().string());
                 }
             }
         }
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "Error scanning directory " << path << ": " << e.what() << std::endl;
     }
 }
 
 // Deprecated: Use findFilesOfTypeRecursively instead
-void findPdfFiles(const std::filesystem::path& path, std::vector<std::string>& pdfFiles) {
+void findPdfFiles(const std::filesystem::path &path, std::vector<std::string> &pdfFiles) {
     // Call the new generic function with ".pdf" extension
     findFilesOfTypeRecursively(path, pdfFiles, ".pdf");
 }
 
-std::vector<std::string> collectPdfFiles(const std::string& path) {
+std::vector<std::string> collectPdfFiles(const std::string &path) {
     std::vector<std::string> files;
     std::string expanded_path = translatePath(path);
-    
+
     if (std::filesystem::is_regular_file(expanded_path)) {
         // If it's a PDF file, add it to the list
         if (expanded_path.ends_with(".pdf")) {
@@ -641,26 +674,28 @@ std::vector<std::string> collectPdfFiles(const std::string& path) {
             std::cerr << "Error: Unsupported file type. Only PDF files are supported." << std::endl;
         }
         return files; // Will be empty if not a PDF
-    } 
-    
+    }
+
     if (std::filesystem::is_directory(expanded_path)) {
         // Find all PDF files recursively using the new generic function
         findFilesOfTypeRecursively(expanded_path, files, ".pdf");
-        
+
         if (files.empty()) {
             std::cerr << "No PDF files found in " << expanded_path << std::endl;
         }
         return files; // Will be empty if no PDFs found
     }
-    
+
     std::cerr << "Error: Path is neither a file nor a directory: " << expanded_path << std::endl;
     return {}; // Return empty vector on error
 }
 
-bool getFilesToBeEmbedded(const std::string &sourcePath, std::vector<std::string> filesToProcess, std::map<std::string, std::string> fileHashes, std::vector<std::pair<std::string, std::string>> &filesWithHashes, WorkResult &value1) {
+bool getFilesToBeEmbedded(const std::string &sourcePath, std::vector<std::string> filesToProcess,
+                          std::map<std::string, std::string> fileHashes,
+                          std::vector<std::pair<std::string, std::string> > &filesWithHashes, WorkResult &value1) {
     // Determine the search directory for vecdump files
     std::filesystem::path searchPath;
-    
+
     if (std::filesystem::exists(sourcePath)) {
         if (std::filesystem::is_directory(sourcePath)) {
             // If sourcePath is a directory, use it directly
@@ -675,17 +710,18 @@ bool getFilesToBeEmbedded(const std::string &sourcePath, std::vector<std::string
         // Use sourcePath anyway, in case it's a valid path that just doesn't exist yet
         searchPath = sourcePath;
     }
-    
+
     // Find all existing vecdump files in the search directory
     std::vector<std::string> existingVecdumps;
     if (std::filesystem::exists(searchPath) && std::filesystem::is_directory(searchPath)) {
         findFilesOfTypeRecursively(searchPath, existingVecdumps, ".vecdump");
-        std::cout << "Found " << existingVecdumps.size() << " existing vecdump files in " << searchPath.string() << std::endl;
+        std::cout << "Found " << existingVecdumps.size() << " existing vecdump files in " << searchPath.string() <<
+                std::endl;
     }
-    
+
     // Create a set of existing vecdump hashes for faster lookup
     std::unordered_set<std::string> existingHashes;
-    for (const auto& vecdumpPath : existingVecdumps) {
+    for (const auto &vecdumpPath: existingVecdumps) {
         // Extract the hash from the filename (remove path and extension)
         std::filesystem::path path(vecdumpPath);
         std::string filename = path.filename().string();
@@ -693,14 +729,14 @@ bool getFilesToBeEmbedded(const std::string &sourcePath, std::vector<std::string
         std::string hash = filename.substr(0, filename.length() - 8); // Remove ".vecdump"
         existingHashes.insert(hash);
     }
-    
+
     // Process files and check if their hashes already exist
-    for (const auto& file : filesToProcess) {
+    for (const auto &file: filesToProcess) {
         auto it = fileHashes.find(file);
         if (it != fileHashes.end()) {
             // Check if this hash already exists in the set of vecdump hashes
             if (existingHashes.find(it->second) != existingHashes.end()) {
-                std::cout << "Skipping (vecdump exists) for : " << file<<" - "<<it->second << std::endl;
+                std::cout << "Skipping (vecdump exists) for : " << file << " - " << it->second << std::endl;
             } else {
                 filesWithHashes.emplace_back(file, it->second);
                 std::cout << "Will process: " << file << " Hash: " << it->second << std::endl;
@@ -712,33 +748,39 @@ bool getFilesToBeEmbedded(const std::string &sourcePath, std::vector<std::string
 
     if (filesWithHashes.empty()) {
         std::cout << "All files already have corresponding vecdumps. Nothing to process." << std::endl;
-        value1 = WorkResult{false,"","All files are already processed"};
+        value1 = WorkResult{false, "", "All files are already processed"};
         return false; // Success, just nothing to do
     }
 
-    std::cout << "Found " << filesWithHashes.size() << " files to process (after filtering existing vecdumps)" << std::endl;
+    std::cout << "Found " << filesWithHashes.size() << " files to process (after filtering existing vecdumps)" <<
+            std::endl;
     return true;
 }
 
-bool addFilesToCorpusSequential(std::vector<std::pair<std::string, std::string>> filesWithHashes, WorkResult &value1) {
+bool addFilesToCorpusSequential(std::vector<std::pair<std::string, std::string> > filesWithHashes, WorkResult &value1) {
     try {
-        for (const auto& [filePath, fileHash] : filesWithHashes) {
+        for (const auto &[filePath, fileHash]: filesWithHashes) {
             std::cout << "Adding file to corpus: " << filePath << std::endl;
+            auto start = std::chrono::high_resolution_clock::now();
             addFileToCorpus(filePath, fileHash);
+            auto end = std::chrono::high_resolution_clock::now();
+            std::cout << " Took " << ((end - start) / 1000000000.0) << " for file " << filePath << std::endl;
         }
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         std::cerr << "Error in addFilesToCorpusSequence()" << std::endl;
-        value1 = WorkResult{true,e.what(),""};
+        value1 = WorkResult{true, e.what(), ""};
+        return false;
     }
-    value1 = WorkResult{false,"",""};
+    value1 = WorkResult{false, "", ""};
     return true;
 }
 
-bool addFilesToCorpus(std::vector<std::pair<std::string, std::string>> filesWithHashes, WorkResult &value1) {
+bool addFilesToCorpus(std::vector<std::pair<std::string, std::string> > filesWithHashes, WorkResult &value1) {
     // Determine number of threads to use
     const size_t numThreads = std::min(filesWithHashes.size(), static_cast<size_t>(ADD_CORPUS_N_THREADS));
 
-    std::cout << "Using " << numThreads << " threads for processing "<<filesWithHashes.size()<<" files" << std::endl;
+    std::cout << "Using " << numThreads << " threads for processing " << filesWithHashes.size() << " files" <<
+            std::endl;
     // Process files in parallel
     std::vector<std::thread> threads;
     std::atomic<bool> has_errors{false};
@@ -758,7 +800,7 @@ bool addFilesToCorpus(std::vector<std::pair<std::string, std::string>> filesWith
                 for (size_t j = start; j < end; ++j) {
                     // if (has_errors) break; // Early exit if another thread failed
 
-                    const auto& [filePath, fileHash] = filesWithHashes[j];
+                    const auto &[filePath, fileHash] = filesWithHashes[j];
 
                     try {
                         // Process the file
@@ -766,13 +808,13 @@ bool addFilesToCorpus(std::vector<std::pair<std::string, std::string>> filesWith
 
                         // Print progress
                         std::cout << "Processed: " << filePath << std::endl;
-                    } catch (const std::exception& e) {
+                    } catch (const std::exception &e) {
                         has_errors = true;
                         last_error = std::string("Error processing ") + filePath + ": " + e.what();
                         std::cerr << last_error << std::endl;
                     }
                 }
-            } catch (const std::exception& e) {
+            } catch (const std::exception &e) {
                 has_errors = true;
                 last_error = std::string("Thread error: ") + e.what();
                 std::cerr << last_error << std::endl;
@@ -781,7 +823,7 @@ bool addFilesToCorpus(std::vector<std::pair<std::string, std::string>> filesWith
     }
 
     // Wait for all threads to complete
-    for (auto& thread : threads) {
+    for (auto &thread: threads) {
         if (thread.joinable()) {
             thread.join();
         }
@@ -849,9 +891,9 @@ void doRag(const std::string &conversationId) {
     }
 }
 
-RagResult queryRag(const std::string& user_query, const std::string& corpus_dir) {
+RagResult queryRag(const std::string &user_query, const std::string &corpus_dir) {
     RagResult result;
-    
+
     if (!g_db) {
         std::cerr << "Database not initialized" << std::endl;
         return result;
@@ -860,7 +902,7 @@ RagResult queryRag(const std::string& user_query, const std::string& corpus_dir)
     try {
         // Get embeddings for the user query using LlmManager
         auto query_embeddings = tldr::get_llm_manager().get_embeddings({user_query});
-        
+
         if (query_embeddings.empty() || query_embeddings[0].empty()) {
             std::cerr << "Failed to get embeddings for the query." << std::endl;
             return result;
@@ -870,8 +912,8 @@ RagResult queryRag(const std::string& user_query, const std::string& corpus_dir)
 
         // Use NPU-accelerated similarity search instead of database search
         auto similar_chunks = searchSimilarVectorsNPU(
-            query_embeddings[0],         // Query vector
-            corpus_dir,                  // Vector corpus directory
+            query_embeddings[0], // Query vector
+            corpus_dir, // Vector corpus directory
             K_SIMILAR_CHUNKS_TO_RETRIEVE // Number of results to return
         );
 
@@ -880,15 +922,15 @@ RagResult queryRag(const std::string& user_query, const std::string& corpus_dir)
             std::cerr << "No results from NPU search, falling back to database search..." << std::endl;
             similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
         }
-        
+
         // Prepare context string for the LLM and store context chunks
         std::string context_str;
-        for (const auto& chunk_data : similar_chunks) {
-            const auto& [chunk, similarity, hash] = chunk_data;
-            
+        for (const auto &chunk_data: similar_chunks) {
+            const auto &[chunk, similarity, hash] = chunk_data;
+
             // Add to context string for LLM
             context_str += chunk + "\n\n";
-            
+
             // Add to result chunks
             ContextChunk context_chunk;
             context_chunk.text = chunk;
@@ -896,7 +938,7 @@ RagResult queryRag(const std::string& user_query, const std::string& corpus_dir)
             context_chunk.hash = hash;
             result.context_chunks.push_back(std::move(context_chunk));
         }
-        
+
         if (context_str.empty()) {
             std::cerr << "No relevant context found in DB!" << std::endl;
             return result;
@@ -904,11 +946,10 @@ RagResult queryRag(const std::string& user_query, const std::string& corpus_dir)
 
         // Generate response using LlmManager's chat model
         result.response = tldr::get_llm_manager().get_chat_response(context_str, user_query);
-
     } catch (const std::exception &e) {
         std::cerr << "RAG Query error: " << e.what() << std::endl;
     }
-    
+
     return result;
 }
 
@@ -947,11 +988,11 @@ std::map<uint64_t, float> npuCosineSimSearchWrapper(
 }
 
 // Wrapper function for NPU-accelerated vector similarity search
-std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectorsNPU(
+std::vector<std::tuple<std::string, float, uint64_t> > searchSimilarVectorsNPU(
     const std::vector<float> &query_vector,
     const std::string &corpus_dir,
     int k) {
-    std::vector<std::tuple<std::string, float, uint64_t>> similar_chunks;
+    std::vector<std::tuple<std::string, float, uint64_t> > similar_chunks;
 
     // We'll collect the hashes from the results and only then query the database
     // This is more efficient than loading all embeddings upfront
@@ -972,14 +1013,14 @@ std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectorsNPU(
 
         // Print the hash values returned by the NPU search
         std::cout << "NPU search returned the following hashes:" << std::endl;
-        for (const auto &[hash, score] : hash_scores) {
+        for (const auto &[hash, score]: hash_scores) {
             std::cout << "Hash: " << hash << ", Score: " << score << std::endl;
         }
 
         // Extract hashes for database lookup
         std::vector<uint64_t> hashes_to_lookup;
         hashes_to_lookup.reserve(hash_scores.size());
-        for (const auto &[hash, _] : hash_scores) {
+        for (const auto &[hash, _]: hash_scores) {
             hashes_to_lookup.push_back(hash);
         }
 
@@ -990,7 +1031,7 @@ std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectorsNPU(
         }
 
         // Convert results to the expected format
-        for (const auto &[hash, score] : hash_scores) {
+        for (const auto &[hash, score]: hash_scores) {
             auto it = hash_to_text.find(hash);
             if (it != hash_to_text.end()) {
                 similar_chunks.emplace_back(it->second, score, hash);
@@ -1003,7 +1044,7 @@ std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectorsNPU(
     } catch (const std::exception &e) {
         std::cerr << "Error in NPU similarity search: " << e.what() << std::endl;
     }
-    
+
     return similar_chunks;
 }
 
@@ -1012,7 +1053,7 @@ bool test_vector_cache() {
     std::cout << "=== Testing Vector Cache Dump and Read Functionality ===" << std::endl;
 
     // Create sample embeddings and hashes
-    std::vector<std::vector<float>> test_embeddings;
+    std::vector<std::vector<float> > test_embeddings;
     std::vector<uint64_t> test_hashes;
 
     // Create 5 test embeddings with 16 dimensions each
@@ -1020,7 +1061,7 @@ bool test_vector_cache() {
     const size_t dimensions = 16;
 
     std::cout << "Creating " << num_embeddings << " test embeddings with "
-              << dimensions << " dimensions each" << std::endl;
+            << dimensions << " dimensions each" << std::endl;
 
     // Initialize with deterministic values for testing
     for (size_t i = 0; i < num_embeddings; i++) {
@@ -1039,7 +1080,7 @@ bool test_vector_cache() {
 
     // Step 1: Dump the test data
     std::cout << "\nStep 1: Dumping test embeddings to " << test_file << std::endl;
-    if (!tldr::dump_vectors_to_file(test_file, test_embeddings, test_hashes,"test_hash")) {
+    if (!tldr::dump_vectors_to_file(test_file, test_embeddings, test_hashes, "test_hash")) {
         std::cerr << "Error: Failed to dump test embeddings" << std::endl;
         return false;
     }
@@ -1060,9 +1101,9 @@ bool test_vector_cache() {
 
     // Verify header
     bool header_verified =
-        (mapped_data->header->num_entries == num_embeddings) &&
-        (mapped_data->header->hash_size_bytes == sizeof(size_t)) &&
-        (mapped_data->header->vector_dimensions == dimensions);
+            (mapped_data->header->num_entries == num_embeddings) &&
+            (mapped_data->header->hash_size_bytes == sizeof(size_t)) &&
+            (mapped_data->header->vector_dimensions == dimensions);
 
     std::cout << "Header verification: " << (header_verified ? "PASSED" : "FAILED") << std::endl;
 
@@ -1078,11 +1119,11 @@ bool test_vector_cache() {
         size_t read_hash = mapped_data->hashes[test_idx];
 
         std::cout << "Hash verification: Original = " << original_hash
-                  << ", Read = " << read_hash
-                  << " -> " << (original_hash == read_hash ? "MATCH" : "MISMATCH") << std::endl;
+                << ", Read = " << read_hash
+                << " -> " << (original_hash == read_hash ? "MATCH" : "MISMATCH") << std::endl;
 
         // Check a few dimensions of the embedding vector
-        const float* read_vector = mapped_data->vectors + (test_idx * mapped_data->header->vector_dimensions);
+        const float *read_vector = mapped_data->vectors + (test_idx * mapped_data->header->vector_dimensions);
 
         std::cout << "Vector verification (first 5 dimensions):" << std::endl;
         bool vector_matches = true;
@@ -1092,8 +1133,8 @@ bool test_vector_cache() {
             bool matches = (std::abs(original_val - read_val) < 0.000001f); // Floating point comparison with epsilon
 
             std::cout << "  Dim " << i << ": Original = " << original_val
-                      << ", Read = " << read_val
-                      << " -> " << (matches ? "MATCH" : "MISMATCH") << std::endl;
+                    << ", Read = " << read_val
+                    << " -> " << (matches ? "MATCH" : "MISMATCH") << std::endl;
 
             if (!matches) vector_matches = false;
         }
@@ -1113,16 +1154,18 @@ void command_loop() {
         {"do-rag", doRag},
         {"add-corpus", addCorpus},
         {"delete-corpus", deleteCorpus},
-        {"query", [](const std::string& query) { queryRag(query); }},
-        {"read-vectors", [](const std::string& path) {
-            auto data = tldr::read_vector_dump_file(path);
-            if (data) {
-                tldr::print_vector_dump_info(data.get(), path, true);
-            } else {
-                std::cerr << "Failed to read vector file: " << path << std::endl;
+        {"query", [](const std::string &query) { queryRag(query); }},
+        {
+            "read-vectors", [](const std::string &path) {
+                auto data = tldr::read_vector_dump_file(path);
+                if (data) {
+                    tldr::print_vector_dump_info(data.get(), path, true);
+                } else {
+                    std::cerr << "Failed to read vector file: " << path << std::endl;
+                }
             }
-        }},
-        {"test-vectors", [](const std::string&) { tldr::test_vector_cache(); }}
+        },
+        {"test-vectors", [](const std::string &) { tldr::test_vector_cache(); }}
     };
 
     while (true) {
