@@ -249,11 +249,11 @@ bool initializeDatabase(const std::string& conninfo) {
     
     try {
         if (!g_db) {
-            if (USE_POSTGRES) {
+            // if (USE_POSTGRES) {
                 g_db = std::make_unique<tldr::PostgresDatabase>(connection_string);
-            } else {
-                g_db = std::make_unique<tldr::SQLiteDatabase>(translatePath(DB_PATH));
-            }
+            // } else {
+                // g_db = std::make_unique<tldr::SQLiteDatabase>(translatePath(DB_PATH));
+            // }
 
             if (!g_db->initialize()) {
                 std::cerr << "Failed to initialize database" << std::endl;
