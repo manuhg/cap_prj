@@ -83,7 +83,7 @@ namespace tldr {
                 "id BIGSERIAL PRIMARY KEY,"
                 "document_id UUID REFERENCES documents(id) ON DELETE CASCADE,"
                 "chunk_text TEXT NOT NULL,"
-                "text_hash TEXT NOT NULL," // Store as TEXT to handle large uint64_t values
+                // "text_hash TEXT," // Store as TEXT to handle large uint64_t values
                 "embedding_hash TEXT," // Store as TEXT to avoid sign issues with uint64_t
                 "embedding vector(" EMBEDDING_SIZE ") NOT NULL,"  // Assuming 2048-dimensional embeddings
                 "created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"
@@ -95,7 +95,7 @@ namespace tldr {
             txn.exec("CREATE INDEX IF NOT EXISTS documents_created_at_idx ON documents (created_at)");
 
             // Create indexes for embeddings table
-            txn.exec("CREATE UNIQUE INDEX IF NOT EXISTS embeddings_text_hash_idx ON embeddings (text_hash)");
+            // txn.exec("CREATE UNIQUE INDEX IF NOT EXISTS embeddings_text_hash_idx ON embeddings (text_hash)");
             txn.exec("CREATE UNIQUE INDEX IF NOT EXISTS embeddings_hash_idx ON embeddings (embedding_hash)");
             txn.exec("CREATE INDEX IF NOT EXISTS embeddings_document_id_idx ON embeddings (document_id)");
 
@@ -174,8 +174,8 @@ namespace tldr {
                 // Prepare statement with updated column names and document_id
                 conn->prepare(
                     stmt_name,
-                    "INSERT INTO embeddings (document_id, chunk_text, embedding, text_hash, embedding_hash) "
-                    "VALUES ($1, $2, $3, $4, $5) RETURNING id"
+                    "INSERT INTO embeddings (document_id, chunk_text, embedding, embedding_hash) "
+                    "VALUES ($1, $2, $3, $4) RETURNING id"
                 );
 
                 for (size_t i = 0; i < chunks.size(); ++i) {
@@ -198,7 +198,6 @@ namespace tldr {
                     params.append(document_id);
                     params.append(chunk_str);
                     params.append(vector_str);
-                    params.append(std::to_string(embedding_hashes[i]));  // text_hash as TEXT
                     params.append(hash_str);                             // embedding_hash as TEXT
                     
                     // Execute the prepared statement with the new parameter order
@@ -324,7 +323,7 @@ namespace tldr {
             
             // Build the query with parameter placeholders
             // Note: both text_hash and embedding_hash are now TEXT in the database
-            std::string query = "SELECT text_hash, chunk_text FROM embeddings WHERE text_hash IN (";
+            std::string query = "SELECT embedding_hash, chunk_text FROM embeddings WHERE embedding_hash IN (";
             
             // Create parameters list and placeholder string
             std::cout << "hashes for search_query:" << std::endl;
@@ -342,7 +341,7 @@ namespace tldr {
             // Process results
             for (const auto& row : db_result) {
                 // Convert the hash from string to uint64_t
-                std::string hash_str = row["text_hash"].as<std::string>();
+                std::string hash_str = row["embedding_hash"].as<std::string>();
                 uint64_t hash = std::stoull(hash_str);
                 std::string text = row["chunk_text"].as<std::string>();
                 results[hash] = text;
