@@ -472,8 +472,8 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
 
     try {
         // Force OpenMP to use the specified number of threads
-        omp_set_dynamic(0); // Disable dynamic adjustment of threads
         omp_set_num_threads(num_threads);
+        omp_set_max_active_levels(3);
 
         // Process batches in parallel using OpenMP
 #pragma omp parallel num_threads(num_threads)
@@ -719,6 +719,20 @@ bool getFilesToBeEmbedded(const std::string &sourcePath, std::vector<std::string
     return true;
 }
 
+bool addFilesToCorpusSequential(std::vector<std::pair<std::string, std::string>> filesWithHashes, WorkResult &value1) {
+    try {
+        for (const auto& [filePath, fileHash] : filesWithHashes) {
+            std::cout << "Adding file to corpus: " << filePath << std::endl;
+            addFileToCorpus(filePath, fileHash);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error in addFilesToCorpusSequence()" << std::endl;
+        value1 = WorkResult{true,e.what(),""};
+    }
+    value1 = WorkResult{false,"",""};
+    return true;
+}
+
 bool addFilesToCorpus(std::vector<std::pair<std::string, std::string>> filesWithHashes, WorkResult &value1) {
     // Determine number of threads to use
     const size_t numThreads = std::min(filesWithHashes.size(), static_cast<size_t>(ADD_CORPUS_N_THREADS));
@@ -798,7 +812,7 @@ WorkResult addCorpus(const std::string &sourcePath) {
         if (!getFilesToBeEmbedded(expanded_path, pdfFiles, fileHashes, filesToEmbed, result))
             return result;
 
-        if (!addFilesToCorpus(filesToEmbed, result))
+        if (!addFilesToCorpusSequential(filesToEmbed, result))
             return result;
 
         return WorkResult{false, "", std::format("Processed {} files", filesToEmbed.size())}; // Success
