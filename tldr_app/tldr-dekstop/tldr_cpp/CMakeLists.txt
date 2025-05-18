@@ -63,6 +63,7 @@ target_include_directories(tldr PRIVATE
     /opt/homebrew/opt/curl/include
     /opt/homebrew/opt/nlohmann-json/include
     /opt/homebrew/opt/sqlitecpp/include
+    /opt/homebrew/opt/libomp/include
     /Users/manu/proj_tldr/tldr-dekstop/release-products/include
     /Users/manu/proj_tldr/tldr-dekstop/release-products/include/llama.cpp/
 )
@@ -79,6 +80,7 @@ target_link_libraries(tldr PUBLIC
         /opt/homebrew/opt/libpqxx/lib/libpqxx.a
         /opt/homebrew/opt/poppler/lib/libpoppler.a
         /opt/homebrew/opt/curl/lib/libcurl.a
+        /opt/homebrew/opt/libomp/lib/libomp.a
 
         /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libnpu-accelerator.a
         /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/llama.cpp/libcommon.a
