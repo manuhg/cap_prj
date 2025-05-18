@@ -17,9 +17,9 @@
 #define DB_HASH_PRESENT_DO_NOTHING 2
 #define DB_HASH_PRESENT_ACTION DB_HASH_PRESENT_DO_NOTHING
 
-#define NUM_THREADS 8
+#define NUM_THREADS 4
 #define ADD_CORPUS_N_THREADS 4  // Maximum number of threads for processing PDFs in parallel
-#define DB_CONN_POOL_SIZE 6
+#define DB_CONN_POOL_SIZE 4
 
 // Directory name for storing vector cache files
 constexpr const char* VECDUMP_DIR = "_vecdumps";

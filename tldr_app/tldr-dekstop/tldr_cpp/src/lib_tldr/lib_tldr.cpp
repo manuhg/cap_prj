@@ -471,21 +471,45 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
     all_embeddings.reserve(chunks.size());
     all_hashes.reserve(chunks.size());
     
-    // Set the number of OpenMP threads
-    omp_set_num_threads(num_threads);
-
     try {
+        // Force OpenMP to use the specified number of threads
+        omp_set_dynamic(0);  // Disable dynamic adjustment of threads
+        omp_set_num_threads(num_threads);
+        
+        std::cout << "OpenMP max threads: " << omp_get_max_threads() << std::endl;
+        
         // Process batches in parallel using OpenMP
-        #pragma omp parallel
+        #pragma omp parallel num_threads(num_threads)
         {
             // Thread-local vectors to store results
             std::vector<std::vector<float>> local_embeddings;
             std::vector<uint64_t> local_hashes;
             
-
-
+            // Thread ID for logging - get this inside the parallel region
+            int thread_id = omp_get_thread_num();
+            int total_threads = omp_get_num_threads();
+            
+            #pragma omp critical
+            {
+                std::cout << "Thread " << thread_id << " of " << total_threads << " started" << std::endl;
+            }
+            
+            // Get a database connection for this thread
+            pqxx::connection* thread_conn = nullptr;
+            if (g_db) {
+                // Cast to PostgresDatabase to access the connection pool directly
+                auto* postgres_db = dynamic_cast<tldr::PostgresDatabase*>(g_db.get());
+                if (postgres_db) {
+                    thread_conn = postgres_db->acquireConnection();
+                    #pragma omp critical
+                    {
+                        std::cout << "Thread " << thread_id << " acquired database connection" << std::endl;
+                    }
+                }
+            }
+            
             // Process batches in parallel using OpenMP
-            #pragma omp for schedule(dynamic)
+            #pragma omp for schedule(dynamic,10)
             for (size_t batch_start = 0; batch_start < chunks.size(); batch_start += batch_size) {
                 // Calculate the end of this batch
                 size_t batch_end = std::min(batch_start + batch_size, chunks.size());
@@ -496,7 +520,7 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
                     chunks.begin() + batch_end
                 );
 
-                std::cout << " processing chunks: " << batch_start << "-" << batch_end << std::endl;
+                std::cout << "Thread " << thread_id << " processing chunks: " << batch_start << "-" << batch_end << std::endl;
                 
                 // Get embeddings for this batch
                 std::vector<std::vector<float>> batch_emb = 
@@ -511,14 +535,37 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
                     chunkPageNums.begin() + batch_end
                 );
                 
-                // Save embeddings to database
-                saveEmbeddingsThreadSafe(
-                    batch_chunks, 
-                    batch_emb, 
-                    batch_hashes, 
-                    batch_page_nums,
-                    fileHash
-                );
+                // Save embeddings to database using thread's connection if available
+                if (thread_conn && g_db) {
+                    // Convert embeddings to JSON format
+                    json embeddings_json;
+                    embeddings_json["embeddings"] = json::array();
+                    for(const auto& emb : batch_emb) {
+                        embeddings_json["embeddings"].push_back(emb);
+                    }
+                    
+                    // Use the thread's connection directly
+                    auto* postgres_db = dynamic_cast<tldr::PostgresDatabase*>(g_db.get());
+                    if (postgres_db) {
+                        postgres_db->saveEmbeddingsWithConnection(
+                            thread_conn,
+                            batch_chunks, 
+                            embeddings_json, 
+                            batch_hashes, 
+                            batch_page_nums,
+                            fileHash
+                        );
+                    }
+                } else {
+                    // Fall back to regular method if no thread connection
+                    saveEmbeddingsThreadSafe(
+                        batch_chunks, 
+                        batch_emb, 
+                        batch_hashes, 
+                        batch_page_nums,
+                        fileHash
+                    );
+                }
                 
                 // Append to thread-local vectors
                 local_embeddings.insert(local_embeddings.end(), batch_emb.begin(), batch_emb.end());

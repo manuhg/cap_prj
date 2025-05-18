@@ -44,6 +44,21 @@ namespace tldr {
         }
     }
 
+    pqxx::connection* PostgresDatabase::acquireConnection() {
+        try {
+            return conn_pool.acquire();
+        } catch (const std::exception &e) {
+            std::cerr << "Failed to acquire connection: " << e.what() << std::endl;
+            return nullptr;
+        }
+    }
+
+    void PostgresDatabase::releaseConnection(pqxx::connection* conn) {
+        if (conn) {
+            conn_pool.release(conn);
+        }
+    }
+
     bool PostgresDatabase::initialize() {
         pqxx::connection *conn = nullptr;
         if (!openConnection(conn)) {
@@ -148,74 +163,91 @@ namespace tldr {
             return -1;
         }
 
+        // Use the connection and make sure it's released when done
+        int64_t result = saveEmbeddingsWithConnection(
+            conn, chunks, embeddings_response, embedding_hashes, chunk_page_nums, file_hash);
+        
+        // Release the connection back to the pool
+        closeConnection(conn);
+        
+        return result;
+    }
+
+    int64_t PostgresDatabase::saveEmbeddingsWithConnection(
+        pqxx::connection* conn,
+        const std::vector<std::string_view> &chunks,
+        const json &embeddings_response,
+        const std::vector<uint64_t> &embedding_hashes,
+        const std::vector<int> &chunk_page_nums,
+        const std::string &file_hash) {
+        
+        if (!conn) {
+            std::cerr << "Error: Null connection provided to saveEmbeddingsWithConnection" << std::endl;
+            return -1;
+        }
+
         try {
             pqxx::work txn(*conn);
             int64_t last_id = -1;
-
-            
 
             // Prepare the insert statement with a unique name to avoid conflicts in multithreaded environment
             static std::atomic<int> statement_counter{0};
             std::string stmt_name = "insert_embedding_" + std::to_string(statement_counter++);
 
+            // First, get the document_id from the documents table
+            pqxx::result doc_result = txn.exec(
+                "SELECT id FROM documents WHERE file_hash = $1",
+                pqxx::params{file_hash}
+            );
             
-                // First, get the document_id from the documents table
-                pqxx::result doc_result = txn.exec(
-                    "SELECT id FROM documents WHERE file_hash = $1",
-                    pqxx::params{file_hash}
-                );
-                
-                if (doc_result.empty()) {
-                    throw std::runtime_error("Document with hash " + file_hash + " not found in database");
-                }
-                
-                std::string document_id = doc_result[0][0].as<std::string>();
-                
-                // Prepare statement with updated column names and document_id
-                conn->prepare(
-                    stmt_name,
-                    "INSERT INTO embeddings (document_id, chunk_text, embedding, embedding_hash) "
-                    "VALUES ($1, $2, $3, $4) RETURNING id"
-                );
-
-                for (size_t i = 0; i < chunks.size(); ++i) {
-                    // Convert embedding to string
-                    std::string vector_str = "[";
-                    const auto &embedding = embeddings_response["embeddings"][i];
-                    for (size_t j = 0; j < embedding.size(); ++j) {
-                        if (j > 0) vector_str += ",";
-                        vector_str += std::to_string(embedding[j].get<float>());
-                    }
-                    vector_str += "]";
-
-                    // Prepare parameters
-                    std::string chunk_str(chunks[i]);
-                    std::string hash_str = std::to_string(embedding_hashes[i]);
-                    int page_num = i < chunk_page_nums.size() ? chunk_page_nums[i] : 0;
-                    
-                    // Create params object for the prepared statement
-                    pqxx::params params;
-                    params.append(document_id);
-                    params.append(chunk_str);
-                    params.append(vector_str);
-                    params.append(hash_str);                             // embedding_hash as TEXT
-                    
-                    // Execute the prepared statement with the new parameter order
-                    auto result = txn.exec_prepared(stmt_name, params);
-
-                    // Get the last inserted id
-                    if (!result.empty()) {
-                        last_id = result[0][0].as<int64_t>();
-                    }
-                }
+            if (doc_result.empty()) {
+                throw std::runtime_error("Document with hash " + file_hash + " not found in database");
+            }
             
+            std::string document_id = doc_result[0][0].as<std::string>();
+            
+            // Prepare statement with updated column names and document_id
+            conn->prepare(
+                stmt_name,
+                "INSERT INTO embeddings (document_id, chunk_text, embedding, embedding_hash) "
+                "VALUES ($1, $2, $3, $4) RETURNING id"
+            );
 
+            for (size_t i = 0; i < chunks.size(); ++i) {
+                // Convert embedding to string
+                std::string vector_str = "[";
+                const auto &embedding = embeddings_response["embeddings"][i];
+                for (size_t j = 0; j < embedding.size(); ++j) {
+                    if (j > 0) vector_str += ",";
+                    vector_str += std::to_string(embedding[j].get<float>());
+                }
+                vector_str += "]";
+
+                // Prepare parameters
+                std::string chunk_str(chunks[i]);
+                std::string hash_str = std::to_string(embedding_hashes[i]);
+                int page_num = i < chunk_page_nums.size() ? chunk_page_nums[i] : 0;
+                
+                // Create params object for the prepared statement
+                pqxx::params params;
+                params.append(document_id);
+                params.append(chunk_str);
+                params.append(vector_str);
+                params.append(hash_str);                             // embedding_hash as TEXT
+                
+                // Execute the prepared statement with the new parameter order
+                auto result = txn.exec_prepared(stmt_name, params);
+
+                // Get the last inserted id
+                if (!result.empty()) {
+                    last_id = result[0][0].as<int64_t>();
+                }
+            }
+        
             txn.commit();
-            closeConnection(conn);
             return last_id;
         } catch (const std::exception &e) {
-            std::cerr << "Insertion error: " << e.what() << std::endl;
-            closeConnection(conn);
+            std::cerr << "Insertion error in saveEmbeddingsWithConnection: " << e.what() << std::endl;
             return -1;
         }
     }
