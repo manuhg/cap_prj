@@ -463,7 +463,6 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
     const size_t total_batches = (chunks.size() + batch_size - 1) / batch_size;
     std::cout << "Processing " << chunks.size() << " chunks in " << total_batches
             << " batches using OpenMP with " << num_threads << " threads\n";
-    auto funcstart = std::chrono::high_resolution_clock::now();
 
     // We'll collect all embeddings and hashes
     std::vector<std::vector<float> > all_embeddings;
@@ -475,8 +474,6 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
         // Force OpenMP to use the specified number of threads
         omp_set_dynamic(0); // Disable dynamic adjustment of threads
         omp_set_num_threads(num_threads);
-
-        std::cout << "OpenMP max threads: " << omp_get_max_threads() << std::endl;
 
         // Process batches in parallel using OpenMP
 #pragma omp parallel num_threads(num_threads)
@@ -496,45 +493,32 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
 #pragma omp for schedule(static,10)
             for (size_t batch_start = 0; batch_start < chunks.size(); batch_start += batch_size) {
                 // Calculate the end of this batch
-                auto task_ts1_start = std::chrono::high_resolution_clock::now();
-
                 size_t batch_end = std::min(batch_start + batch_size, chunks.size());
-
                 // Create a vector of string_view for the current batch
                 std::vector<std::string_view> batch_chunks(
                     chunks.begin() + batch_start,
                     chunks.begin() + batch_end
                 );
+                // Get the page numbers for this batch
+                std::vector<int> batch_page_nums(
+                    chunkPageNums.begin() + batch_start, chunkPageNums.begin() + batch_end);
 
                 std::cout << "Thread " << thread_id << " processing chunks: " << batch_start
                 << "-" << batch_end << std::endl;
-                auto task_ts2_setup_done = std::chrono::high_resolution_clock::now();
 
+                // Start the processing //
                 // Get embeddings for this batch
-                std::vector<std::vector<float> > batch_emb =
-                        tldr::get_llm_manager().get_embeddings(batch_chunks);
-                auto task_ts3_embed_done = std::chrono::high_resolution_clock::now();
+                std::vector<std::vector<float> > batch_emb = tldr::get_llm_manager().get_embeddings(batch_chunks);
 
                 // Compute hashes for these embeddings
                 std::vector<uint64_t> batch_hashes = computeEmbeddingHashes(batch_emb);
 
-
-                // Get the page numbers for this batch
-                std::vector<int> batch_page_nums(
-                    chunkPageNums.begin() + batch_start, chunkPageNums.begin() + batch_end);
-                auto task_ts4_hashes_done = std::chrono::high_resolution_clock::now();
+                // Save to DB
                 saveEmbeddingsThreadSafe(batch_chunks, batch_emb, batch_hashes, batch_page_nums, fileHash);
-                auto task_ts5_db_save_done = std::chrono::high_resolution_clock::now();
+
                 // Append to thread-local vectors
                 local_embeddings.insert(local_embeddings.end(), batch_emb.begin(), batch_emb.end());
                 local_hashes.insert(local_hashes.end(), batch_hashes.begin(), batch_hashes.end());
-                auto task_ts6_logistics_done = std::chrono::high_resolution_clock::now();
-                std::cout<<"Time taken=>"
-                <<" setup:"<<(task_ts2_setup_done-task_ts1_start)/ 1'000'000.0
-                <<" embed:"<<(task_ts3_embed_done-task_ts2_setup_done)/ 1'000'000.0
-                <<" hashes:"<<(task_ts4_hashes_done-task_ts3_embed_done)/ 1'000'000.0
-                <<" db save:"<<(task_ts5_db_save_done-task_ts4_hashes_done)/ 1'000'000.0
-                <<" logistics:"<<(task_ts6_logistics_done-task_ts5_db_save_done)/ 1'000'000.0<<std::endl;
             }
 
             // Merge results into the global vectors
@@ -556,8 +540,6 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
         std::cerr << "Error processing chunks: " << e.what() << std::endl;
         throw; // Re-throw to allow proper cleanup
     }
-    auto funcend = std::chrono::high_resolution_clock::now();
-    std::cout << "Time taken for obtaining embeddings:"<<funcend-funcstart<< std::endl;
     return {all_embeddings, all_hashes};
 }
 
