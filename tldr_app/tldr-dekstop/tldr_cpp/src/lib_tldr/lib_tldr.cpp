@@ -764,7 +764,7 @@ bool addFilesToCorpusSequential(std::vector<std::pair<std::string, std::string> 
             auto start = std::chrono::high_resolution_clock::now();
             addFileToCorpus(filePath, fileHash);
             auto end = std::chrono::high_resolution_clock::now();
-            std::cout << " Took " << ((end - start) / 1000000000.0) << " for file " << filePath << std::endl;
+            std::cout << " Took " << (end - start).count()/1000000000.0 << "s for file " << filePath << std::endl;
         }
     } catch (const std::exception &e) {
         std::cerr << "Error in addFilesToCorpusSequence()" << std::endl;
