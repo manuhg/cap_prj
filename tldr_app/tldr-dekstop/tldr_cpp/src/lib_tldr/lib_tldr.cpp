@@ -474,9 +474,10 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
         // Force OpenMP to use the specified number of threads
         omp_set_num_threads(num_threads);
         omp_set_max_active_levels(3);
+        omp_set_dynamic(0); // Disable dynamic adjustment
 
         // Process batches in parallel using OpenMP
-#pragma omp parallel num_threads(num_threads)
+#pragma omp parallel private(id)
         {
             // Thread-local vectors to store results
             std::vector<std::vector<float> > local_embeddings;

@@ -8,6 +8,14 @@ include_directories(${SOURCE_DIR})
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp -I/opt/homebrew/include")
+set(OpenMP_C_LIB_NAMES "omp")
+set(OpenMP_omp_LIBRARY "/opt/homebrew/lib/libomp.a")
+set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I/opt/homebrew/include")
+set(OpenMP_CXX_LIB_NAMES "omp")
+
+find_package(OpenMP REQUIRED)
+
 # Force static libraries
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 
