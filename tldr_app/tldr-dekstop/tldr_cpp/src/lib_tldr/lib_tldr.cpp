@@ -36,6 +36,7 @@
 #include<unordered_set>
 #include "lib_tldr.h"
 #include <curl/curl.h>
+#include <openssl/md5.h> // Include for MD5 hashing
 
 // Helper function to extract content from XML tags
 std::string extract_xml_content(const std::string &xml) {
@@ -366,85 +367,38 @@ json parseEmbeddingsResponse(const std::string &response_data) {
     }
 }
 
-// Helper: Compute hash for each embedding optimized for 384-dimensional vectors
+// Helper: Compute hash for each embedding using MD5 to minimize collisions
+#include <openssl/md5.h>
 static std::vector<uint64_t> computeEmbeddingHashes(const std::vector<std::vector<float> > &embeddings_list) {
     std::vector<uint64_t> hashes;
     hashes.reserve(embeddings_list.size());
     
-    // Random projection vectors for SimHash (locality-sensitive hashing)
-    // These are fixed random unit vectors that will be used for all hashings
-    // Using 6 different projection sets for better hash distribution
-    static std::vector<std::vector<float>> projection_vectors;
-    
-    // Initialize projection vectors once (thread-safe in C++11 and later)
-    static std::once_flag flag;
-    std::call_once(flag, [&]() {
-        // Use a fixed seed for reproducibility
-        std::mt19937_64 rng(42);
-        std::normal_distribution<float> dist(0.0f, 1.0f);
-        
-        // Create 6 sets of projection vectors for 6 different 64-bit hash components
-        projection_vectors.resize(6);
-        for (int i = 0; i < 6; i++) {
-            projection_vectors[i].resize(384); // 384 dimensions
-            for (int j = 0; j < 384; j++) {
-                projection_vectors[i][j] = dist(rng);
-            }
-            
-            // Normalize the vector
-            float norm = 0.0f;
-            for (float val : projection_vectors[i]) {
-                norm += val * val;
-            }
-            norm = std::sqrt(norm);
-            for (float &val : projection_vectors[i]) {
-                val /= norm;
-            }
-        }
-    });
+    // MD5 produces a 128-bit hash, which we'll convert to a 64-bit hash for compatibility
+    unsigned char md5_result[MD5_DIGEST_LENGTH]; // 16 bytes = 128 bits
     
     for (const auto &emb: embeddings_list) {
-        // Ensure the embedding is 384-dimensional
-        if (emb.size() != 384) {
-            // Fallback to a simpler hash if dimensions don't match
-            uint64_t fallback_hash = 0;
-            for (float v : emb) {
-                union { float f; uint32_t i; } converter;
-                converter.f = v;
-                fallback_hash ^= converter.i + 0x9e3779b9 + (fallback_hash << 6) + (fallback_hash >> 2);
-            }
-            hashes.push_back(fallback_hash);
-            continue;
+        // Create a buffer to hold the raw float data
+        const size_t buffer_size = emb.size() * sizeof(float);
+        unsigned char* buffer = new unsigned char[buffer_size];
+        
+        // Copy the float data to the buffer
+        for (size_t i = 0; i < emb.size(); i++) {
+            float val = emb[i];
+            // Copy the bytes of the float to the buffer
+            memcpy(buffer + (i * sizeof(float)), &val, sizeof(float));
         }
         
-        // Apply SimHash (locality-sensitive hashing) with 6 different projections
-        // to create a 64-bit hash that preserves similarity properties
+        // Compute MD5 hash of the buffer
+        MD5(buffer, buffer_size, md5_result);
+        
+        // Convert the first 8 bytes (64 bits) of the MD5 hash to a uint64_t
         uint64_t hash_value = 0;
-        
-        for (int i = 0; i < 6; i++) {
-            // Compute dot product with this projection vector
-            float dot_product = 0.0f;
-            for (size_t j = 0; j < 384; j++) {
-                dot_product += emb[j] * projection_vectors[i][j];
-            }
-            
-            // Set bits based on sign of dot product (SimHash principle)
-            // Each projection contributes multiple bits to different positions in the hash
-            for (int bit = 0; bit < 11; bit++) { // ~11 bits per projection (6*11=66 bits)
-                // Use different transformations of the dot product for each bit
-                float transformed = dot_product + (0.1f * bit);
-                if (transformed > 0) {
-                    hash_value |= (1ULL << (i * 11 + bit));
-                }
-            }
+        for (int i = 0; i < 8; i++) {
+            hash_value |= static_cast<uint64_t>(md5_result[i]) << (i * 8);
         }
         
-        // Apply final mixing to improve bit distribution
-        hash_value ^= hash_value >> 33;
-        hash_value *= 0xff51afd7ed558ccdULL;
-        hash_value ^= hash_value >> 33;
-        hash_value *= 0xc4ceb9fe1a85ec53ULL;
-        hash_value ^= hash_value >> 33;
+        // Clean up the buffer
+        delete[] buffer;
         
         hashes.push_back(hash_value);
     }
@@ -685,7 +639,7 @@ bool addFileToCorpus(const std::string &sourcePath, const std::string &fileHash)
 
         // Get embeddings and their hashes, and save them directly in the worker threads
         auto [embeddings, hashes] = obtainEmbeddings(
-            docData.chunks, docData.chunkPageNums, fileHash,BATCH_SIZE, NUM_THREADS);
+            docData.chunks, docData.chunkPageNums, fileHash,BATCH_SIZE, EMB_PROC_NUM_THREADS);
 
         // The embeddings are now saved in the database by obtainEmbeddings
         // We just need to verify that we got the expected number of embeddings
@@ -931,8 +885,13 @@ WorkResult addCorpus(const std::string &sourcePath) {
         if (!getFilesToBeEmbedded(expanded_path, pdfFiles, fileHashes, filesToEmbed, result))
             return result;
 
+#if CORPUS_FILE_PROC_TYPE==CORPUS_FILE_PROC_TYPE_PARALLEL
+        if (!addFilesToCorpus(filesToEmbed, result))
+            return result;
+#else
         if (!addFilesToCorpusSequential(filesToEmbed, result))
             return result;
+#endif
 
         return WorkResult{false, "", std::format("Processed {} files", filesToEmbed.size())}; // Success
     } catch (const std::exception &e) {

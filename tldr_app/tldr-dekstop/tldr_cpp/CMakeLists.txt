@@ -74,6 +74,7 @@ target_include_directories(tldr PRIVATE
 #    /opt/homebrew/opt/libomp/include
     /Users/manu/proj_tldr/tldr-dekstop/release-products/include
     /Users/manu/proj_tldr/tldr-dekstop/release-products/include/llama.cpp/
+    /opt/homebrew/opt/openssl/include
 )
 
 # Set POSITION_INDEPENDENT_CODE to allow linking into Swift
@@ -88,6 +89,8 @@ target_link_libraries(tldr PUBLIC
         /opt/homebrew/opt/libpqxx/lib/libpqxx.a
         /opt/homebrew/opt/poppler/lib/libpoppler.a
         /opt/homebrew/opt/curl/lib/libcurl.a
+        /opt/homebrew/opt/openssl/lib/libssl.a
+        /opt/homebrew/opt/openssl/lib/libcrypto.a
 #        /opt/homebrew/opt/libomp/lib/libomp.a
 
         /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/libnpu-accelerator.a

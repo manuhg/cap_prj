@@ -17,9 +17,22 @@
 #define DB_HASH_PRESENT_DO_NOTHING 2
 #define DB_HASH_PRESENT_ACTION DB_HASH_PRESENT_DO_NOTHING
 
-#define NUM_THREADS 2
-#define ADD_CORPUS_N_THREADS (NUM_THREADS+1)  // Maximum number of threads for processing PDFs in parallel
-#define DB_CONN_POOL_SIZE NUM_THREADS
+#define EMB_PROC_NUM_THREADS 2
+#define ADD_CORPUS_N_THREADS (2)  // Maximum number of threads for processing PDFs in parallel
+#define DB_CONN_POOL_SIZE 2
+
+// LLM context pool constants
+// Chat model context pool sizes
+#define CHAT_MIN_CONTEXTS 1
+#define CHAT_MAX_CONTEXTS 2
+// Embedding model context pool sizes - can have more contexts since embedding operations are faster
+#define EMBEDDING_MIN_CONTEXTS (EMB_PROC_NUM_THREADS)
+#define EMBEDDING_MAX_CONTEXTS (2+EMB_PROC_NUM_THREADS)
+
+
+#define CORPUS_FILE_PROC_TYPE_PARALLEL 1
+#define CORPUS_FILE_PROC_TYPE_SEQUENTIAL 2
+#define CORPUS_FILE_PROC_TYPE CORPUS_FILE_PROC_TYPE_SEQUENTIAL
 
 // Directory name for storing vector cache files
 constexpr const char* VECDUMP_DIR = "_vecdumps";
@@ -33,8 +46,7 @@ constexpr const char* VECDUMP_DIR = "_vecdumps";
 #define CHAT_URL "http://localhost:8088/v1/chat/completions"
 
 #define CHAT_MODEL_PATH "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf"
-// #define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf"
-#define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/embedding/all-MiniLM-L6-v2-ggml-model-f16.gguf"
+#define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/embedding/all-MiniLM-L6-v2-Q8_0.gguf"
 
 #define CONNECT_TIMEOUT_SECONDS 5
 #define REQUEST_TIMEOUT_SECONDS 30
@@ -44,13 +56,6 @@ constexpr const char* VECDUMP_DIR = "_vecdumps";
 #define EMBEDDING_SIZE_INT 384 // keep it string so that it can be inserted into create table stmt
 #define K_SIMILAR_CHUNKS_TO_RETRIEVE 5
 
-// LLM context pool constants
-// Chat model context pool sizes
-#define CHAT_MIN_CONTEXTS 1
-#define CHAT_MAX_CONTEXTS 2
-// Embedding model context pool sizes - can have more contexts since embedding operations are faster
-#define EMBEDDING_MIN_CONTEXTS (ADD_CORPUS_N_THREADS*1)
-#define EMBEDDING_MAX_CONTEXTS (ADD_CORPUS_N_THREADS*NUM_THREADS)
 struct embeddings_request {
     std::vector<std::string> input;
 };
