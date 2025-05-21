@@ -36,7 +36,7 @@ void initialize_llm_manager_once(const std::string& chat_model_path, const std::
         // Create a default config
         LLMConfig default_config;
         // TODO: Potentially load config values from a file or settings
-        default_config.n_gpu_layers = 0; // Or set based on detection/settings
+        default_config.n_gpu_layers = 100; // Or set based on detection/settings
         default_config.n_ctx = 2048;
         default_config.n_batch = 512;
         default_config.pooling_type = LLAMA_POOLING_TYPE_MEAN; // Or CLS depending on model
