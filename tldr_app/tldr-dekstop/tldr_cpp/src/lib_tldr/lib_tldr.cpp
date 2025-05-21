@@ -989,7 +989,7 @@ RagResult queryRag(const std::string &user_query, const std::string &corpus_dir)
         // Use NPU-accelerated similarity search instead of database search
         auto similar_chunks = searchSimilarVectorsNPU(
             query_embeddings[0], // Query vector
-            corpus_dir, // Vector corpus directory
+            translatePath(corpus_dir), // Vector corpus directory
             K_SIMILAR_CHUNKS_TO_RETRIEVE // Number of results to return
         );
 
