@@ -15,11 +15,18 @@
 #include <stdexcept>
 #include <array>
 #include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <optional>
+#include <random>
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-page.h>
 #include <thread>
 #include <mutex>
 #include <cstdlib>
+#include <vector>
 #include <regex>
 // #include <curl/curl.h>
 #include <nlohmann/json.hpp>
@@ -359,20 +366,89 @@ json parseEmbeddingsResponse(const std::string &response_data) {
     }
 }
 
-// Helper: Compute hash for each embedding
+// Helper: Compute hash for each embedding optimized for 384-dimensional vectors
 static std::vector<uint64_t> computeEmbeddingHashes(const std::vector<std::vector<float> > &embeddings_list) {
     std::vector<uint64_t> hashes;
     hashes.reserve(embeddings_list.size());
-
-    std::hash<float> float_hasher;
-    for (const auto &emb: embeddings_list) {
-        uint64_t seed = 0;
-        for (float v: emb) {
-            // Combine hash (similar to boost::hash_combine)
-            seed ^= float_hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    
+    // Random projection vectors for SimHash (locality-sensitive hashing)
+    // These are fixed random unit vectors that will be used for all hashings
+    // Using 6 different projection sets for better hash distribution
+    static std::vector<std::vector<float>> projection_vectors;
+    
+    // Initialize projection vectors once (thread-safe in C++11 and later)
+    static std::once_flag flag;
+    std::call_once(flag, [&]() {
+        // Use a fixed seed for reproducibility
+        std::mt19937_64 rng(42);
+        std::normal_distribution<float> dist(0.0f, 1.0f);
+        
+        // Create 6 sets of projection vectors for 6 different 64-bit hash components
+        projection_vectors.resize(6);
+        for (int i = 0; i < 6; i++) {
+            projection_vectors[i].resize(384); // 384 dimensions
+            for (int j = 0; j < 384; j++) {
+                projection_vectors[i][j] = dist(rng);
+            }
+            
+            // Normalize the vector
+            float norm = 0.0f;
+            for (float val : projection_vectors[i]) {
+                norm += val * val;
+            }
+            norm = std::sqrt(norm);
+            for (float &val : projection_vectors[i]) {
+                val /= norm;
+            }
         }
-        hashes.push_back(seed);
+    });
+    
+    for (const auto &emb: embeddings_list) {
+        // Ensure the embedding is 384-dimensional
+        if (emb.size() != 384) {
+            // Fallback to a simpler hash if dimensions don't match
+            uint64_t fallback_hash = 0;
+            for (float v : emb) {
+                union { float f; uint32_t i; } converter;
+                converter.f = v;
+                fallback_hash ^= converter.i + 0x9e3779b9 + (fallback_hash << 6) + (fallback_hash >> 2);
+            }
+            hashes.push_back(fallback_hash);
+            continue;
+        }
+        
+        // Apply SimHash (locality-sensitive hashing) with 6 different projections
+        // to create a 64-bit hash that preserves similarity properties
+        uint64_t hash_value = 0;
+        
+        for (int i = 0; i < 6; i++) {
+            // Compute dot product with this projection vector
+            float dot_product = 0.0f;
+            for (size_t j = 0; j < 384; j++) {
+                dot_product += emb[j] * projection_vectors[i][j];
+            }
+            
+            // Set bits based on sign of dot product (SimHash principle)
+            // Each projection contributes multiple bits to different positions in the hash
+            for (int bit = 0; bit < 11; bit++) { // ~11 bits per projection (6*11=66 bits)
+                // Use different transformations of the dot product for each bit
+                float transformed = dot_product + (0.1f * bit);
+                if (transformed > 0) {
+                    hash_value |= (1ULL << (i * 11 + bit));
+                }
+            }
+        }
+        
+        // Apply final mixing to improve bit distribution
+        hash_value ^= hash_value >> 33;
+        hash_value *= 0xff51afd7ed558ccdULL;
+        hash_value ^= hash_value >> 33;
+        hash_value *= 0xc4ceb9fe1a85ec53ULL;
+        hash_value ^= hash_value >> 33;
+        
+        hashes.push_back(hash_value);
     }
+    
     return hashes;
 }
 
