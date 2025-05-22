@@ -49,7 +49,7 @@ bool LlmChat::initialize_model() {
         
         // Create context pool with sizes defined in constants.h
         llama_context_params ctx_params = llama_context_default_params();
-        ctx_params.n_ctx = 2048; // Default context size
+        ctx_params.n_ctx = 8192; // Default context size
         ctx_params.n_batch = 512; // Default batch size
         
         context_pool = std::make_unique<tldr::LlmContextPool>(model, CHAT_MIN_CONTEXTS, CHAT_MAX_CONTEXTS, ctx_params);
@@ -110,8 +110,8 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
             fprintf(stderr, "%s: error: failed to convert token to piece\n", __func__);
             return {true, "failed to convert token to piece\n"};
         }
-        std::string s(buf, n);
-        printf("%s", s.c_str());
+        // std::string s(buf, n);
+        // printf("%s", s.c_str());
     }
 
     // prepare a batch for the prompt
@@ -155,7 +155,7 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
             }
             std::string s(buf, n);
             output += s;
-            printf("%s", s.c_str());
+            // printf("%s", s.c_str());
             fflush(stdout);
 
             // prepare the next batch with the sampled token
@@ -165,7 +165,7 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
         }
     }
 
-    printf("\n");
+    // printf("\n");
 
     const auto t_main_end = ggml_time_us();
 
@@ -173,10 +173,10 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
             __func__, n_decode, (t_main_end - t_main_start) / 1000000.0f,
             n_decode / ((t_main_end - t_main_start) / 1000000.0f));
 
-    fprintf(stderr, "\n");
-    llama_perf_sampler_print(smpl);
-    llama_perf_context_print(ctx);
-    fprintf(stderr, "\n");
+    // fprintf(stderr, "\n");
+    // llama_perf_sampler_print(smpl);
+    // llama_perf_context_print(ctx);
+    // fprintf(stderr, "\n");
 
     // Free the sampler but don't free the context - it will be returned to the pool
     llama_sampler_free(smpl);

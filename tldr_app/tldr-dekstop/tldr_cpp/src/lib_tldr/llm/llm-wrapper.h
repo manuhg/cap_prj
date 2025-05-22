@@ -13,7 +13,7 @@ namespace tldr {
 
     // Define configuration structure for LLM models
     struct LLMConfig {
-        int n_gpu_layers = 0; // Number of layers to offload to GPU
+        int n_gpu_layers = 100; // Number of layers to offload to GPU
         int n_ctx = 2048;     // Context size
         int n_batch = 512;    // Batch size for prompt processing
         enum llama_pooling_type pooling_type = LLAMA_POOLING_TYPE_MEAN; // Use 'enum' tag, Default to MEAN pooling

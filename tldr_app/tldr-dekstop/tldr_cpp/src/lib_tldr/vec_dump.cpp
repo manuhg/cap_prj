@@ -4,26 +4,41 @@
 #include <filesystem>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <cmath>
+#include "constants.h"
 
 namespace tldr {
 
 // Dump vectors and hashes to a binary file for memory mapping
 bool dump_vectors_to_file(const std::string& source_path, 
                          const std::vector<std::vector<float>>& embeddings,
-                         const std::vector<uint64_t>& hashes) {
+                         const std::vector<uint64_t>& hashes,
+                         const std::string& fileHash) {
     
     if (embeddings.empty() || hashes.empty() || embeddings.size() != hashes.size()) {
         std::cerr << "Error: Invalid embeddings or hashes for dumping to file" << std::endl;
         return false;
     }
+
+    // Extract the corpus directory from the source path
+    std::filesystem::path sourcePath(source_path);
+    std::filesystem::path corpusDir = sourcePath.parent_path();
     
-    // Extract the base filename from source path
-    std::filesystem::path path(source_path);
-    std::string filename = path.string() + ".vecdump";
+    // Create _vecdump directory inside the corpus directory if it doesn't exist
+    std::filesystem::path vecdumpDir = corpusDir / "_vecdump";
+    if (!std::filesystem::exists(vecdumpDir)) {
+        std::filesystem::create_directory(vecdumpDir);
+    }
+
+    // Create vecdump filename using the file hash
+    std::filesystem::path vecdumpPath = vecdumpDir / (fileHash + ".vecdump");
+    std::string filename = vecdumpPath.string();
+    
+    // Log the save operation
+    std::cout << "Vecdump saved to: " << filename << std::endl;
     
     std::ofstream out(filename, std::ios::binary);
     if (!out) {
+        std::cerr << "Failed to save vecdump for " << source_path << std::endl;
         std::cerr << "Error: Could not open file " << filename << " for writing" << std::endl;
         return false;
     }
@@ -178,7 +193,7 @@ bool test_vector_cache() {
     
     // Step 1: Dump the test data
     std::cout << "\nStep 1: Dumping test embeddings to " << test_file << std::endl;
-    if (!dump_vectors_to_file(test_file, test_embeddings, test_hashes)) {
+    if (!dump_vectors_to_file(test_file, test_embeddings, test_hashes, "test_hash")) {
         std::cerr << "Error: Failed to dump test embeddings" << std::endl;
         return false;
     }

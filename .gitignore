@@ -1,3 +1,4 @@
+*.vecdump
 SystemLibs
 .vscode
 ~*.docx
