@@ -18,7 +18,7 @@
 #define DB_HASH_PRESENT_ACTION DB_HASH_PRESENT_DO_NOTHING
 
 #define EMB_PROC_NUM_THREADS 2
-#define ADD_CORPUS_N_THREADS (2)  // Maximum number of threads for processing PDFs in parallel
+#define ADD_CORPUS_N_THREADS (3)  // Maximum number of threads for processing PDFs in parallel
 #define DB_CONN_POOL_SIZE 2
 
 // LLM context pool constants
@@ -26,13 +26,13 @@
 #define CHAT_MIN_CONTEXTS 1
 #define CHAT_MAX_CONTEXTS 2
 // Embedding model context pool sizes - can have more contexts since embedding operations are faster
-#define EMBEDDING_MIN_CONTEXTS (EMB_PROC_NUM_THREADS)
-#define EMBEDDING_MAX_CONTEXTS (2+EMB_PROC_NUM_THREADS)
+#define EMBEDDING_MIN_CONTEXTS (4)
+#define EMBEDDING_MAX_CONTEXTS (2+4)
 
 
 #define CORPUS_FILE_PROC_TYPE_PARALLEL 1
 #define CORPUS_FILE_PROC_TYPE_SEQUENTIAL 2
-#define CORPUS_FILE_PROC_TYPE CORPUS_FILE_PROC_TYPE_SEQUENTIAL
+#define CORPUS_FILE_PROC_TYPE CORPUS_FILE_PROC_TYPE_PARALLEL
 
 // Directory name for storing vector cache files
 constexpr const char* VECDUMP_DIR = "_vecdumps";

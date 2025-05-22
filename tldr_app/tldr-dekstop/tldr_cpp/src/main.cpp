@@ -8,10 +8,10 @@ int main() {
         return 1;
     }
 
-    std::string testFile = "~/proj_tldr/corpus/current/0.System Design Interview An Insider’s Guide by Alex Xu.pdf";
+    // std::string testFile = "~/proj_tldr/corpus/current/0.System Design Interview An Insider’s Guide by Alex Xu.pdf";
 
-    tldr_cpp_api::addCorpus(testFile);
-    // tldr_cpp_api::addCorpus("~/proj_tldr/corpus/complete");
+    // tldr_cpp_api::addCorpus(testFile);
+    tldr_cpp_api::addCorpus("~/proj_tldr/corpus/current");
     //tldr_cpp_api::queryRag("What does is hotspot problem in cache?","~/proj_tldr/corpus/complete");
 
     // Cleanup system
