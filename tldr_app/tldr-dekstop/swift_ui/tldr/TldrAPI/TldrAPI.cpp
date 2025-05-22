@@ -6,14 +6,12 @@
 //  Provides bridge implementation between C++ and Swift for TLDR functionality.
 //
 
-#include "TldrAPI_C.h"
-#include "TldrAPIPriv.hpp"
-#include "tldr_api.h"  // C++ API header
+#include "TldrAPI.hpp"
+#include "tldr_api.h"
 
 #include <string>
 #include <iostream>
 #include <cstring>
-#include <vector>
 
 // Provide the C implementations that call the actual C++ library functions.
 extern "C" {
