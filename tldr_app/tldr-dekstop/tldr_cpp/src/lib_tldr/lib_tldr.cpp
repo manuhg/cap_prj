@@ -438,30 +438,21 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
     return saved_id;
 }
 
-bool initializeSystem() {
+bool initializeSystem(const std::string& chat_model_path, const std::string& embeddings_model_path) {
     std::cout << "Initialize the system" << std::endl;
-
-    // Initialize llama.cpp backend (required before model loading)
-    // TODO: Consider where backend init/free should ideally live
-
-    // perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/CosineSimilarityBatched.mlmodelc");
     if (!initializeDatabase()) {
         std::cerr << "Failed to initialize database" << std::endl;
         return false;
     }
-
-    // Initialize CURL globally (Restored)
-    // CURLcode curl_init_ret = curl_global_init(CURL_GLOBAL_DEFAULT);
-    // if (curl_init_ret != CURLE_OK) {
-    // std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
-    // Cleanup already initialized components
-    // LlmManager destructor will handle chat model cleanup.
-    // Database unique_ptr handles db connection
-    // return false;
-    // }
-    tldr::initialize_llm_manager_once();
-
-    std::cout << "System initialized successfully." << std::endl;
+    
+    // Use default paths if not provided
+    std::string chat_path = chat_model_path.empty() ? CHAT_MODEL_PATH : chat_model_path;
+    std::string embeddings_path = embeddings_model_path.empty() ? EMBEDDINGS_MODEL_PATH : embeddings_model_path;
+    
+    tldr::initialize_llm_manager_once(chat_path, embeddings_path);
+    std::cout << "System initialized successfully with models:" << std::endl;
+    std::cout << "- Chat model: " << chat_path << std::endl;
+    std::cout << "- Embeddings model: " << embeddings_path << std::endl;
     return true;
 }
 

@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		328967442DDF9ECC00B9D4A2 /* all-MiniLM-L6-v2-Q8_0.gguf in Resources */ = {isa = PBXBuildFile; fileRef = 328967402DDF9ECC00B9D4A2 /* all-MiniLM-L6-v2-Q8_0.gguf */; };
+		328967452DDF9ECC00B9D4A2 /* Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf in Resources */ = {isa = PBXBuildFile; fileRef = 328967422DDF9ECC00B9D4A2 /* Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf */; };
+		328967462DDF9ECC00B9D4A2 /* CosineSimilarityBatched.mlmodelc in Resources */ = {isa = PBXBuildFile; fileRef = 328967412DDF9ECC00B9D4A2 /* CosineSimilarityBatched.mlmodelc */; };
 		32D6ADC62DC739A2008108B3 /* libTldrAPI.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 32C778A02DB9C5A70042389E /* libTldrAPI.a */; };
 /* End PBXBuildFile section */
 
@@ -35,6 +38,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		328967402DDF9ECC00B9D4A2 /* all-MiniLM-L6-v2-Q8_0.gguf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "all-MiniLM-L6-v2-Q8_0.gguf"; sourceTree = "<group>"; };
+		328967412DDF9ECC00B9D4A2 /* CosineSimilarityBatched.mlmodelc */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = CosineSimilarityBatched.mlmodelc; sourceTree = "<group>"; };
+		328967422DDF9ECC00B9D4A2 /* Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf"; sourceTree = "<group>"; };
 		32C778A02DB9C5A70042389E /* libTldrAPI.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libTldrAPI.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		32D335072DB1EC9800DCF3BD /* tldr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = tldr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		32D335152DB1EC9B00DCF3BD /* tldrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = tldrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -100,6 +106,17 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		328967432DDF9ECC00B9D4A2 /* artefacts */ = {
+			isa = PBXGroup;
+			children = (
+				328967402DDF9ECC00B9D4A2 /* all-MiniLM-L6-v2-Q8_0.gguf */,
+				328967412DDF9ECC00B9D4A2 /* CosineSimilarityBatched.mlmodelc */,
+				328967422DDF9ECC00B9D4A2 /* Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf */,
+			);
+			name = artefacts;
+			path = "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/release-products/artefacts";
+			sourceTree = "<absolute>";
+		};
 		32C778952DB9BC3B0042389E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -119,6 +136,7 @@
 				32C778A12DB9C5A70042389E /* TldrAPI */,
 				32C778952DB9BC3B0042389E /* Frameworks */,
 				32D335082DB1EC9800DCF3BD /* Products */,
+				328967432DDF9ECC00B9D4A2 /* artefacts */,
 			);
 			sourceTree = "<group>";
 		};
@@ -290,6 +308,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				328967442DDF9ECC00B9D4A2 /* all-MiniLM-L6-v2-Q8_0.gguf in Resources */,
+				328967452DDF9ECC00B9D4A2 /* Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf in Resources */,
+				328967462DDF9ECC00B9D4A2 /* CosineSimilarityBatched.mlmodelc in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

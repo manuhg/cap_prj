@@ -98,7 +98,7 @@ std::map<uint64_t, float> npuCosineSimSearchWrapper(
     const char *modelPath =
             "/Users/manu/proj_tldr/tldr-dekstop/release-products/artefacts/CosineSimilarityBatched.mlmodelc");
 
-bool initializeSystem();
+bool initializeSystem(const std::string& chat_model_path = "", const std::string& embeddings_model_path = "");
 void cleanupSystem();
 WorkResult addCorpus(const std::string &sourcePath);
 void deleteCorpus(const std::string &corpusId);

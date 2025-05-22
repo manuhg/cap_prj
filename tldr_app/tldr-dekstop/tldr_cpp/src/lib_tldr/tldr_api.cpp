@@ -6,8 +6,8 @@
 
 namespace tldr_cpp_api {
 
-bool initializeSystem() {
-    return ::initializeSystem();
+bool initializeSystem(const std::string& chat_model_path, const std::string& embeddings_model_path) {
+    return ::initializeSystem(chat_model_path, embeddings_model_path);
 }
 
 void cleanupSystem() {
