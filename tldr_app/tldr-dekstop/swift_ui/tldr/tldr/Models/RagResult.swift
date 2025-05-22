@@ -36,6 +36,28 @@ public struct RagResult {
         }
         self.contextChunks = chunks
     }
+    
+    /// Get a formatted string representation of the result
+    public func formattedString() -> String? {
+        // Create a C RagResult
+        var cResult = TldrAPI.RagResult()
+        cResult.response = UnsafeMutablePointer(mutating: (response as NSString).utf8String)
+        cResult.context_chunks_count = contextChunks.count
+        cResult.context_chunks = UnsafeMutablePointer(mutating: contextChunks.map { chunk in
+            TldrAPI.ContextChunk(
+                text: UnsafePointer(mutating: (chunk.text as NSString).utf8String),
+                similarity: chunk.similarity,
+                hash: chunk.id
+            )
+        })
+        
+        // Get the formatted string
+        if let formatted = TldrAPI.tldr_printRagResult(&cResult) {
+            defer { TldrAPI.tldr_freeString(formatted) }
+            return String(cString: formatted)
+        }
+        return nil
+    }
 }
 
 /// Provides a Swift-friendly interface to the TLDR C API

@@ -12,3 +12,4 @@ ln -s /opt/homebrew/opt/curl/lib /Users/manu/proj_tldr/tldr-dekstop/release-prod
 
 cp -v libtldr.a /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/
 cp -v ../src/lib_tldr/tldr_api.h /Users/manu/proj_tldr/tldr-dekstop/release-products/include/
+cp -v ../src/lib_tldr/definitions.h /Users/manu/proj_tldr/tldr-dekstop/release-products/include/

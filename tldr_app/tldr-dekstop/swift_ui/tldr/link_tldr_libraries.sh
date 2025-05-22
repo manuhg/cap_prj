@@ -26,9 +26,6 @@ make tldr
 echo "Copying compiled library to Swift project..."
 cp -v "$TLDR_CPP_DIR/build/libtldr.a" "$SWIFT_UI_DIR/TldrAPI/"
 
-# Only copy the main header file needed for the API
-echo "Copying main header file..."
-cp -v "$TLDR_CPP_DIR/src/lib_tldr/tldr_api.h" "$TLDR_INCLUDE_DIR/"
 
 # Update the module.modulemap file to reflect the actual C++ library
 echo "Updating module.modulemap..."

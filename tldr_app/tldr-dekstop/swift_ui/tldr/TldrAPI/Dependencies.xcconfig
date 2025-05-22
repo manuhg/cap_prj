@@ -17,7 +17,8 @@ LIBRARY_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/TldrAPI \
 
 // Header search paths
 HEADER_SEARCH_PATHS = $(inherited) $(PROJECT_DIR)/TldrAPI $(PROJECT_DIR)/TldrAPI/include \
-                       $(PROJECT_DIR)/TldrAPI/include/db
+                       $(SRCROOT)/../../release-products/include
+
 
 // C++ standard library
 CLANG_CXX_LIBRARY = libc++

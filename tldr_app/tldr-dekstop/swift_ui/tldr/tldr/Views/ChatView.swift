@@ -8,6 +8,24 @@ struct ChatView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // Corpus directory info
+            HStack {
+                Image(systemName: "folder")
+                    .foregroundColor(.secondary)
+                Text("Corpus: \(viewModel.corpusDir)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                Spacer()
+                Button(action: { viewModel.showingCorpusDialog = true }) {
+                    Image(systemName: "pencil")
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .background(Color(.systemBackground))
+            
             // Error message banner
             if let errorMessage = viewModel.errorMessage {
                 HStack {
@@ -90,6 +108,9 @@ struct ChatView: View {
         .navigationTitle(conversation.title)
         .animation(.easeInOut, value: viewModel.isLoading)
         .animation(.easeInOut, value: viewModel.errorMessage != nil)
+        .sheet(isPresented: $viewModel.showingCorpusDialog) {
+            CorpusDirectoryDialog(viewModel: viewModel)
+        }
     }
 }
 

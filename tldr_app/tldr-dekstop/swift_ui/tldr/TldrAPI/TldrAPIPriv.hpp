@@ -5,10 +5,11 @@
 //  Created by Manu Hegde on 4/18/25.
 //
 
-/* The classes below are not exported */
-#pragma GCC visibility push(hidden)
+#ifndef TLDRAPIPRIV_HPP
+#define TLDRAPIPRIV_HPP
+
+#include "tldr_api.h"
 #include <string>
+#include <vector>
 
-
-
-#pragma GCC visibility pop
+#endif /* TLDRAPIPRIV_HPP */
