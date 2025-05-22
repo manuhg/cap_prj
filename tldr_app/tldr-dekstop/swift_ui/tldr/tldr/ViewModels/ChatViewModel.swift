@@ -8,17 +8,24 @@ class ChatViewModel: ObservableObject {
     @Published var newMessageText: String = ""
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
+    @Published var corpusDir: String
+    @Published var showingCorpusDialog: Bool = false
     
-    private let corpusDir = "/Users/manu/proj_tldr/corpus/current/"
+    private let conversationsKey = "savedConversations"
+    private let selectedConversationIdKey = "selectedConversationId"
+    private let corpusDirKey = "corpusDirectory"
     
     init() {
+        // Load saved corpus directory or use default
+        self.corpusDir = UserDefaults.standard.string(forKey: corpusDirKey) ?? "/Users/manu/proj_tldr/corpus/current/"
+        
         // Initialize the TLDR system
         if !TldrWrapper.initialize() {
             errorMessage = "Failed to initialize TLDR system"
         }
         
-        // Load sample conversations
-        loadSampleData()
+        // Load saved conversations
+        loadSavedConversations()
     }
     
     deinit {
@@ -26,11 +33,44 @@ class ChatViewModel: ObservableObject {
         TldrWrapper.cleanup()
     }
     
-    private func loadSampleData() {
-        // Start with an empty conversation
-        let newConversation = Conversation(title: "New Conversation")
-        conversations = [newConversation]
-        selectedConversation = newConversation
+    private func loadSavedConversations() {
+        // Load conversations from UserDefaults
+        if let data = UserDefaults.standard.data(forKey: conversationsKey),
+           let savedConversations = try? JSONDecoder().decode([Conversation].self, from: data) {
+            conversations = savedConversations
+        } else {
+            // If no saved conversations, create a new one
+            let newConversation = Conversation(title: "New Conversation")
+            conversations = [newConversation]
+        }
+        
+        // Load selected conversation ID
+        if let selectedId = UserDefaults.standard.string(forKey: selectedConversationIdKey),
+           let uuid = UUID(uuidString: selectedId) {
+            selectedConversation = conversations.first { $0.id == uuid }
+        }
+        
+        // If no selected conversation, select the first one
+        if selectedConversation == nil {
+            selectedConversation = conversations.first
+        }
+    }
+    
+    private func saveConversations() {
+        // Save conversations to UserDefaults
+        if let data = try? JSONEncoder().encode(conversations) {
+            UserDefaults.standard.set(data, forKey: conversationsKey)
+        }
+        
+        // Save selected conversation ID
+        if let selectedId = selectedConversation?.id {
+            UserDefaults.standard.set(selectedId.uuidString, forKey: selectedConversationIdKey)
+        }
+    }
+    
+    func updateCorpusDirectory(_ newPath: String) {
+        corpusDir = newPath
+        UserDefaults.standard.set(newPath, forKey: corpusDirKey)
     }
     
     func sendMessage() {
@@ -52,6 +92,9 @@ class ChatViewModel: ObservableObject {
         // Update UI immediately
         conversations[conversationIndex] = updatedConversation
         selectedConversation = updatedConversation
+        
+        // Save changes
+        saveConversations()
         
         // Clear input field
         let userQuery = newMessageText
@@ -80,16 +123,8 @@ class ChatViewModel: ObservableObject {
     }
     
     private func handleRagResult(_ result: RagResult, for conversation: Conversation, at index: Int) {
-        // Create assistant message with the response
-        var responseText = result.response
-        
-        // Optionally include context chunks in the response
-        if !result.contextChunks.isEmpty {
-            responseText += "\n\nContext used:\n"
-            for (i, chunk) in result.contextChunks.prefix(3).enumerated() {
-                responseText += "\n\(i + 1). [Similarity: \(String(format: "%.2f", chunk.similarity * 100))%]"
-            }
-        }
+        // Get formatted response
+        let responseText = result.formattedString() ?? result.response
         
         let assistantMessage = Message(content: responseText, sender: .assistant)
         
@@ -101,6 +136,10 @@ class ChatViewModel: ObservableObject {
         // Update UI
         conversations[index] = updatedConversation
         selectedConversation = updatedConversation
+        
+        // Save changes
+        saveConversations()
+        
         isLoading = false
     }
     
@@ -108,5 +147,36 @@ class ChatViewModel: ObservableObject {
         let newConversation = Conversation(title: "New Conversation")
         conversations.append(newConversation)
         selectedConversation = newConversation
+        
+        // Save changes
+        saveConversations()
+    }
+    
+    func deleteConversation(_ conversation: Conversation) {
+        conversations.removeAll { $0.id == conversation.id }
+        
+        // If we deleted the selected conversation, select another one
+        if selectedConversation?.id == conversation.id {
+            selectedConversation = conversations.first
+        }
+        
+        // Save changes
+        saveConversations()
+    }
+    
+    func updateConversationTitle(_ conversation: Conversation, newTitle: String) {
+        if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
+            var updatedConversation = conversation
+            updatedConversation.title = newTitle
+            conversations[index] = updatedConversation
+            
+            // If this is the selected conversation, update it
+            if selectedConversation?.id == conversation.id {
+                selectedConversation = updatedConversation
+            }
+            
+            // Save changes
+            saveConversations()
+        }
     }
 } 
