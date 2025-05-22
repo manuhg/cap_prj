@@ -8,6 +8,7 @@ ln -s /opt/homebrew/opt/sqlite/lib /Users/manu/proj_tldr/tldr-dekstop/release-pr
 ln -s /opt/homebrew/opt/icu4c/lib /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/system/icu4c
 ln -s /opt/homebrew/opt/zlib/lib /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/system/zlib
 ln -s /opt/homebrew/opt/curl/lib /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/system/curl
+ln -s /opt/homebrew/opt/libomp/lib /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/system/libomp
 
 
 cp -v libtldr.a /Users/manu/proj_tldr/tldr-dekstop/release-products/libs/

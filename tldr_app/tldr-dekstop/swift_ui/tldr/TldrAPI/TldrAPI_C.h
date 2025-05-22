@@ -45,6 +45,7 @@ RagResultC* tldr_queryRag(const char* user_query, const char* corpus_dir);
 // Free a RagResult
 void tldr_freeRagResult(RagResultC* result);
 
+void tldr_freeString(char* str);
 #ifdef __cplusplus
 }
 #endif

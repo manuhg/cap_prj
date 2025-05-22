@@ -667,6 +667,7 @@
 					"-framework",
 					Foundation,
 					"-lTldrAPI",
+					"-lomp",
 				);
 				PRELINK_LIBS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.manuhg.tldr;
@@ -747,6 +748,7 @@
 					"-framework",
 					Foundation,
 					"-lTldrAPI",
+					"-lomp",
 				);
 				PRELINK_LIBS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.manuhg.tldr;

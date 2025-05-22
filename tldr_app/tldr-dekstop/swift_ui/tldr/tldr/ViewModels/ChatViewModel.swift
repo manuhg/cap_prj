@@ -122,7 +122,7 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    private func handleRagResult(_ result: RagResult, for conversation: Conversation, at index: Int) {
+    private func handleRagResult(_ result: RagResultSw, for conversation: Conversation, at index: Int) {
         // Get formatted response
         let responseText = result.formattedString() ?? result.response
         

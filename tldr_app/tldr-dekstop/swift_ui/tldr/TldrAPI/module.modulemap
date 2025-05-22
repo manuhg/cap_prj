@@ -1,7 +1,4 @@
 module TldrAPI {
     header "TldrAPI.hpp"
-    header "TldrAPI_C.h"
-    header "TldrAPIPriv.hpp"
-    link "tldr"
     export *
 }

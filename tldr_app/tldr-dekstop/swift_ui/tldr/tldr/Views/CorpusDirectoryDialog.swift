@@ -17,7 +17,6 @@ struct CorpusDirectoryDialog: View {
                     TextField("Path to corpus directory", text: $tempPath)
                         .textFieldStyle(.roundedBorder)
                         .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
                 }
                 
                 Section {
@@ -30,7 +29,6 @@ struct CorpusDirectoryDialog: View {
                 }
             }
             .navigationTitle("Corpus Directory")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {

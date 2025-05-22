@@ -8,7 +8,6 @@
 #ifndef TLDRAPIPRIV_HPP
 #define TLDRAPIPRIV_HPP
 
-#include "tldr_api.h"
 #include <string>
 #include <vector>
 

@@ -16,11 +16,6 @@
 // Provide the C implementations that call the actual C++ library functions.
 extern "C" {
 
-// Test function that can be called from Swift
-int tldr_api_trial_tldr(void) {
-    return 42;
-}
-
 // Initialize the TLDR system
 bool tldr_initializeSystem(void) {
     return tldr_cpp_api::initializeSystem();

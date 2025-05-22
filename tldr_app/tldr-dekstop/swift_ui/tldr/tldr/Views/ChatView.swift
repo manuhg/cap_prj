@@ -24,7 +24,7 @@ struct ChatView: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
-            .background(Color(.systemBackground))
+            .background(Color(.systemGray))
             
             // Error message banner
             if let errorMessage = viewModel.errorMessage {
@@ -102,7 +102,7 @@ struct ChatView: View {
                     .disabled(viewModel.newMessageText.isEmpty || viewModel.isLoading)
                 }
                 .padding()
-                .background(Color(.systemBackground).shadow(radius: 0.5))
+                .background(Color(NSColor.windowBackgroundColor).shadow(radius: 0.5))
             }
         }
         .navigationTitle(conversation.title)
@@ -118,7 +118,7 @@ struct MessageBubble: View {
     let message: Message
     
     private var bubbleColor: Color {
-        message.sender == .user ? .blue : Color(.systemGray5)
+        message.sender == .user ? .blue : Color(NSColor.controlBackgroundColor)
     }
     
     private var textColor: Color {
@@ -143,7 +143,8 @@ struct MessageBubble: View {
                     .cornerRadius(16)
                     .contextMenu {
                         Button(action: {
-                            UIPasteboard.general.string = message.content
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(message.content, forType: .string)
                         }) {
                             Label("Copy", systemImage: "doc.on.doc")
                         }
