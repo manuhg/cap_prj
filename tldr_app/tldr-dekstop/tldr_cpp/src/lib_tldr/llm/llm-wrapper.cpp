@@ -72,7 +72,7 @@ namespace tldr {
 
     std::string LlmManager::get_chat_response(const std::string &context, const std::string &prompt) {
         const std::string system_prompt =
-                "You are a helpful AI Assistant. Go through the given context and answer the user's questions.";
+                "You are a helpful AI Assistant. Go through the given context and answer the user's questions. Keep the answers short and precise.";
         std::string formatted_prompt = "<|system|>\n" + system_prompt + "\n<|context|>\n" + context + "\n<|user|>\n" +
                                        prompt + "\n<|assistant|>\n";
 

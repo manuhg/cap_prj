@@ -30,11 +30,11 @@ namespace tldr {
 
         bool getEmbeddings(int64_t id, std::vector<std::string> &chunks, json &embeddings) override;
 
-        // Perform vector similarity search
-        std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectors(const std::vector<float>& query_vector, int k = 5) override;
+        // Perform vector similarity search with document metadata
+        std::vector<CtxChunkMeta> searchSimilarVectors(const std::vector<float>& query_vector, int k = 5) override;
 
-        // Get text chunks by their hash values (for NPU-accelerated similarity search)
-        std::map<uint64_t, std::string> getChunksByHashes(const std::vector<uint64_t>& hashes) override;
+        // Get text chunks by their hash values along with document metadata (for NPU-accelerated similarity search)
+        std::map<uint64_t, CtxChunkMeta> getChunksByHashes(const std::vector<uint64_t>& hashes) override;
 
         // Save or update document metadata
         bool saveDocumentMetadata(

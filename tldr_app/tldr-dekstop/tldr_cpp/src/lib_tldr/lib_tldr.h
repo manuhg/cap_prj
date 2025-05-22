@@ -1,6 +1,6 @@
 #ifndef TLDR_CPP_MAIN_H
 #define TLDR_CPP_MAIN_H
-
+#include "definitions.h"
 #include <nlohmann/json.hpp>
 #include <curl/curl.h>
 #include "db/database.h"
@@ -29,71 +29,9 @@ std::vector<std::string> collectPdfFiles(const std::string& path);
 #include "vec_dump.h"
 #include "npu_accelerator.h"
 
-// Structure for operation results
-struct WorkResult {
-    bool error{false};
-    std::string error_message{};
-    std::string success_message{};
-    
-    // Helper function to create an error result
-    static WorkResult Error(const std::string& message) {
-        return {true, message};
-    }
-    
-    // Implicit bool conversion for easy error checking
-    operator bool() const { return !error; }
-};
-
-// Structure for similarity search results from the NPU accelerator
-struct VectorSimilarityMatch {
-    uint64_t hash;
-    float score;
-    std::string text; // Text associated with the hash (filled in by wrapper)
-};
-
-// Wrapper function for NPU similarity search
-std::vector<std::tuple<std::string, float, uint64_t>> searchSimilarVectorsNPU(
-    const std::vector<float>& query_vector,
-    const std::string& corpus_dir,
-    int k
-);
-
-// CURL wrapper class
-class CurlHandle {
-    CURL *curl_;
-    struct curl_slist *headers_;
-
-public:
-    CurlHandle();
-    ~CurlHandle();
-
-    CURL *get() { return curl_; }
-    struct curl_slist *headers() { return headers_; }
-
-    // Configure CURL options for embeddings request
-    void setupEmbeddingsRequest(const std::string &json_str, std::string &response_data);
-};
 
 // Function declarations
 std::string translatePath(const std::string &path);
-// Structure to hold PDF metadata
-struct PdfMetadata {
-    std::string title;
-    std::string author;
-    std::string subject;
-    std::string keywords;
-    std::string creator;
-    std::string producer;
-    int pageCount;
-};
-
-// Structure to hold document data including metadata and page texts
-struct DocumentData {
-    PdfMetadata metadata;
-    std::vector<std::string> pageTexts; // Index N-1 contains text of page N
-    std::vector<std::string> chunks;    // Text chunks for processing
-    std::vector<int> chunkPageNums;     // Page number for each chunk
-};
 
 // Extract metadata from a PDF file
 PdfMetadata getPdfMetadata(const std::string &filename);
@@ -165,20 +103,17 @@ void cleanupSystem();
 WorkResult addCorpus(const std::string &sourcePath);
 void deleteCorpus(const std::string &corpusId);
 // Structure to hold context chunk information
-struct ContextChunk {
-    std::string text;
-    float similarity;
-    uint64_t hash;
-};
 
-// Structure to hold RAG query results
-struct RagResult {
-    std::string response;
-    std::vector<ContextChunk> context_chunks;
-};
 
 void doRag(const std::string &conversationId);
 void command_loop();
+
+/**
+ * @brief Format the RAG result and its context metadata into a single string
+ * @param result The RagResult object containing the LLM response and context chunks
+ * @return A formatted string containing the response and all context with metadata
+ */
+std::string printRagResult(const RagResult &result);
 
 /**
  * @brief Compute SHA-256 hash of one or more files using the shasum command-line utility

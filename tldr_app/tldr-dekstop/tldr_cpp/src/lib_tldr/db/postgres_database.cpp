@@ -102,9 +102,17 @@ namespace tldr {
                 // "text_hash TEXT," // Store as TEXT to handle large uint64_t values
                 "embedding_hash TEXT," // Store as TEXT to avoid sign issues with uint64_t
                 "embedding vector(" EMBEDDING_SIZE ") NOT NULL," // Assuming 2048-dimensional embeddings
+                "page_number INTEGER DEFAULT 0," // Page number the chunk belongs to
                 "created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"
                 ")"
             );
+            
+            // Add page_number column if it doesn't exist (for backward compatibility)
+            try {
+                txn.exec("ALTER TABLE embeddings ADD COLUMN IF NOT EXISTS page_number INTEGER DEFAULT 0");
+            } catch (const std::exception &e) {
+                std::cerr << "Note: page_number column might already exist or couldn't be added: " << e.what() << std::endl;
+            }
 
             // Create indexes for documents table
             txn.exec("CREATE INDEX IF NOT EXISTS documents_file_hash_idx ON documents (file_hash)");
@@ -209,8 +217,8 @@ namespace tldr {
             // Prepare statement with updated column names and document_id
             conn->prepare(
                 stmt_name,
-                "INSERT INTO embeddings (document_id, chunk_text, embedding, embedding_hash) "
-                "VALUES ($1, $2, $3, $4) RETURNING id"
+                "INSERT INTO embeddings (document_id, chunk_text, embedding, embedding_hash, page_number) "
+                "VALUES ($1, $2, $3, $4, $5) RETURNING id"
             );
 
             for (size_t i = 0; i < chunks.size(); ++i) {
@@ -234,6 +242,7 @@ namespace tldr {
                 params.append(chunk_str);
                 params.append(vector_str);
                 params.append(hash_str); // embedding_hash as TEXT
+                params.append(page_num);  // page_number
 
                 // Execute the prepared statement with the new parameter order
                 auto result = txn.exec_prepared(stmt_name, params);
@@ -288,7 +297,7 @@ namespace tldr {
         }
     }
 
-    std::vector<std::tuple<std::string, float, uint64_t> > PostgresDatabase::searchSimilarVectors(
+    std::vector<CtxChunkMeta> PostgresDatabase::searchSimilarVectors(
         const std::vector<float> &query_vector, int k) {
         pqxx::connection *conn = nullptr;
         if (!openConnection(conn)) {
@@ -306,26 +315,52 @@ namespace tldr {
             }
             vector_str += "]::vector";
 
-            // Perform similarity search using cosine distance
+            // Perform similarity search using cosine distance with document metadata
             std::string query =
-                    "SELECT chunk_text, 1 - (embedding <=> " + vector_str + ") as similarity, embedding_hash "
-                    "FROM embeddings "
-                    "ORDER BY embedding <=> " + vector_str + " "
-                    "LIMIT " + std::to_string(k);
+                "SELECT e.chunk_text, 1 - (e.embedding <=> " + vector_str + ") as similarity, e.embedding_hash, "
+                "d.file_path, d.file_name, d.title, d.author, d.page_count, e.page_number "
+                "FROM embeddings e "
+                "JOIN documents d ON e.document_id = d.id "
+                "ORDER BY e.embedding <=> " + vector_str + " "
+                "LIMIT " + std::to_string(k);
 
             auto result = txn.exec(query);
-            std::vector<std::tuple<std::string, float, uint64_t> > results;
+            std::vector<CtxChunkMeta> results;
 
             for (const auto &row: result) {
                 // Convert the hash from string to uint64_t
                 std::string hash_str = row["embedding_hash"].as<std::string>();
                 uint64_t hash = std::stoull(hash_str);
-
-                results.emplace_back(
-                    row["chunk_text"].as<std::string>(),
-                    row["similarity"].as<float>(),
-                    hash
-                );
+                
+                // Create ContextChunk with all metadata
+                CtxChunkMeta chunk;
+                chunk.text = row["chunk_text"].as<std::string>();
+                chunk.similarity = row["similarity"].as<float>();
+                chunk.hash = hash;
+                
+                // Include document metadata
+                chunk.file_path = row["file_path"].as<std::string>();
+                chunk.file_name = row["file_name"].as<std::string>();
+                
+                // Handle potentially null fields
+                if (!row["title"].is_null()) {
+                    chunk.title = row["title"].as<std::string>();
+                }
+                if (!row["author"].is_null()) {
+                    chunk.author = row["author"].as<std::string>();
+                }
+                if (!row["page_count"].is_null()) {
+                    chunk.page_count = row["page_count"].as<int>();
+                } else {
+                    chunk.page_count = 0;
+                }
+                if (!row["page_number"].is_null()) {
+                    chunk.page_number = row["page_number"].as<int>();
+                } else {
+                    chunk.page_number = 0;
+                }
+                
+                results.push_back(chunk);
             }
 
             txn.commit();
@@ -338,9 +373,9 @@ namespace tldr {
         }
     }
 
-    // Get text chunks by their hash values
-    std::map<uint64_t, std::string> PostgresDatabase::getChunksByHashes(const std::vector<uint64_t> &hashes) {
-        std::map<uint64_t, std::string> results;
+    // Get text chunks by their hash values along with document metadata
+    std::map<uint64_t, CtxChunkMeta> PostgresDatabase::getChunksByHashes(const std::vector<uint64_t> &hashes) {
+        std::map<uint64_t, CtxChunkMeta> results;
 
         if (hashes.empty()) {
             return results;
@@ -354,9 +389,14 @@ namespace tldr {
         try {
             pqxx::work txn(*conn);
 
-            // Build the query with parameter placeholders
-            // Note: both text_hash and embedding_hash are now TEXT in the database
-            std::string query = "SELECT embedding_hash, chunk_text FROM embeddings WHERE embedding_hash IN (";
+            // Build the query with parameter placeholders and join with documents table
+            // to get document metadata in a single query
+            std::string query = 
+                "SELECT e.embedding_hash, e.chunk_text, "
+                "d.file_path, d.file_name, d.title, d.author, d.page_count, e.page_number "
+                "FROM embeddings e "
+                "JOIN documents d ON e.document_id = d.id "
+                "WHERE e.embedding_hash IN (";
 
             // Create parameters list and placeholder string
             std::cout << "hashes for search_query:" << std::endl;
@@ -368,7 +408,7 @@ namespace tldr {
             }
             query += ")";
 
-            // Use the newer exec method directly with the params vector
+            // Execute the query
             pqxx::result db_result = txn.exec(query);
 
             // Process results
@@ -376,12 +416,38 @@ namespace tldr {
                 // Convert the hash from string to uint64_t
                 std::string hash_str = row["embedding_hash"].as<std::string>();
                 uint64_t hash = std::stoull(hash_str);
-                std::string text = row["chunk_text"].as<std::string>();
-                results[hash] = text;
+                
+                // Create CtxChunkMeta and populate fields
+                CtxChunkMeta chunk_data;
+                chunk_data.text = row["chunk_text"].as<std::string>();
+                chunk_data.file_path = row["file_path"].as<std::string>();
+                chunk_data.file_name = row["file_name"].as<std::string>();
+                chunk_data.hash = hash; // Set the hash field
+                chunk_data.similarity = 0.0f; // Set default similarity (not relevant for hash lookup)
+                
+                // Handle potentially null fields
+                if (!row["title"].is_null()) {
+                    chunk_data.title = row["title"].as<std::string>();
+                }
+                if (!row["author"].is_null()) {
+                    chunk_data.author = row["author"].as<std::string>();
+                }
+                if (!row["page_count"].is_null()) {
+                    chunk_data.page_count = row["page_count"].as<int>();
+                } else {
+                    chunk_data.page_count = 0;
+                }
+                if (!row["page_number"].is_null()) {
+                    chunk_data.page_number = row["page_number"].as<int>();
+                } else {
+                    chunk_data.page_number = 0;
+                }
+                
+                results[hash] = chunk_data;
             }
 
             txn.commit();
-            std::cout << "Retrieved " << results.size() << " text chunks by hash from PostgreSQL database" << std::endl;
+            std::cout << "Retrieved " << results.size() << " text chunks with document metadata by hash from PostgreSQL database" << std::endl;
         } catch (const std::exception &e) {
             std::cerr << "Error in getChunksByHashes: " << e.what() << std::endl;
         }

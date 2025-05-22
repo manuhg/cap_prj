@@ -3,6 +3,7 @@
 #include <sstream>
 #include <fstream>
 #include <filesystem>
+#include <iomanip>
 #include <map>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -34,6 +35,7 @@
 #include <functional> // Include for std::hash
 #include<vector>
 #include<unordered_set>
+#include<set>
 #include "lib_tldr.h"
 #include <curl/curl.h>
 #include <openssl/md5.h> // Include for MD5 hashing
@@ -339,7 +341,7 @@ json parseEmbeddingsResponse(const std::string &response_data) {
 
         // Validate the response structure
         if (!response.contains("data") || !response["data"].is_array()) {
-            std::cerr << "Full response: " << response.dump(2) << std::endl;
+            // std::cerr << "Full response: " << response.dump(2) << std::endl;
             throw std::runtime_error("Invalid response format: missing 'data' array");
         }
 
@@ -955,24 +957,66 @@ RagResult queryRag(const std::string &user_query, const std::string &corpus_dir)
         // Fallback to traditional database search if NPU search returns no results
         if (similar_chunks.empty()) {
             std::cerr << "No results from NPU search, falling back to database search..." << std::endl;
+            
+            // Get the results from the traditional database search (which now returns ContextChunk objects)
             similar_chunks = g_db->searchSimilarVectors(query_embeddings[0], K_SIMILAR_CHUNKS_TO_RETRIEVE);
+            
+            // No need to convert anything since searchSimilarVectors now returns ContextChunk objects
+            // with document metadata already included
         }
 
         // Prepare context string for the LLM and store context chunks
         std::string context_str;
-        for (const auto &chunk_data: similar_chunks) {
-            const auto &[chunk, similarity, hash] = chunk_data;
-
-            // Add to context string for LLM
-            context_str += chunk + "\n\n";
-
-            // Add to result chunks
-            ContextChunk context_chunk;
-            context_chunk.text = chunk;
-            context_chunk.similarity = similarity;
-            context_chunk.hash = hash;
-            result.context_chunks.push_back(std::move(context_chunk));
+        
+        // Track unique documents for reference count
+        std::set<std::string> referenced_documents;
+        
+        // Track unique documents referenced in this result
+        
+        for (const auto &chunk: similar_chunks) {
+            // Format the document metadata to include in the prompt
+            std::string source_info;
+            if (!chunk.title.empty() || !chunk.file_name.empty()) {
+                source_info = "Source: ";
+                if (!chunk.title.empty()) {
+                    source_info += "title:" + chunk.title;
+                } else {
+                    source_info += "file: "+ chunk.file_name;
+                }
+                
+                if (!chunk.author.empty()) {
+                    source_info += " by " + chunk.author;
+                }
+                
+                if (chunk.page_count > 0) {
+                    source_info += " (" + std::to_string(chunk.page_count) + " Pages)";
+                }
+                
+                // Include page number information
+                if (chunk.page_number > 0) {
+                    source_info += ", Page " + std::to_string(chunk.page_number);
+                }
+                
+                source_info += "\n";
+                
+                // Track unique documents referenced
+                std::string doc_id = !chunk.file_path.empty() ? chunk.file_path : chunk.file_name;
+                if (!doc_id.empty()) {
+                    referenced_documents.insert(doc_id);
+                }
+                
+                // Document is tracked in referenced_documents set
+            }
+            
+            // Add formatted context with metadata to the LLM prompt
+            context_str += source_info + chunk.text + "\n\n";
+            
+            // Add to result chunks (passing all metadata through)
+            result.context_chunks.push_back(chunk);
         }
+        
+        // Set the count of unique documents referenced
+        result.referenced_document_count = referenced_documents.size();
 
         if (context_str.empty()) {
             std::cerr << "No relevant context found in DB!" << std::endl;
@@ -1023,11 +1067,11 @@ std::map<uint64_t, float> npuCosineSimSearchWrapper(
 }
 
 // Wrapper function for NPU-accelerated vector similarity search
-std::vector<std::tuple<std::string, float, uint64_t> > searchSimilarVectorsNPU(
+std::vector<CtxChunkMeta> searchSimilarVectorsNPU(
     const std::vector<float> &query_vector,
     const std::string &corpus_dir,
     int k) {
-    std::vector<std::tuple<std::string, float, uint64_t> > similar_chunks;
+    std::vector<CtxChunkMeta> similar_chunks;
 
     // We'll collect the hashes from the results and only then query the database
     // This is more efficient than loading all embeddings upfront
@@ -1060,16 +1104,20 @@ std::vector<std::tuple<std::string, float, uint64_t> > searchSimilarVectorsNPU(
         }
 
         // Query the database for the text chunks corresponding to these hashes
-        std::map<uint64_t, std::string> hash_to_text;
+        std::map<uint64_t, CtxChunkMeta> hash_to_metadata;
         if (g_db) {
-            hash_to_text = g_db->getChunksByHashes(hashes_to_lookup);
+            hash_to_metadata = g_db->getChunksByHashes(hashes_to_lookup);
         }
 
-        // Convert results to the expected format
+        // Process the results
         for (const auto &[hash, score]: hash_scores) {
-            auto it = hash_to_text.find(hash);
-            if (it != hash_to_text.end()) {
-                similar_chunks.emplace_back(it->second, score, hash);
+            auto it = hash_to_metadata.find(hash);
+            if (it != hash_to_metadata.end()) {
+                // We already have a CtxChunkMeta, just update the similarity score
+                CtxChunkMeta chunk = it->second;
+                chunk.similarity = score; // Update with the score from our calculation
+                
+                similar_chunks.push_back(chunk);
                 std::cout << "Found match for hash: " << hash << std::endl;
             } else {
                 // If text not found, use hash as identifier
@@ -1219,4 +1267,55 @@ void command_loop() {
             std::cout << "Unknown command: " << command << std::endl;
         }
     }
+}
+
+std::string printRagResult(const RagResult &result) {
+    std::stringstream formatted_result;
+    
+    // Add the LLM response
+    formatted_result << "=== LLM Response ===\n\n" << result.response << "\n\n";
+    
+    // Add information about the number of contexts used
+    formatted_result << "=== Context Information ===\n";
+    formatted_result << "Referenced " << result.referenced_document_count << " document(s) with " 
+                     << result.context_chunks.size() << " context chunk(s)\n\n";
+    
+    // Add details for each context chunk
+    formatted_result << "=== Context Details ===\n\n";
+    
+    int chunk_number = 1;
+    for (const auto& chunk : result.context_chunks) {
+        // Create a header for each chunk
+        formatted_result << "--- Chunk " << chunk_number++ << " ---\n";
+        
+        // Document metadata
+        formatted_result << "Source: ";
+        if (!chunk.title.empty()) {
+            formatted_result << "\"" << chunk.title << "\"";
+        } else if (!chunk.file_name.empty()) {
+            formatted_result << chunk.file_name;
+        } else {
+            formatted_result << "[Unknown Source]";
+        }
+        
+        if (!chunk.author.empty()) {
+            formatted_result << " by " << chunk.author;
+        }
+        
+        if (chunk.page_count > 0) {
+            formatted_result << " (" << chunk.page_count << " pages)";
+        }
+        
+        if (chunk.page_number > 0) {
+            formatted_result << ", page " << chunk.page_number;
+        }
+        
+        // Add similarity score
+        formatted_result << "\nSimilarity: " << std::fixed << std::setprecision(4) << chunk.similarity;
+        
+        // Add the actual text content
+        formatted_result << "\n\nContent:\n" << chunk.text << "\n\n";
+    }
+    
+    return formatted_result.str();
 }

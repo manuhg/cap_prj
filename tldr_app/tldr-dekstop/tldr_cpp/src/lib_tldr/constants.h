@@ -2,7 +2,7 @@
 #define TLDR_CPP_CONSTANTS_H
 #include <nlohmann/json.hpp>
 #include <vector>
-
+#include "definitions.h"
 // Text processing constants
 #define AVG_WORDS_PER_SENTENCE 6
 #define AVG_CHARS_PER_WORD 5
@@ -54,11 +54,8 @@ constexpr const char* VECDUMP_DIR = "_vecdumps";
 #define RETRY_DELAY_MS 1000
 #define EMBEDDING_SIZE "384" // keep it string so that it can be inserted into create table stmt
 #define EMBEDDING_SIZE_INT 384 // keep it string so that it can be inserted into create table stmt
-#define K_SIMILAR_CHUNKS_TO_RETRIEVE 5
+#define K_SIMILAR_CHUNKS_TO_RETRIEVE 3
 
-struct embeddings_request {
-    std::vector<std::string> input;
-};
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(embeddings_request, input)
 #endif //TLDR_CPP_CONSTANTS_H

@@ -3,16 +3,10 @@
 
 #include <string>
 #include <vector>
-#include <cstdint>
+#include "definitions.h"
 
 namespace tldr_cpp_api {
 
-// Structure to hold RAG query results
-struct RagResult {
-    std::string response;
-    // Vector of (text, similarity_score, hash) tuples
-    std::vector<std::tuple<std::string, float, uint64_t>> context_chunks;
-};
 
 /**
  * @brief Initialize the TLDR system
@@ -44,6 +38,13 @@ void deleteCorpus(const std::string& corpusId);
  * @return RagResult containing the response and context chunks
  */
 RagResult queryRag(const std::string& user_query, const std::string& corpus_dir = "/Users/manu/proj_tldr/corpus/current/");
+
+/**
+ * @brief Format the RAG result and its context metadata into a single string
+ * @param result The RagResult object containing the LLM response and context chunks
+ * @return A formatted string containing the response and all context with metadata
+ */
+std::string printRagResult(const RagResult& result);
 
 } // namespace tldr_cpp_api
 
