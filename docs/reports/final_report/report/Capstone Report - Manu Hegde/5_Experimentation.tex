@@ -53,12 +53,6 @@ In the following sections, we analyze the model's performance more deeply, exami
 
 To evaluate the Autoencoder, we need to verify that the Decoder can reconstruct the original information using the low-resolution representation of the data created by the Encoder. Because the input to the model is a set of frames according to the window described in Chapter~\ref{ch:Methods}, the Decoder output will also have those dimensions. This means that to evaluate the Decoder's output, we must compare all the frames in the set. 
 
-We did this evaluation with two methods:
-\begin{packed_enum1}
-    \item Comparing the reconstructed frames with the originals. 
-    \item Comparing the histogram of velocity values. 
-\end{packed_enum1}
-
 Using the Decoder's output sequence representing the fluid state, a \textit{heatmap} of fluid velocity values was rendered to compare the results visually. Figure~\ref{fig:ReconstructedFrames} shows examples of frames with each type of obstacle. In each case, we show the Original frame to the left and the Reconstructed frame output by the Decoder to the right. We can see that although there are some minor differences, both frames are almost identical. Similar results were obtained for the rest of the sequences. The differences found can be seen in small changes of intensity of the \textit{heatmap} colors, which may indicate that the velocity values approximate the original ones but are either lower or higher than expected. Although there are some minor differences, the similarities between the Original and Reconstructed frames give us a clue that the Autoencoder is working as intended.
 
 \begin{figure}[!htbp]

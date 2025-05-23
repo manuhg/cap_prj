@@ -13,20 +13,23 @@
 - How coreML leverages NPU
 
 3. Related Work
-- Ollama & LLaMaFile
+- RAG (quick overview)
+- llama.cpp
+- Ollama
+- LLaMaFile
 - tinygrad project and its npu API reverse engineering
-- Papers on RAG (ex: by langchain)
 
-4. Methodology 
-a) Low level design
-- Vector dump & mem map IO
-- Working with NPU
-- RAG pipeline and its components
 
-b) Implementation & Software Architecture
-- Swift UI, static library linkage
-- llama context pool and db thread pool (& choice of postgre over sqlite)
-- all the sub modules
+4. Methodology
+- RAG pipeline 
+- Tldr Application Design
+	- Modules and workflow
+	- Vector dump & mem map IO
+	- Working with NPU
+- Tldr Application Implementation
+	- Swift UI, static library linkage
+	- llama context pool and db thread pool (& choice of postgre over sqlite)
+	- all the sub modules
 
 5. Experimentation
 - bertscore x models x quantization levels & resource consumption.

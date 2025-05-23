@@ -74,11 +74,11 @@ Notable features:
 
 Llamafile is widely used for prototyping private, offline chatbots and assistants. However, it often requires users to be technically proficient, especially when encountering issues related to downloading or executing models. Moreover, many models are not pre-quantized, potentially resulting in downloads of several gigabytes of model weights.
 %----------------------
-\section{Apple Neural Engine (ANE)}
+\section{Tinygrad project and Apple Neural Engine (ANE)}
 \label{sec:ANEAPI}
 %----------------------
 
-The Apple Neural Engine (ANE) is a custom neural processing unit designed by Apple to accelerate machine learning workloads on its silicon platforms. Introduced with the A11 Bionic chip, the ANE has evolved into a high-performance, low-power DMA-based inference engine embedded in Apple's M-series chips. This section synthesizes insights obtained by the reverse-engineering efforts of the \texttt{tinygrad}~\cite{tinygrad2023ane} project, to examine ANE's architecture, capabilities, and compilation flow.
+The Apple Neural Engine (ANE) is a custom neural processing unit designed by Apple to accelerate machine learning workloads on its silicon platforms. Introduced with the A11 Bionic chip, the ANE has evolved into a high-performance, low-power DMA-based inference engine embedded in Apple's M-series chips. This section synthesizes insights obtained by the reverse-engineering efforts of the \texttt{tinygrad}~\cite{tinygrad2023ane} project to examine ANE's architecture, capabilities, and compilation flow.
 
 \subsection{Hardware Overview}
 
