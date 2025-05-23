@@ -19,7 +19,6 @@
 - LLaMaFile
 - tinygrad project and its npu API reverse engineering
 
-
 4. Methodology
 - RAG pipeline 
 - Tldr Application Design
