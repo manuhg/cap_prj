@@ -13,9 +13,11 @@ struct ChatView: View {
                 Image(systemName: "folder")
                     .foregroundColor(.secondary)
                 Text("Corpus: \(viewModel.corpusDir)")
-                    .font(.caption)
+                    .font(.subheadline)  // Increased from caption to subheadline
                     .foregroundColor(.secondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)  // Allows text to scale down if needed
+                    .padding(.vertical, 2)  // Add some vertical padding for better readability
                 Spacer()
                 Button(action: { viewModel.showingCorpusDialog = true }) {
                     Image(systemName: "pencil")
@@ -135,26 +137,19 @@ struct MessageBubble: View {
                 Spacer()
             }
             
-            VStack(alignment: alignment, spacing: 4) {
-                Text(message.content)
-                    .padding(12)
-                    .background(bubbleColor)
-                    .foregroundColor(textColor)
-                    .cornerRadius(16)
-                    .contextMenu {
-                        Button(action: {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(message.content, forType: .string)
-                        }) {
-                            Label("Copy", systemImage: "doc.on.doc")
-                        }
+            Text(message.content)
+                .padding(12)
+                .background(bubbleColor)
+                .foregroundColor(textColor)
+                .cornerRadius(16)
+                .contextMenu {
+                    Button(action: {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(message.content, forType: .string)
+                    }) {
+                        Label("Copy", systemImage: "doc.on.doc")
                     }
-                
-                Text(message.timestamp, style: .time)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 4)
-            }
+                }
             
             if message.sender == .user {
                 Spacer()

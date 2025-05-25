@@ -17,7 +17,7 @@ class ChatViewModel: ObservableObject {
     
     init() {
         // Load saved corpus directory or use default
-        self.corpusDir = UserDefaults.standard.string(forKey: corpusDirKey) ?? "/Users/manu/proj_tldr/corpus/current/"
+        self.corpusDir = UserDefaults.standard.string(forKey: corpusDirKey) ?? "~/Downloads"
         
         // Initialize the TLDR system
         if !TldrWrapper.initialize() {
@@ -80,43 +80,50 @@ class ChatViewModel: ObservableObject {
             return 
         }
         
-        // Add user message
-        let userMessage = Message(content: newMessageText, sender: .user)
-        var updatedConversation = Conversation(
-            id: conversation.id,
-            title: conversation.title,
-            messages: conversation.messages + [userMessage],
-            lastUpdated: Date()
-        )
+        // Create a local copy of the message text
+        let messageText = newMessageText
         
-        // Update UI immediately
-        conversations[conversationIndex] = updatedConversation
-        selectedConversation = updatedConversation
-        
-        // Save changes
-        saveConversations()
-        
-        // Clear input field
-        let userQuery = newMessageText
+        // Clear input field immediately
         newMessageText = ""
         
         // Show loading indicator
         isLoading = true
         errorMessage = nil
         
-        // Perform RAG query in background
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // Schedule the rest of the updates for the next run loop
+        DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
-            // Query the RAG system
-            if let result = TldrWrapper.queryRag(userQuery, corpusDir: self.corpusDir) {
-                DispatchQueue.main.async {
-                    self.handleRagResult(result, for: conversation, at: conversationIndex)
-                }
-            } else {
-                DispatchQueue.main.async {
-                    self.errorMessage = "Failed to get response from RAG system"
-                    self.isLoading = false
+            // Add user message
+            let userMessage = Message(content: messageText, sender: .user)
+            var updatedConversation = Conversation(
+                id: conversation.id,
+                title: conversation.title,
+                messages: conversation.messages + [userMessage],
+                lastUpdated: Date()
+            )
+            
+            // Update UI
+            self.conversations[conversationIndex] = updatedConversation
+            self.selectedConversation = updatedConversation
+            self.saveConversations()
+            
+            // Perform RAG query in background
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else { return }
+                
+                // Query the RAG system
+                if let result = TldrWrapper.queryRag(messageText, corpusDir: self.corpusDir) {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self = self else { return }
+                        self.handleRagResult(result, for: updatedConversation, at: conversationIndex)
+                    }
+                } else {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self = self else { return }
+                        self.errorMessage = "Failed to get response from RAG system"
+                        self.isLoading = false
+                    }
                 }
             }
         }
