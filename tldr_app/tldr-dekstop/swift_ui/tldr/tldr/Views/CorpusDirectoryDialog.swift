@@ -43,7 +43,8 @@ struct CorpusDirectoryDialog: View {
                 
                 Text("Select the directory containing your corpus files")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
             }
             .padding()
             .background(Color.secondary.opacity(0.1))
@@ -53,24 +54,29 @@ struct CorpusDirectoryDialog: View {
             Spacer()
             
             HStack(spacing: 16) {
-                Button("Cancel") {
+                Button(action: {
                     dismiss()
+                }) {
+                    Text("Cancel")
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 30)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .buttonStyle(.plain)
                 .background(Color.gray.opacity(0.2))
-                .foregroundColor(.primary)
-                .cornerRadius(10)
+                .cornerRadius(4)
                 
-                Button("Save") {
+                Button(action: {
                     viewModel.updateCorpusDirectory(tempPath)
                     dismiss()
+                }) {
+                    Text("Save")
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 30)
+                        .foregroundColor(.white)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .buttonStyle(.plain)
                 .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
+                .cornerRadius(4)
             }
             .padding(.horizontal)
             .padding(.bottom, 20)
