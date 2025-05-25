@@ -3,7 +3,9 @@
 
 int main() {
     // Initialize system
-    if (!tldr_cpp_api::initializeSystem()) {
+    if (!tldr_cpp_api::initializeSystem(
+        "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf",
+        "/Users/manu/llm-weights/embedding/all-MiniLM-L6-v2-Q8_0.gguf")){
         std::cerr << "Failed to initialize system" << std::endl;
         return 1;
     }
