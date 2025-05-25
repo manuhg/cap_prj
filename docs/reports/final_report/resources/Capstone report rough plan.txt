@@ -25,7 +25,9 @@
 	- Modules and workflow
 	- Vector dump & mem map IO
 	- Working with NPU
-- Tldr Application Implementation
+
+- Tldr Application Implementation (& Workflow)
+	-  the worklfow and its explanation and UI screenshots
 	- Swift UI, static library linkage
 	- llama context pool and db thread pool (& choice of postgre over sqlite)
 	- all the sub modules

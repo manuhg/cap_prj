@@ -1,33 +1,25 @@
 \chapter{Related Work}
 
-This chapter presents an overview of existing technologies and research efforts relevant to the development of efficient, on-device language model-based applications. It focuses on three major areas: Retrieval-Augmented Generation (RAG), efficient LLM runtimes like \texttt{llama.cpp}, and lightweight distribution and serving solutions such as Ollama and Llamafile. It also looks at the work done by tinygrad project in attempting to reverse engineer the NPU API.
+This chapter presents an overview of existing technologies and research efforts relevant to the development of efficient, on-device language model-based applications. It focuses on three major areas: Retrieval-Augmented Generation (RAG), efficient LLM runtimes like \texttt{llama.cpp}, and lightweight distribution and serving solutions such as Ollama and Llamafile. It also looks at the work done by the tinygrad project in attempting to reverse engineer the NPU API.
 
 
 %----------------------
-\section{Retrieval-Augmented Generation (RAG)}
+\section{RAG Frameworks and Agentic Systems}
 \label{sec:RAG}
 %----------------------
 
-Retrieval-Augmented Generation (RAG) is an architectural paradigm that enhances the factual accuracy and contextual relevance of large language models (LLMs) by incorporating external knowledge retrieval into the generation process. Unlike traditional LLMs that rely solely on internal model weights, RAG allows the model to fetch and condition its output on relevant documents retrieved from a corpus \cite{lewis2021retrieval}.
+Retrieval-Augmented Generation (RAG) has become a widely adopted paradigm to enhance the factual grounding of large language models (LLMs) by integrating external knowledge through retrieval mechanisms. To support this architecture, several frameworks have been developed to facilitate the construction of RAG pipelines. \textbf{LangChain}~\cite{langchain} provides a composable and extensible framework for chaining LLMs with retrieval components, supporting a broad ecosystem of vector stores, retrievers, and tools. \textbf{LlamaIndex} (formerly GPT Index)~\cite{llamaindex} offers structured pipelines for indexing and querying private or domain-specific data sources. \textbf{Haystack}~\cite{haystack} by deepset provides a modular toolkit for constructing production-ready pipelines with retriever-reader architectures.
 
-A typical RAG pipeline consists of the following phases:
+In parallel, the emergence of \textbf{agentic systems}—LLM-powered agents capable of tool use, memory, and reasoning—has opened new avenues for task-oriented automation. Frameworks such as LangChain~\cite{langchain} and AutoGen~\cite{autogen} support multi-agent orchestration and planning. These systems increasingly incorporate \textbf{LLM routing} strategies~\cite{gor2023router} that dynamically select or combine multiple models or tools based on the query or context, enhancing efficiency and specialization. Additionally, \textbf{RAGAS}~\cite{ragas} introduces an evaluation framework to measure the quality and factual alignment of RAG outputs, contributing to the robustness of such systems in real-world applications. Together, these frameworks and methodologies form the foundational ecosystem for deploying scalable, intelligent, and grounded LLM applications.
 
-\begin{enumerate}
-    \item \textbf{Query Formulation:} The input query from the user is either used directly or rephrased using prompt engineering techniques to improve retrieval relevance.
-    \item \textbf{Retrieval:} A vector store or dense retriever (e.g., using FAISS, Milvus, or ElasticSearch) is queried to obtain top-$k$ semantically relevant documents based on vector similarity.
-    \item \textbf{Context Injection:} Retrieved documents are concatenated with the original query and formatted into a prompt.
-    \item \textbf{Generation:} The formatted prompt is passed to the language model to generate a context-aware and informative response.
-\end{enumerate}
-
-RAG has become a cornerstone for building knowledge-intensive NLP systems, especially in enterprise search, question answering, and summarization tasks \cite{rag_blog, langchain_rag}.
-
+Although this project does not directly leverage any existing RAG frameworks yet, it certainly has drawn inspiration and insights wherever applicable.
 
 %----------------------
 \section{llama.cpp}
 \label{sec:llama_cpp}
 %----------------------
 
-\texttt{llama.cpp} is a C++ implementation of LLaMA models developed by Meta, optimized for local inference on commodity hardware without GPU requirements. Built upon the GGML tensor library, it provides quantized inference for large models using CPU-friendly formats like 4-bit and 5-bit quantization, making it suitable for running models such as LLaMA, Mistral, and other open-weight transformers on devices ranging from laptops to Raspberry Pi \cite{llamacpp}.
+\texttt{llama.cpp}\cite{gerganov2020llamacpp} is a C++ implementation of large language models (Meta LLaMA to begin with), optimized for local inference on commodity hardware without GPU requirements. Built upon the GGML tensor library, it provides quantized inference for large models using CPU-friendly formats like 4-bit or 5-bit quantization, making it suitable for running models such as LLaMA, Mistral, and other open-weight transformers on devices ranging from laptop to Raspberry Pi.
 
 Key features of \texttt{llama.cpp} include:
 \begin{itemize}
@@ -37,8 +29,7 @@ Key features of \texttt{llama.cpp} include:
     \item Support for multi-threaded inference and memory-mapped model weights for efficient memory usage.
 \end{itemize}
 
-This project is a foundation for many desktop LLM applications that require local execution and privacy-aware computation.
-
+Llama.cpp serves as a foundational component for many desktop LLM applications that prioritize local execution and privacy-preserving computation. \textit{In this project (Project TLDR), llama.cpp is used for LLM inference tasks, including both embedding generation and text generation}.
 
 %----------------------
 \section{Ollama}
