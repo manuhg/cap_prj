@@ -9,7 +9,7 @@ struct CorpusDirectoryDialog: View {
     
     init(viewModel: ChatViewModel) {
         self.viewModel = viewModel
-        self._tempPath = State(initialValue: viewModel.corpusDir)
+        self._tempPath = State(initialValue: viewModel.selectedConversation?.corpusDir ?? "~/Downloads")
     }
     
     var body: some View {

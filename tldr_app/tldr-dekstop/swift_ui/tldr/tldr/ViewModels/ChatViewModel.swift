@@ -3,22 +3,17 @@ import SwiftUI
 import TldrAPI
 
 class ChatViewModel: ObservableObject {
-    @Published var conversations: [Conversation] = []
-    @Published var selectedConversation: Conversation?
+    @Published var conversations: [ConversationData] = []
+    @Published var selectedConversation: ConversationData?
     @Published var newMessageText: String = ""
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
-    @Published var corpusDir: String
     @Published var showingCorpusDialog: Bool = false
     
     private let conversationsKey = "savedConversations"
     private let selectedConversationIdKey = "selectedConversationId"
-    private let corpusDirKey = "corpusDirectory"
     
     init() {
-        // Load saved corpus directory or use default
-        self.corpusDir = UserDefaults.standard.string(forKey: corpusDirKey) ?? "~/Downloads"
-        
         // Initialize the TLDR system
         if !TldrWrapper.initialize() {
             errorMessage = "Failed to initialize TLDR system"
@@ -36,23 +31,31 @@ class ChatViewModel: ObservableObject {
     private func loadSavedConversations() {
         // Load conversations from UserDefaults
         if let data = UserDefaults.standard.data(forKey: conversationsKey),
-           let savedConversations = try? JSONDecoder().decode([Conversation].self, from: data) {
+           let savedConversations = try? JSONDecoder().decode([ConversationData].self, from: data) {
             conversations = savedConversations
+            
+            // Load selected conversation ID
+            if let selectedId = UserDefaults.standard.string(forKey: selectedConversationIdKey),
+               let uuid = UUID(uuidString: selectedId) {
+                selectedConversation = conversations.first { $0.id == uuid }
+            }
+            
+            // If no selected conversation, select the first one
+            if selectedConversation == nil {
+                selectedConversation = conversations.first
+            }
         } else {
-            // If no saved conversations, create a new one
-            let newConversation = Conversation(title: "New Conversation")
+            // If no saved conversations, create a new one with default corpus dir and welcome message
+            let newConversation = ConversationData(
+                title: "New Conversation",
+                corpusDir: "~/Downloads",
+                messages: [
+                    Message(content: "Hello! I'm your TLDR assistant. I'll help you understand your codebase. Start by selecting a corpus directory.", sender: .assistant)
+                ]
+            )
             conversations = [newConversation]
-        }
-        
-        // Load selected conversation ID
-        if let selectedId = UserDefaults.standard.string(forKey: selectedConversationIdKey),
-           let uuid = UUID(uuidString: selectedId) {
-            selectedConversation = conversations.first { $0.id == uuid }
-        }
-        
-        // If no selected conversation, select the first one
-        if selectedConversation == nil {
-            selectedConversation = conversations.first
+            selectedConversation = newConversation
+            saveConversations()
         }
     }
     
@@ -69,8 +72,16 @@ class ChatViewModel: ObservableObject {
     }
     
     func updateCorpusDirectory(_ newPath: String) {
-        corpusDir = newPath
-        UserDefaults.standard.set(newPath, forKey: corpusDirKey)
+        guard let conversation = selectedConversation,
+              let index = conversations.firstIndex(where: { $0.id == conversation.id }) else {
+            return
+        }
+        
+        var updatedConversation = conversation
+        updatedConversation.corpusDir = newPath
+        conversations[index] = updatedConversation
+        selectedConversation = updatedConversation
+        saveConversations()
     }
     
     func sendMessage() {
@@ -96,12 +107,9 @@ class ChatViewModel: ObservableObject {
             
             // Add user message
             let userMessage = Message(content: messageText, sender: .user)
-            var updatedConversation = Conversation(
-                id: conversation.id,
-                title: conversation.title,
-                messages: conversation.messages + [userMessage],
-                lastUpdated: Date()
-            )
+            var updatedConversation = conversation
+            updatedConversation.messages.append(userMessage)
+            updatedConversation.lastUpdated = Date()
             
             // Update UI
             self.conversations[conversationIndex] = updatedConversation
@@ -112,11 +120,11 @@ class ChatViewModel: ObservableObject {
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 guard let self = self else { return }
                 
-                // Query the RAG system
-                if let result = TldrWrapper.queryRag(messageText, corpusDir: self.corpusDir) {
+                // Query the RAG system using the conversation's corpusDir
+                if let result = TldrWrapper.queryRag(messageText, corpusDir: conversation.corpusDir) {
                     DispatchQueue.main.async { [weak self] in
                         guard let self = self else { return }
-                        self.handleRagResult(result, for: updatedConversation, at: conversationIndex)
+                        self.handleRagResult(result, for: conversationIndex)
                     }
                 } else {
                     DispatchQueue.main.async { [weak self] in
@@ -129,19 +137,18 @@ class ChatViewModel: ObservableObject {
         }
     }
     
-    private func handleRagResult(_ result: RagResultSw, for conversation: Conversation, at index: Int) {
+    private func handleRagResult(_ result: RagResultSw, for conversationIndex: Int) {
         // Get formatted response
         let responseText = result.formattedString() ?? result.response
-        
         let assistantMessage = Message(content: responseText, sender: .assistant)
         
         // Update conversation with assistant's response
-        var updatedConversation = conversation
+        var updatedConversation = conversations[conversationIndex]
         updatedConversation.messages.append(assistantMessage)
         updatedConversation.lastUpdated = Date()
         
         // Update UI
-        conversations[index] = updatedConversation
+        conversations[conversationIndex] = updatedConversation
         selectedConversation = updatedConversation
         
         // Save changes
@@ -151,7 +158,15 @@ class ChatViewModel: ObservableObject {
     }
     
     func createNewConversation() {
-        let newConversation = Conversation(title: "New Conversation")
+        // Use the corpus directory from the currently selected conversation, or the default if none is selected
+        let corpusDir = selectedConversation?.corpusDir ?? "~/Downloads"
+        let newConversation = ConversationData(
+            title: "New Conversation",
+            corpusDir: corpusDir,
+            messages: [
+                Message(content: "Hello! I'm your TLDR assistant. I'll help you understand your codebase.", sender: .assistant)
+            ]
+        )
         conversations.append(newConversation)
         selectedConversation = newConversation
         
@@ -159,7 +174,7 @@ class ChatViewModel: ObservableObject {
         saveConversations()
     }
     
-    func deleteConversation(_ conversation: Conversation) {
+    func deleteConversation(_ conversation: ConversationData) {
         conversations.removeAll { $0.id == conversation.id }
         
         // If we deleted the selected conversation, select another one
@@ -171,7 +186,7 @@ class ChatViewModel: ObservableObject {
         saveConversations()
     }
     
-    func updateConversationTitle(_ conversation: Conversation, newTitle: String) {
+    func updateConversationTitle(_ conversation: ConversationData, newTitle: String) {
         if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
             var updatedConversation = conversation
             updatedConversation.title = newTitle

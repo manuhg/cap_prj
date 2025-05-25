@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ChatView: View {
-    let conversation: Conversation
+    let conversation: ConversationData
     @ObservedObject var viewModel: ChatViewModel
     
     @State private var scrollToBottomId: UUID? = nil
@@ -12,12 +12,12 @@ struct ChatView: View {
             HStack {
                 Image(systemName: "folder")
                     .foregroundColor(.secondary)
-                Text("Corpus: \(viewModel.corpusDir)")
-                    .font(.subheadline)  // Increased from caption to subheadline
+                Text("Corpus: \(viewModel.selectedConversation?.corpusDir ?? "Not set")")
+                    .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)  // Allows text to scale down if needed
-                    .padding(.vertical, 2)  // Add some vertical padding for better readability
+                    .minimumScaleFactor(0.8)
+                    .padding(.vertical, 2)
                 Spacer()
                 Button(action: { viewModel.showingCorpusDialog = true }) {
                     Image(systemName: "pencil")
@@ -164,8 +164,9 @@ struct ChatView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
             ChatView(
-                conversation: Conversation(
+                conversation: ConversationData(
                     title: "Preview",
+                    corpusDir: "~/Downloads",
                     messages: [
                         Message(content: "Hello, how can I help you today?", sender: .assistant),
                         Message(content: "I need help with my project", sender: .user)
