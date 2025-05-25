@@ -6,14 +6,8 @@
 #include "db/database.h"
 #include "db/postgres_database.h"
 #include "db/sqlite_database.h"
-#include <libpq-fe.h>
-#include <nlohmann/json.hpp>
 #include <vector>
 #include <string>
-#include <memory>
-#include <stdexcept>
-#include <cstring>
-#include <sstream>
 
 // Constants
 const std::string PAGE_DELIMITER = "\n--- PAGE BREAK ---\n";
@@ -98,7 +92,7 @@ std::map<uint64_t, float> npuCosineSimSearchWrapper(
     const char *modelPath =
             "/Users/manu/proj_tldr/tldr-dekstop/release-products/artefacts/CosineSimilarityBatched.mlmodelc");
 
-bool initializeSystem(const std::string& chat_model_path = "", const std::string& embeddings_model_path = "");
+bool initializeSystem(const std::string& chat_model_path, const std::string& embeddings_model_path);
 void cleanupSystem();
 WorkResult addCorpus(const std::string &sourcePath);
 void deleteCorpus(const std::string &corpusId);

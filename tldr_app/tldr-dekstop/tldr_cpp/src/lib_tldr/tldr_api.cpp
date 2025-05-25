@@ -13,7 +13,7 @@ bool initializeSystem(const std::string& chat_model_path, const std::string& emb
 void cleanupSystem() {
     ::cleanupSystem();
 }
-
+ 
 void addCorpus(const std::string& sourcePath) {
     ::addCorpus(sourcePath);
 }
@@ -86,6 +86,8 @@ std::string printRagResult(const RagResult& result) {
 
 } // namespace tldr_cpp_api
 
+
+/*
 // C linkage function for Swift to call
 extern "C" {
     int tldr_api_trial_tldr() {
@@ -93,4 +95,4 @@ extern "C" {
         tldr_cpp_api::initializeSystem();
         return 42;
     }
-}
+}*/

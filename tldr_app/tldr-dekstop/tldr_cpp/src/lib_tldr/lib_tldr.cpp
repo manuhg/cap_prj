@@ -7,7 +7,6 @@
 #include <map>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include <pqxx/pqxx>
@@ -29,16 +28,12 @@
 #include <cstdlib>
 #include <vector>
 #include <regex>
-// #include <curl/curl.h>
 #include <nlohmann/json.hpp>
-#include <memory>
-#include <functional> // Include for std::hash
-#include<vector>
+#include <functional>
 #include<unordered_set>
 #include<set>
-#include "lib_tldr.h"
-#include <curl/curl.h>
 #include <openssl/md5.h> // Include for MD5 hashing
+#include "lib_tldr.h"
 
 // Helper function to extract content from XML tags
 std::string extract_xml_content(const std::string &xml) {
@@ -450,9 +445,6 @@ bool initializeSystem(const std::string& chat_model_path, const std::string& emb
     std::string embeddings_path = embeddings_model_path.empty() ? EMBEDDINGS_MODEL_PATH : embeddings_model_path;
     
     tldr::initialize_llm_manager_once(chat_path, embeddings_path);
-    std::cout << "System initialized successfully with models:" << std::endl;
-    std::cout << "- Chat model: " << chat_path << std::endl;
-    std::cout << "- Embeddings model: " << embeddings_path << std::endl;
     return true;
 }
 

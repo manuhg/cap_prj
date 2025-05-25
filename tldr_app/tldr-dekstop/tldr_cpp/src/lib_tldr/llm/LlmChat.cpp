@@ -10,8 +10,7 @@
 #include <algorithm>
 #include "../constants.h"
 
-LlmChat::LlmChat(std::string model_path) {
-    this->model_path = model_path;
+LlmChat::LlmChat() {
     call_times_ms = std::vector<double>();
     prompt_sizes = std::vector<size_t>();
 }
@@ -38,7 +37,8 @@ void LlmChat::llm_chat_cleanup() {
     }
 }
 
-bool LlmChat::initialize_model() {
+bool LlmChat::initialize_model(const std::string& model_path) {
+    this->model_path = model_path; 
     try {
         ggml_backend_load_all();
 

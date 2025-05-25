@@ -9,16 +9,66 @@
 #include "TldrAPI.hpp"
 #include "tldr_api.h"
 
+// Core Foundation includes for macOS/iOS bundle access
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreServices/CoreServices.h> // For UInt8 type
+#include <limits.h> // For PATH_MAX
+
 #include <string>
 #include <iostream>
 #include <cstring>
+#include <stdexcept> // For std::runtime_error
+
+// Helper function to get the path to a resource in the app bundle
+static std::string getResourcePath(const std::string& filename) {
+    CFBundleRef mainBundle = CFBundleGetMainBundle();
+    if (!mainBundle) {
+        throw std::runtime_error("Could not get main bundle");
+    }
+
+    CFStringRef filenameStr = CFStringCreateWithCString(kCFAllocatorDefault, 
+                                                      filename.c_str(), 
+                                                      kCFStringEncodingUTF8);
+    if (!filenameStr) {
+        throw std::runtime_error("Could not create CFString from filename");
+    }
+
+    CFURLRef resourceURL = CFBundleCopyResourceURL(mainBundle, filenameStr, NULL, NULL);
+    CFRelease(filenameStr);
+    
+    if (!resourceURL) {
+        throw std::runtime_error("Could not find resource: " + filename);
+    }
+
+    char path[PATH_MAX];
+    if (!CFURLGetFileSystemRepresentation(resourceURL, true, (UInt8*)path, PATH_MAX)) {
+        CFRelease(resourceURL);
+        throw std::runtime_error("Could not get filesystem path for resource");
+    }
+
+    std::string result(path);
+    CFRelease(resourceURL);
+    return result;
+}
 
 // Provide the C implementations that call the actual C++ library functions.
 extern "C" {
 
-// Initialize the TLDR system
-bool tldr_initializeSystem(void) {
-    return tldr_cpp_api::initializeSystem();
+// Initialize the TLDR system with model paths
+bool tldr_initializeSystem(const char* chatModel, const char* embeddingsModel) {
+    try {
+        // Get paths to model files in the bundle
+        std::string chatModelPath = getResourcePath(chatModel);
+        std::string embeddingsModelPath = getResourcePath(embeddingsModel);
+        std::cout << "Model paths obtained are as follows: \nchatModelPath:" << chatModelPath << "\nembeddingsModelPath:" << embeddingsModelPath << std::endl;
+
+        // Initialize the LLM manager with the paths
+        tldr_cpp_api::initializeSystem(chatModelPath.c_str(), embeddingsModelPath.c_str());
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Error initializing LLM models: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 // Clean up the system

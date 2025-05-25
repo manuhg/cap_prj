@@ -38,27 +38,9 @@ namespace tldr {
      */
     class LlmManager {
     public:
-        /**
-         * Constructor - initializes the chat and embedding models
-         * @param chat_model_path Path to the chat model file
-         * @param embeddings_model_path Path to the embeddings model file
-         */
-        LlmManager(const std::string &chat_model_path, const std::string &embeddings_model_path);
+        LlmManager();
 
-        // Initialization methods
-        /**
-         * Initialize the chat model and its context pool
-         * @return true if successful, false otherwise
-         */
-        bool initialize_chat_model();
-        
-        /**
-         * Initialize the embeddings model and its context pool
-         * @return true if successful, false otherwise
-         */
-        bool initialize_embeddings_model();
-
-        // Core functionalities
+    public:
         /**
          * Get embeddings for a batch of texts
          * @param texts The texts to embed
@@ -74,6 +56,9 @@ namespace tldr {
          */
         std::string get_chat_response(const std::string& context, const std::string& user_prompt);
 
+        bool initialize_chat_model(const std::string& model_path);
+        bool initialize_embeddings_model(const std::string& model_path);
+
         /**
          * Clean up all resources
          * This will free all contexts in the pools and then free the models
@@ -86,7 +71,8 @@ namespace tldr {
     };
 
     // Initialization function (call once)
-    void initialize_llm_manager_once();
+    void initialize_llm_manager_once(const std::string& chat_model_path,
+                                   const std::string& embeddings_model_path);
 
     // Accessor for the global manager instance (after initialization)
     LlmManager& get_llm_manager();

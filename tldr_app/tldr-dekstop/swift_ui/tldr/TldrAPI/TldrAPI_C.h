@@ -27,8 +27,8 @@ typedef struct {
     int referenced_document_count;
 } RagResultC;
 
-// Initialize the TLDR system
-bool tldr_initializeSystem(void);
+// Initialize the TLDR system with model paths
+bool tldr_initializeSystem(const char* chatModel="Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf", const char* embeddingsModel="all-MiniLM-L6-v2-Q8_0.gguf");
 
 // Clean up the TLDR system
 void tldr_cleanupSystem(void);

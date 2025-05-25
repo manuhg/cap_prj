@@ -14,7 +14,7 @@ namespace tldr_cpp_api {
  * @param embeddings_model_path Path to the embeddings model file (leave empty to use default)
  * @return true if initialization was successful, false otherwise
  */
-bool initializeSystem(const std::string& chat_model_path = "", const std::string& embeddings_model_path = "");
+bool initializeSystem(const std::string& chat_model_path, const std::string& embeddings_model_path);
 
 /**
  * @brief Clean up the TLDR system
@@ -59,7 +59,7 @@ extern "C" {
  * @brief Test function for Swift to call into C++
  * @return An integer value (42) to confirm successful call
  */
-int tldr_api_trial_tldr();
+// int tldr_api_trial_tldr();
 
 #ifdef __cplusplus
 }
