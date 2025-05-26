@@ -175,20 +175,53 @@ struct MessageBubble: View {
                 Spacer(minLength: 100)
             }
             
-            Text(message.content)
-                .padding(12)
-                .background(bubbleColor)
-                .foregroundColor(textColor)
-                .cornerRadius(16)
-                .frame(maxWidth: 600, alignment: alignment)
-                .contextMenu {
-                    Button(action: {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(message.content, forType: .string)
-                    }) {
-                        Label("Copy", systemImage: "doc.on.doc")
-                    }
+            // Use a VStack to contain the message content
+            VStack {
+                // Use Text with .environment(\openURL) to make URLs clickable
+                Text(LocalizedStringKey(message.content))
+                    .environment(\.openURL, OpenURLAction { url in
+                        // Handle our custom localhost URLs for PDFs
+                        if url.host == "localhost" && url.path == "/pdf" {
+                            // Extract the file path and page number from the URL query parameters
+                            guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                                  let pathItem = components.queryItems?.first(where: { $0.name == "path" }),
+                                  let filePath = pathItem.value?.removingPercentEncoding else {
+                                return .systemAction
+                            }
+                            
+                            // Get the page number if available
+                            let pageNumber = components.queryItems?.first(where: { $0.name == "page" })?.value
+                            
+                            // Create a file URL with the path
+                            var fileURL = URL(fileURLWithPath: filePath)
+                            
+                            // Try to open in browser first for better page number support
+                            if let pageNumber = pageNumber, let pageInt = Int(pageNumber) {
+                                // Try to open in browser with NSWorkspace
+                                NSWorkspace.shared.open(fileURL)
+                                return .handled
+                            } else {
+                                // Just open the file directly
+                                NSWorkspace.shared.open(fileURL)
+                                return .handled
+                            }
+                        }
+                        return .systemAction
+                    })
+            }
+            .padding(12)
+            .background(bubbleColor)
+            .foregroundColor(textColor)
+            .cornerRadius(16)
+            .frame(maxWidth: 600, alignment: alignment)
+            .contextMenu {
+                Button(action: {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(message.content, forType: .string)
+                }) {
+                    Label("Copy", systemImage: "doc.on.doc")
                 }
+            }
             
             if message.sender != .user {
                 Spacer(minLength: 100)

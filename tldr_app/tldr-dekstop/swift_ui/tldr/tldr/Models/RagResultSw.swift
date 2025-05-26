@@ -60,41 +60,39 @@ public struct RagResultSw {
         
         // Append sources section if there are context chunks
         if !contextChunks.isEmpty {
-            formattedResponse += "\n\n**Sources:**\n"
+            formattedResponse += "\n\nSources:\n"
             
-            // Create a set to track unique file+page combinations
-            var uniqueReferences = Set<String>()
+            // Number each chunk sequentially
+            var sourceNumber = 1
             
-            // Add each unique reference as a clickable link
+            // Add each chunk as a numbered source
             for chunk in contextChunks {
                 // Only process PDF files
                 guard chunk.filePath.lowercased().hasSuffix(".pdf") else { continue }
                 
-                // Create a unique key for this file+page combination
-                let referenceKey = "\(chunk.filePath)#\(chunk.pageNumber)"
+                // Format the file path for display (just the filename)
+                let displayName = chunk.fileName.isEmpty ? 
+                    (chunk.filePath as NSString).lastPathComponent : 
+                    chunk.fileName
                 
-                // Only add each unique reference once
-                if !uniqueReferences.contains(referenceKey) {
-                    uniqueReferences.insert(referenceKey)
-                    
-                    // Format the file path for display (just the filename)
-                    let displayName = chunk.fileName.isEmpty ? 
-                        (chunk.filePath as NSString).lastPathComponent : 
-                        chunk.fileName
-                    
-                    // Create the clickable link
-                    let pageDisplay = chunk.pageNumber > 0 ? "page \(chunk.pageNumber)" : ""
-                    let linkText = displayName + (pageDisplay.isEmpty ? "" : " (\(pageDisplay))")
-                    
-                    // Create the URL with the file:/// scheme
-                    // The page parameter uses #page=N format for PDF viewers
-                    let urlPath = "file:///\(chunk.filePath.hasPrefix("/") ? String(chunk.filePath.dropFirst()) : chunk.filePath)"
-                    let pageParam = chunk.pageNumber > 0 ? "#page=\(chunk.pageNumber)" : ""
-                    let fullUrl = urlPath + pageParam
-                    
-                    // Add the formatted link to the response as a numbered list item
-                    formattedResponse += "1. [\(linkText)](\(fullUrl))\n"
-                }
+                // Create the source text
+                let pageDisplay = chunk.pageNumber > 0 ? "page \(chunk.pageNumber)" : ""
+                let sourceText = displayName + (pageDisplay.isEmpty ? "" : " (\(pageDisplay))")
+                
+                // Escape the file path by encoding it for a URL
+                let escapedPath = chunk.filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? chunk.filePath
+                
+                // Create a browser-friendly URL
+                // Use http://localhost/ as a prefix that will be intercepted by our URL handler
+                let urlPath = "http://localhost/pdf?path=\(escapedPath)"
+                let pageParam = chunk.pageNumber > 0 ? "&page=\(chunk.pageNumber)" : ""
+                let fullUrl = urlPath + pageParam
+                
+                // Add the formatted source to the response
+                formattedResponse += "\(sourceNumber). \(sourceText)\n   \(fullUrl)\n"
+                
+                // Increment the source number
+                sourceNumber += 1
             }
         }
         
