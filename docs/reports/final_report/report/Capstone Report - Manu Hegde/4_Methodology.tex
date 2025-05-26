@@ -107,72 +107,66 @@ This organization promotes maintainability and allows for clear separation of co
 \subsection{RAG Backend}
 \label{subsec:AppDesignModules-RAG Backend}
 %----------------------
- (lib-tldr)
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.5\linewidth]{images/lib_tldr_fs.png}
-    \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.5\linewidth]{images/lib_tldr_fs.png}
+  \caption{RAG Backend(lib\_tldr) codebase}
+  \label{fig:libTldrCodebase}
 \end{figure}
 
+The RAG backend is implemented as a C++ static library named \texttt{lib\_tldr}. It serves as the backbone for all core functionalities of the project. This module encapsulates the complete RAG pipeline logic and integrates essential components such as the large language model for text and embedding generation, the vector dump generator and reader, database and file system handlers for storage, and the cosine similarity-based vector retriever (as seen in Fig~\ref{fig:libTldrCodebase}).
 
-
-\subsubsection{Overview}
-
-The \texttt{lib\_tldr} module forms the core of the Project TLDR system, a standalone desktop application designed to support document question-answering and summarization using efficient local language models. This C++ library acts as the orchestration layer that integrates large language model inference, vector embedding generation, database storage, and similarity-based retrieval. The architecture is designed for modularity and resource efficiency, particularly targeting macOS systems with NPU (Neural Processing Unit) acceleration support.
+The architecture emphasizes modularity and resource efficiency, enabling plug-and-play replacement or extension of components. It adheres to the SOLID principles of object-oriented programming, promoting adaptability, maintainability, and scalability.
 
 
 
-\subsubsection{Central Logic: \texttt{lib\_tldr.cpp}}
+Following are the logical sub-modules of RAG Backend:
+\begin{enumerate}[label=\Alph*.]
+\item{\textbf{Language Model Interface:}}
 
-The \texttt{lib\_tldr.cpp} file encapsulates the main control logic of the system. It coordinates the interaction between language model components, persistent storage modules, and the vector search layer. Specifically, it manages document ingestion workflows, embedding generation and storage, and the orchestration of semantic retrieval routines.
+The system utilizes \texttt{llama.cpp} as the backend for both text generation and embedding extraction. Following components facilitate this integration:
 
-\subsubsection{Language Model Interface}
+\begin{enumerate}
+    \item \textbf{\texttt{LlmChat.cpp \& .h}}: Manage the logic to take user input and retrieved context and generate a response from the chat LLM. 
+    \item \textbf{\texttt{LlmEmbeddings.cpp \& .h}}: These modules extract dense vector representations (embeddings) from document chunks, which are subsequently used for semantic similarity search and retrieval.
+    \item \textbf{\texttt{LlmContextPool.cpp \& .h}}: These components manage the lifecycle of LLM context objects, which encapsulate the model state necessary for efficient inference. Since LLMs typically require a context to maintain internal buffers, tokenizer state, and memory allocations, it is computationally expensive to initialize a new context for every query or embedding operation. By pooling and reusing contexts across multiple operations, the system significantly reduces initialization overhead and ensures smoother, low-latency performance during both chat and embedding workflows.
+    \item \textbf{\texttt{Llm-Wrappers.cpp \& .h}}: Takes care of initializing and cleaning up resources related to the LLMs. It initializes common ggml backend for Apple metal and setting up LLM context pools and initialize Chat and Embedding LLMs by loading their weights into memory.
+\end{enumerate}
 
-The system utilizes \texttt{llama.cpp} as the backend for both text generation and embedding extraction. Two components facilitate this integration:
+\item{\textbf{Database Interaction:}}
+All persistent storage is handled via the PostgreSQL backend, though an optional SQLite backend is also implemented (but not currently utilized). The database interaction is managed within the \texttt{db} submodule, which includes the follwing:
 
-\begin{itemize}
-    \item \textbf{\texttt{LlmChat.cpp} and \texttt{LlmChat.h}}: These files manage the prompt formatting and chat-based inference pipeline. They are responsible for generating natural language responses to user queries.
-    \item \textbf{\texttt{LlmEmbeddings.cpp} and \texttt{LlmEmbeddings.h}}: These modules extract dense vector representations (embeddings) from document chunks, which are subsequently used for semantic similarity search and retrieval.
-    
-    \item \textbf{\texttt{LlmContextPool.cpp} and \texttt{LlmContextPool.h}}: These components manage the lifecycle of LLM context objects, which encapsulate the model state necessary for efficient inference. Since LLMs typically require a context to maintain internal buffers, tokenizer state, and memory allocations, it is computationally expensive to initialize a new context for every query or embedding operation. By pooling and reusing contexts across multiple operations, the system significantly reduces initialization overhead and ensures smoother, low-latency performance during both chat and embedding workflows.
-\end{itemize}
-
-\subsubsection{Database Interaction}
-
-All persistent storage is handled via the PostgreSQL backend, though an optional SQLite backend is also implemented (but not currently utilized). The relevant database interaction is managed within the \texttt{db} submodule, which includes:
-
-\begin{itemize}
-    \item \textbf{\texttt{postgres\_database.cpp}} and \textbf{\texttt{postgres\_database.h}}: These files handle database initialization, schema definition, and CRUD operations related to documents and embeddings.
-    \item \textbf{\texttt{connection\_pool.h}}: Provides a lightweight connection pooling mechanism to manage multiple concurrent database sessions efficiently. This is especially beneficial during large-scale embedding operations where multiple inserts are performed rapidly.
-\end{itemize}
+\begin{enumerate}[label=\alph*.]
+\item \textbf{\texttt{database.h}}\: Defines an abstract class that enforces a uniform interface for any underlying database implementation. This design allows the RAG codebase to remain unchanged when switching between different database technologies.
+    \item \textbf{\texttt{postgres\_database.cpp \& .h}}: These files handle database initialization, schema definition, and CRUD operations related to documents and embeddings in PostgreSQL Database.
+    \item \textbf{\texttt{connection\_pool.h}}: Provides a lightweight connection pooling mechanism to manage multiple concurrent database sessions efficiently. This is especially beneficial during large-scale embedding operations where multiple inserts are performed rapidly. It is efficient to store readily available connections and re-use them instead of creating a new connection for every db interaction.
+\end{enumerate}
 
 The PostgreSQL schema stores both high-level document metadata (e.g., title, author, page count) and low-level embedding-related information (e.g., text chunk, hash, embedding vector, page number, and timestamps).
 
-\subsubsection{Embeddings Vector Management and Retrieval}
+\item{\textbf{Embeddings Vector Storage and Retrieval\:}}
 
-\texttt{vec\_dump.cpp} and \texttt{vec\_dump.h} are responsible for managing the serialized storage of raw vector data ("vecdumps"). These are binary representations of embedding vectors that can be rapidly accessed and processed.
+\texttt{vec\_dump.cpp \& .h}  are responsible for managing the serialized storage of raw vector data ("vecdumps"). These are binary representations of embedding vectors that can be rapidly accessed and processed.
 
 Additionally, the system incorporates a hardware-accelerated module referred to as the \texttt{npu-accelerator}, which leverages macOS’s Neural Engine to perform cosine similarity search over large sets of embeddings. This offloads compute-intensive operations from the CPU, enabling real-time retrieval performance on resource-constrained devices.
 
-\subsubsection{Application Programming Interface}
-
-The \texttt{tldr\_api.cpp} and \texttt{tldr\_api.h} files expose a clean, C-style API interface for the user-facing application layer. This includes functions for:
-
+\item{\textbf{Core Workflow:}}
+The \texttt{lib\_tldr.cpp \& .h} contain the core logic that glues the entire system together such as:
 \begin{itemize}
-    \item Ingesting new documents
-    \item Querying embedded documents
-    \item Retrieving summaries
-    \item Performing semantic search against stored embeddings
+    \item Initializing the LLMs and the Database tables (when necessary)
+    \item Creating DB connection pool and LLM context pool
+    \item Checking for changes in the corpus directory and embedding new documents
+    \item Performing Retrieval Augmented Generation
+    \item Cleaning up and releasing acquired resources
 \end{itemize}
 
-These APIs serve as the bridge between the user interface and the internal logic managed by \texttt{lib\_tldr}.
 
-\subsubsection{Conclusion}
+\item{\textbf{RAG Backend API:}}
+While the backend contains numerous functions and data structures for internal logic, a clean and minimalistic API (Application Program Interface) is exposed. This allows its client modules (such as the UI module) to leverage its capabilities without being closely coupled with the internal mechanisms of the library.
 
-The \texttt{lib\_tldr} library is designed with modularity, performance, and scalability in mind. It abstracts complex interactions between large language models, persistent databases, and similarity search engines into a unified C++ library. Its architecture supports future extensibility, such as the integration of new model backends or optimized search strategies, making it well-suited for local, privacy-conscious LLM applications.
+The \texttt{tldr\_api.cpp \& .h} files expose a clean, C-style API interface for the user-facing application layer on top of the functions present in \texttt{lib\_tldr.cpp \& .h}. 
 
-
+\end{enumerate}
 
  %----------------------
 \subsection{Database (PostgreSQL)}
