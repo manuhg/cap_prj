@@ -175,37 +175,23 @@ struct MessageBubble: View {
                 Spacer(minLength: 100)
             }
             
-            // Use NSTextView for better link handling
-            if message.content.contains("file://") {
-                ClickableLinksTextView(text: message.content, textColor: textColor)
-                    .padding(12)
-                    .background(bubbleColor)
-                    .cornerRadius(16)
-                    .frame(maxWidth: 600, alignment: alignment)
-                    .contextMenu {
-                        Button(action: {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(message.content, forType: .string)
-                        }) {
-                            Label("Copy", systemImage: "doc.on.doc")
-                        }
-                    }
-            } else {
-                // Regular text for messages without links
-                Text(message.content)
-                    .padding(12)
-                    .background(bubbleColor)
-                    .foregroundColor(textColor)
-                    .cornerRadius(16)
-                    .frame(maxWidth: 600, alignment: alignment)
-                    .contextMenu {
-                        Button(action: {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(message.content, forType: .string)
-                        }) {
-                            Label("Copy", systemImage: "doc.on.doc")
-                        }
-                    }
+            // Use a VStack to contain the message content
+            VStack {
+                // Use a custom Text view that handles URLs properly
+                LinkifiedText(text: message.content)
+            }
+            .padding(12)
+            .background(bubbleColor)
+            .foregroundColor(textColor)
+            .cornerRadius(16)
+            .frame(maxWidth: 600, alignment: alignment)
+            .contextMenu {
+                Button(action: {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(message.content, forType: .string)
+                }) {
+                    Label("Copy", systemImage: "doc.on.doc")
+                }
             }
             
             if message.sender != .user {
@@ -216,87 +202,139 @@ struct MessageBubble: View {
     }
 }
 
-// NSTextView wrapper for clickable links
-struct ClickableLinksTextView: NSViewRepresentable {
+// Custom Text view that properly handles file:// URLs
+struct LinkifiedText: View {
     let text: String
-    let textColor: Color
     
-    func makeNSView(context: Context) -> NSScrollView {
-        // Create a text storage with the attributed string
-        let textStorage = NSTextStorage(attributedString: createAttributedString())
+    var body: some View {
+        let detector = try! NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+        let matches = detector.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count))
         
-        // Create layout manager and text container
-        let layoutManager = NSLayoutManager()
-        textStorage.addLayoutManager(layoutManager)
-        
-        let textContainer = NSTextContainer(containerSize: CGSize(width: 600, height: CGFloat.greatestFiniteMagnitude))
-        textContainer.widthTracksTextView = true
-        layoutManager.addTextContainer(textContainer)
-        
-        // Create NSTextView with the text container
-        let textView = NSTextView(frame: .zero, textContainer: textContainer)
-        textView.isEditable = false
-        textView.isSelectable = true
-        textView.drawsBackground = false
-        textView.textColor = NSColor(textColor)
-        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
-        textView.isAutomaticLinkDetectionEnabled = true
-        textView.allowsUndo = false
-        textView.textContainerInset = NSSize(width: 0, height: 0)
-        
-        // Create a scroll view to contain the text view
-        let scrollView = NSScrollView()
-        scrollView.documentView = textView
-        scrollView.hasVerticalScroller = false
-        scrollView.hasHorizontalScroller = false
-        scrollView.drawsBackground = false
-        
-        // Size the text view to fit its content
-        textView.sizeToFit()
-        
-        return scrollView
-    }
-    
-    func updateNSView(_ nsView: NSScrollView, context: Context) {
-        if let textView = nsView.documentView as? NSTextView {
-            textView.textStorage?.setAttributedString(createAttributedString())
-            textView.textColor = NSColor(textColor)
-            textView.sizeToFit()
+        if matches.isEmpty {
+            // No links found, just use regular Text
+            Text(text)
+        } else {
+            // Links found, create a custom view
+            LinkTextView(text: text, matches: matches)
         }
     }
+}
+
+struct LinkTextView: View {
+    let text: String
+    let matches: [NSTextCheckingResult]
     
-    private func createAttributedString() -> NSAttributedString {
-        let attributedString = NSMutableAttributedString(string: text)
-        
-        // Find file:/// URLs using regex
-        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-        let range = NSRange(location: 0, length: text.utf16.count)
-        
-        // Apply link attributes to URLs
-        detector?.enumerateMatches(in: text, options: [], range: range) { (match, _, _) in
-            if let match = match, let url = match.url {
-                attributedString.addAttribute(.link, value: url, range: match.range)
-                attributedString.addAttribute(.foregroundColor, value: NSColor.blue, range: match.range)
-                attributedString.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: match.range)
-            }
-        }
-        
-        // Additional regex for file:/// URLs which might not be detected by NSDataDetector
-        let fileURLPattern = "file://[^ \n]+"
-        if let regex = try? NSRegularExpression(pattern: fileURLPattern, options: []) {
-            regex.enumerateMatches(in: text, options: [], range: range) { (match, _, _) in
-                if let match = match {
-                    let urlString = (text as NSString).substring(with: match.range)
-                    if let url = URL(string: urlString) {
-                        attributedString.addAttribute(.link, value: url, range: match.range)
-                        attributedString.addAttribute(.foregroundColor, value: NSColor.blue, range: match.range)
-                        attributedString.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: match.range)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(0..<processedText().count, id: \.self) { index in
+                let item = processedText()[index]
+                if item.isLink {
+                    Button(action: {
+                        if let url = URL(string: item.text) {
+                            handleURL(url)
+                        }
+                    }) {
+                        Text(item.displayText)
+                            .foregroundColor(.blue)
+                            .underline()
                     }
+                    .buttonStyle(PlainButtonStyle())
+                } else {
+                    Text(item.text)
                 }
             }
         }
+    }
+    
+    private func processedText() -> [(text: String, displayText: String, isLink: Bool)] {
+        var result: [(text: String, displayText: String, isLink: Bool)] = []
+        var currentIndex = text.startIndex
         
-        return attributedString
+        // Sort matches by range location
+        let sortedMatches = matches.sorted { $0.range.location < $1.range.location }
+        
+        for match in sortedMatches {
+            // Add text before the link
+            let linkStartIndex = text.index(text.startIndex, offsetBy: match.range.location)
+            if currentIndex < linkStartIndex {
+                let textSegment = String(text[currentIndex..<linkStartIndex])
+                result.append((textSegment, textSegment, false))
+            }
+            
+            // Add the link
+            let linkEndIndex = text.index(linkStartIndex, offsetBy: match.range.length)
+            let linkText = String(text[linkStartIndex..<linkEndIndex])
+            
+            // Create display text (for file URLs, show just the filename)
+            var displayText = linkText
+            if let url = URL(string: linkText), url.scheme == "file" {
+                displayText = url.lastPathComponent
+            }
+            
+            result.append((linkText, displayText, true))
+            currentIndex = linkEndIndex
+        }
+        
+        // Add any remaining text after the last link
+        if currentIndex < text.endIndex {
+            let textSegment = String(text[currentIndex..<text.endIndex])
+            result.append((textSegment, textSegment, false))
+        }
+        
+        return result
+    }
+    
+    private func handleURL(_ url: URL) {
+        // Handle file:// URLs
+        if url.scheme == "file" {
+            // Create a clean file URL
+            var fileURL = url
+            
+            // Extract page number from fragment if present
+            var pageNumber: Int? = nil
+            if let fragment = url.fragment, fragment.hasPrefix("page=") {
+                let pageStr = fragment.dropFirst(5) // Remove "page="
+                pageNumber = Int(pageStr)
+                
+                // Remove fragment from URL for clean file access
+                if let urlWithoutFragment = URL(string: url.absoluteString.components(separatedBy: "#")[0]) {
+                    fileURL = urlWithoutFragment
+                }
+            }
+            
+            // For PDF files with page numbers, create a special URL that Preview.app can understand
+            if fileURL.pathExtension.lowercased() == "pdf", let pageNumber = pageNumber {
+                // Create a URL with the Preview-specific page parameter
+                let previewPagedURL = URL(string: "file://" + fileURL.path + "#page=" + String(pageNumber))
+                if let previewPagedURL = previewPagedURL {
+                    // Try to open with NSWorkspace which will use the default PDF viewer (usually Preview)
+                    NSWorkspace.shared.open(previewPagedURL)
+                    return
+                }
+            }
+            
+            // Fallback to regular file opening if not a PDF or no page number
+            NSWorkspace.shared.open(fileURL)
+        }
+        // Handle localhost URLs
+        else if url.host == "localhost" && url.path == "/pdf" {
+            // Extract the file path and page number from the URL query parameters
+            guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  let pathItem = components.queryItems?.first(where: { $0.name == "path" }),
+                  let filePath = pathItem.value?.removingPercentEncoding else {
+                return
+            }
+            
+            // Create a file URL with the path
+            let fileURL = URL(fileURLWithPath: filePath)
+            
+            // Open the file with NSWorkspace
+            NSWorkspace.shared.open(fileURL)
+        }
+        // Handle other URLs
+        else {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 
