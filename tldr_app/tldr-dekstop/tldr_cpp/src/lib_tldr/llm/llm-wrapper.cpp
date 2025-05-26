@@ -87,9 +87,9 @@ namespace tldr {
     std::string LlmManager::get_chat_response(const std::string &context, const std::string &prompt) {
         std::cout<<"\nGenerating Chat LLM Response ..."<<std::endl;
         const std::string system_prompt =
-                "You are a helpful AI Assistant. Go through the given context and answer the user's questions. Keep the answers short and precise.";
+                "You are a helpful AI Assistant. Use the context and answer the user's question. Keep it short and precise.";
         std::string formatted_prompt = "<|system|>\n" + system_prompt + "\n<|context|>\n" + context + "\n<|user|>\n" +
-                                       prompt + "\n<|assistant|>\n";
+                                       prompt + "\nBrief response:\n";
 
         // A simpler alternative if the model doesn't use special tokens:
         // std::string formatted_prompt = system_prompt + "\n\nUser: " + user_prompt + "\nAssistant: ";
