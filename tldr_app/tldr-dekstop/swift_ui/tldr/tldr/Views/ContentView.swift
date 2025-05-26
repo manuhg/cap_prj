@@ -11,13 +11,18 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 // TLDR branding
                 HStack(spacing: 12) {
-                    Image(nsImage: NSImage(named: NSImage.applicationIconName)!)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 32, height: 32)
-                        .background(.clear)
+                    if let nsImage = NSImage(named: NSImage.applicationIconName) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 32, height: 32)
+                            .background(Color.clear)
+                            .drawingGroup(opaque: false)
+                    }
+
                     Text("TLDR")
                         .font(.system(size: 24, weight: .bold))
+
                     Spacer()
                 }
                 .padding(.horizontal)
