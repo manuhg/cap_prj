@@ -207,22 +207,73 @@ struct LinkifiedText: View {
     let text: String
     
     var body: some View {
+        // Use a custom URL detection approach that better handles file URLs with fragments
+        let urls = extractURLs(from: text)
+        
+        if urls.isEmpty {
+            // No URLs found, just use regular Text
+            Text(text)
+        } else {
+            // URLs found, create a custom view with our extracted URLs
+            CustomLinkTextView(text: text, urls: urls)
+        }
+    }
+    
+    // Custom URL extraction that handles file:// URLs with page numbers
+    private func extractURLs(from text: String) -> [(range: Range<String.Index>, url: URL)] {
+        var results: [(range: Range<String.Index>, url: URL)] = []
+        
+        // First try the standard NSDataDetector
         let detector = try! NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
         let matches = detector.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count))
         
-        if matches.isEmpty {
-            // No links found, just use regular Text
-            Text(text)
-        } else {
-            // Links found, create a custom view
-            LinkTextView(text: text, matches: matches)
+        for match in matches {
+            if let range = Range(match.range, in: text), let url = URL(string: String(text[range])) {
+                results.append((range, url))
+            }
         }
+        
+        // Then look for file:// URLs that might not be detected properly
+        let filePrefix = "file://"
+        var searchRange = text.startIndex..<text.endIndex
+        
+        while let fileStartRange = text.range(of: filePrefix, options: [], range: searchRange) {
+            // Find the end of the URL (whitespace or newline)
+            let urlStartIndex = fileStartRange.lowerBound
+            var urlEndIndex = text.endIndex
+            
+            // Use indices to safely iterate through String.Index values
+            var currentIndex = fileStartRange.upperBound
+            while currentIndex < text.endIndex {
+                let char = text[currentIndex]
+                if char.isWhitespace || char.isNewline {
+                    urlEndIndex = currentIndex
+                    break
+                }
+                currentIndex = text.index(after: currentIndex)
+            }
+            
+            let urlRange = urlStartIndex..<urlEndIndex
+            let urlString = String(text[urlRange])
+            
+            // Only add if it's a valid URL and not already in our results
+            if let url = URL(string: urlString),
+               !results.contains(where: { $0.range.overlaps(urlRange) }) {
+                results.append((urlRange, url))
+            }
+            
+            // Update search range for next iteration
+            searchRange = urlEndIndex..<text.endIndex
+        }
+        
+        // Sort by range location
+        return results.sorted { $0.range.lowerBound < $1.range.lowerBound }
     }
 }
 
-struct LinkTextView: View {
+struct CustomLinkTextView: View {
     let text: String
-    let matches: [NSTextCheckingResult]
+    let urls: [(range: Range<String.Index>, url: URL)]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -230,7 +281,7 @@ struct LinkTextView: View {
                 let item = processedText()[index]
                 if item.isLink {
                     Button(action: {
-                        if let url = URL(string: item.text) {
+                        if let url = item.url {
                             handleURL(url)
                         }
                     }) {
@@ -246,75 +297,55 @@ struct LinkTextView: View {
         }
     }
     
-    private func processedText() -> [(text: String, displayText: String, isLink: Bool)] {
-        var result: [(text: String, displayText: String, isLink: Bool)] = []
+    private func processedText() -> [(text: String, displayText: String, isLink: Bool, url: URL?)] {
+        var result: [(text: String, displayText: String, isLink: Bool, url: URL?)] = []
         var currentIndex = text.startIndex
         
-        // Sort matches by range location
-        let sortedMatches = matches.sorted { $0.range.location < $1.range.location }
-        
-        for match in sortedMatches {
+        for urlInfo in urls {
             // Add text before the link
-            let linkStartIndex = text.index(text.startIndex, offsetBy: match.range.location)
-            if currentIndex < linkStartIndex {
-                let textSegment = String(text[currentIndex..<linkStartIndex])
-                result.append((textSegment, textSegment, false))
+            if currentIndex < urlInfo.range.lowerBound {
+                let textSegment = String(text[currentIndex..<urlInfo.range.lowerBound])
+                result.append((textSegment, textSegment, false, nil))
             }
             
             // Add the link
-            let linkEndIndex = text.index(linkStartIndex, offsetBy: match.range.length)
-            let linkText = String(text[linkStartIndex..<linkEndIndex])
+            let linkText = String(text[urlInfo.range])
             
             // Create display text (for file URLs, show just the filename)
             var displayText = linkText
-            if let url = URL(string: linkText), url.scheme == "file" {
-                displayText = url.lastPathComponent
+            if urlInfo.url.scheme == "file" {
+                // For file URLs, just show the filename
+                displayText = urlInfo.url.lastPathComponent
+                
+                // If there's a page number, add it to the display
+                if let fragment = urlInfo.url.fragment, fragment.hasPrefix("page="),
+                   let pageNumber = Int(fragment.dropFirst(5)) {
+                    displayText += " (page \(pageNumber))"
+                }
             }
             
-            result.append((linkText, displayText, true))
-            currentIndex = linkEndIndex
+            result.append((linkText, displayText, true, urlInfo.url))
+            currentIndex = urlInfo.range.upperBound
         }
         
         // Add any remaining text after the last link
         if currentIndex < text.endIndex {
             let textSegment = String(text[currentIndex..<text.endIndex])
-            result.append((textSegment, textSegment, false))
+            result.append((textSegment, textSegment, false, nil))
         }
         
         return result
     }
     
     private func handleURL(_ url: URL) {
-        // Handle file:// URLs
+        print("Opening URL: \(url)")
+        
+        // Handle file:// URLs - assuming all are PDF files with page numbers
         if url.scheme == "file" {
-            // Create a clean file URL
-            var fileURL = url
-            
-            // Extract page number from fragment if present
-            var pageNumber: Int? = nil
-            if let fragment = url.fragment, fragment.hasPrefix("page=") {
-                let pageStr = fragment.dropFirst(5) // Remove "page="
-                pageNumber = Int(pageStr)
-                
-                // Remove fragment from URL for clean file access
-                if let urlWithoutFragment = URL(string: url.absoluteString.components(separatedBy: "#")[0]) {
-                    fileURL = urlWithoutFragment
-                }
-            }
-            
-            // For PDF files with page numbers, create a special URL that Preview.app can understand
-            if fileURL.pathExtension.lowercased() == "pdf", let pageNumber = pageNumber {
-                // Create a URL with the Preview-specific page parameter
-                let previewPagedURL = URL(string: "file://" + fileURL.path + "#page=" + String(pageNumber))
-                if let previewPagedURL = previewPagedURL {
-                    // Try to open with NSWorkspace which will use the default PDF viewer (usually Preview)
-                    NSWorkspace.shared.open(previewPagedURL)
-                    return
-                }
-            }
-            
-            // Fallback to regular file opening if not a PDF or no page number
-            NSWorkspace.shared.open(fileURL)
+            // Simply open the original URL with the page number fragment intact
+            print("Opening PDF with page number: \(url)")
+            NSWorkspace.shared.open(url)
+            return
         }
         // Handle localhost URLs
         else if url.host == "localhost" && url.path == "/pdf" {
