@@ -53,40 +53,52 @@ public struct RagResultSw {
         self.contextChunks = chunks
     }
     
-    /// Get a formatted string representation of the result
+    /// Get a formatted string representation of the result with clickable PDF links
     public func formattedString() -> String {
-        // Create a C RagResult
-        var cResult = TldrAPI.RagResultC()
-        cResult.response = UnsafeMutablePointer(mutating: (response as NSString).utf8String)
-        cResult.context_chunks_count = contextChunks.count
+        // Start with the original response
+        var formattedResponse = response
         
-        // Create array of context chunks
-        let chunks = contextChunks.map { chunk in
-            TldrAPI.CtxChunkMetaC(
-                text: UnsafeMutablePointer(mutating: (chunk.text as NSString).utf8String),
-                file_path: UnsafeMutablePointer(mutating: (chunk.filePath as NSString).utf8String),
-                file_name: UnsafeMutablePointer(mutating: (chunk.fileName as NSString).utf8String),
-                title: UnsafeMutablePointer(mutating: (chunk.title as NSString).utf8String),
-                author: UnsafeMutablePointer(mutating: (chunk.author as NSString).utf8String),
-                page_count: chunk.pageCount,
-                page_number: chunk.pageNumber,
-                similarity: chunk.similarity,
-                hash: chunk.id
-            )
+        // Append sources section if there are context chunks
+        if !contextChunks.isEmpty {
+            formattedResponse += "\n\n**Sources:**\n"
+            
+            // Create a set to track unique file+page combinations
+            var uniqueReferences = Set<String>()
+            
+            // Add each unique reference as a clickable link
+            for chunk in contextChunks {
+                // Only process PDF files
+                guard chunk.filePath.lowercased().hasSuffix(".pdf") else { continue }
+                
+                // Create a unique key for this file+page combination
+                let referenceKey = "\(chunk.filePath)#\(chunk.pageNumber)"
+                
+                // Only add each unique reference once
+                if !uniqueReferences.contains(referenceKey) {
+                    uniqueReferences.insert(referenceKey)
+                    
+                    // Format the file path for display (just the filename)
+                    let displayName = chunk.fileName.isEmpty ? 
+                        (chunk.filePath as NSString).lastPathComponent : 
+                        chunk.fileName
+                    
+                    // Create the clickable link
+                    let pageDisplay = chunk.pageNumber > 0 ? "page \(chunk.pageNumber)" : ""
+                    let linkText = displayName + (pageDisplay.isEmpty ? "" : " (\(pageDisplay))")
+                    
+                    // Create the URL with the file:/// scheme
+                    // The page parameter uses #page=N format for PDF viewers
+                    let urlPath = "file:///\(chunk.filePath.hasPrefix("/") ? String(chunk.filePath.dropFirst()) : chunk.filePath)"
+                    let pageParam = chunk.pageNumber > 0 ? "#page=\(chunk.pageNumber)" : ""
+                    let fullUrl = urlPath + pageParam
+                    
+                    // Add the formatted link to the response as a numbered list item
+                    formattedResponse += "1. [\(linkText)](\(fullUrl))\n"
+                }
+            }
         }
         
-        // Allocate memory for the chunks array
-        let chunksPtr = UnsafeMutablePointer<TldrAPI.CtxChunkMetaC>.allocate(capacity: chunks.count)
-        chunksPtr.initialize(from: chunks, count: chunks.count)
-        cResult.context_chunks = chunksPtr
-        
-        defer {
-            // Clean up allocated memory
-            chunksPtr.deallocate()
-        }
-        
-        // Convert the response to a Swift String
-        return String(cString: cResult.response)
+        return formattedResponse
     }
 }
 
