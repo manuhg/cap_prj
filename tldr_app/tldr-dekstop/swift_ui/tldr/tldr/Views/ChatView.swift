@@ -91,6 +91,12 @@ struct ChatView: View {
                     TextField("Type a message...", text: $viewModel.newMessageText, axis: .vertical)
                         .textFieldStyle(.roundedBorder)
                         .lineLimit(1...5)
+                        .onSubmit {
+                            if !viewModel.newMessageText.isEmpty && !viewModel.isLoading {
+                                viewModel.sendMessage()
+                            }
+                        }
+                        .submitLabel(.send)
                     
                     Button(action: viewModel.sendMessage) {
                         if viewModel.isLoading {

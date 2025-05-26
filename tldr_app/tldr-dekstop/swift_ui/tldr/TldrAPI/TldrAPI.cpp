@@ -88,7 +88,19 @@ void tldr_deleteCorpus(const char* corpusId) {
 
 // Query the RAG system
 RagResultC* tldr_queryRag(const char* user_query, const char* corpus_dir) {
-    auto cpp_result = tldr_cpp_api::queryRag(user_query, corpus_dir);
+    std::string npu_model_path_str;
+    
+        try {
+            // If no model path provided, try to get it from the bundle
+            npu_model_path_str = getResourcePath("CosineSimilarityBatched.mlmodelc");
+            std::cout << "Using NPU model from bundle: " << npu_model_path_str << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Error getting NPU model path from bundle: " << e.what() << std::endl;
+            // Continue without the NPU model path, the C++ API will use a default
+        }
+   
+    
+    auto cpp_result = tldr_cpp_api::queryRag(user_query, corpus_dir, npu_model_path_str);
 
     RagResultC* c_result = new RagResultC;
     c_result->response = strdup(cpp_result.response.c_str());

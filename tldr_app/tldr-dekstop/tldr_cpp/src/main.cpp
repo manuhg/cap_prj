@@ -19,7 +19,7 @@ int main() {
     // Do RAG
     std::string query = "What is the hotspot problem in cache?";
     std::string corpus_dir = "~/proj_tldr/corpus/current";
-    RagResult result = tldr_cpp_api::queryRag(query, corpus_dir);
+    RagResult result = tldr_cpp_api::queryRag(query, corpus_dir, "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/release-products/artefacts/CosineSimilarityBatched.mlmodelc");
     
     // Format and print the result with all context metadata
     std::string formatted_result = tldr_cpp_api::printRagResult(result);

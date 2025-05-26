@@ -17,9 +17,16 @@ class ChatViewModel: ObservableObject {
     private let defaultCorpusDir = "~/Downloads"
     
     init() {
+        print("[DEBUG] Initializing ChatViewModel")
         // Initialize the TLDR system
-        if !TldrWrapper.initialize() {
+        let initResult = TldrWrapper.initialize()
+        print("[DEBUG] TldrWrapper.initialize() result: \(initResult)")
+        
+        if !initResult {
+            print("[DEBUG] Failed to initialize TLDR system")
             errorMessage = "Failed to initialize TLDR system"
+        } else {
+            print("[DEBUG] TLDR system initialized successfully")
         }
         
         // Load saved conversations
@@ -98,11 +105,15 @@ class ChatViewModel: ObservableObject {
     }
     
     func sendMessage() {
+        print("[DEBUG] sendMessage called with text: \(newMessageText)")
         guard !newMessageText.isEmpty, 
               let conversation = selectedConversation,
               let conversationIndex = conversations.firstIndex(where: { $0.id == conversation.id }) else { 
+            print("[DEBUG] sendMessage guard check failed")
             return 
         }
+        
+        print("[DEBUG] Using corpus directory: \(conversation.corpusDir)")
         
         // Create a local copy of the message text
         let messageText = newMessageText
@@ -117,6 +128,7 @@ class ChatViewModel: ObservableObject {
         // Schedule the rest of the updates for the next run loop
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            print("[DEBUG] Adding user message to conversation")
             
             // Add user message
             let userMessage = Message(content: messageText, sender: .user)
@@ -130,16 +142,23 @@ class ChatViewModel: ObservableObject {
             self.saveConversations()
             
             // Perform RAG query in background
+            print("[DEBUG] Starting RAG query in background thread")
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 guard let self = self else { return }
                 
+                print("[DEBUG] Querying RAG system with message: \(messageText)")
+                print("[DEBUG] Using corpus directory: \(conversation.corpusDir)")
+                
                 // Query the RAG system using the conversation's corpusDir
                 if let result = TldrWrapper.queryRag(messageText, corpusDir: conversation.corpusDir) {
+                    print("[DEBUG] RAG query successful, response length: \(result.response.count)")
                     DispatchQueue.main.async { [weak self] in
                         guard let self = self else { return }
+                        print("[DEBUG] Handling RAG result on main thread")
                         self.handleRagResult(result, for: conversationIndex)
                     }
                 } else {
+                    print("[DEBUG] RAG query failed, result is nil")
                     DispatchQueue.main.async { [weak self] in
                         guard let self = self else { return }
                         self.errorMessage = "Failed to get response from RAG system"
@@ -151,22 +170,31 @@ class ChatViewModel: ObservableObject {
     }
     
     private func handleRagResult(_ result: RagResultSw, for conversationIndex: Int) {
+        print("[DEBUG] handleRagResult called with result")
+        
         // Get formatted response
         let responseText = result.formattedString() ?? result.response
+        print("[DEBUG] Response text length: \(responseText.count)")
+        print("[DEBUG] Response text preview: \(responseText.prefix(100))")
+        
         let assistantMessage = Message(content: responseText, sender: .assistant)
         
         // Update conversation with assistant's response
         var updatedConversation = conversations[conversationIndex]
+        print("[DEBUG] Adding assistant message to conversation \(updatedConversation.id)")
         updatedConversation.messages.append(assistantMessage)
         updatedConversation.lastUpdated = Date()
         
         // Update UI
+        print("[DEBUG] Updating UI with new conversation data")
         conversations[conversationIndex] = updatedConversation
         selectedConversation = updatedConversation
         
         // Save changes
+        print("[DEBUG] Saving conversations to UserDefaults")
         saveConversations()
         
+        print("[DEBUG] Setting isLoading to false")
         isLoading = false
     }
     

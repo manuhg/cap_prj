@@ -122,7 +122,7 @@ public class TldrWrapper {
             let cResult: UnsafeMutablePointer<TldrAPI.RagResultC>?
             
             if let corpusDir = corpusDir {
-                cResult = corpusDir.withCString { dirCString in
+                    cResult = corpusDir.withCString { dirCString in
                     TldrAPI.tldr_queryRag(queryCString, dirCString)
                 }
             } else {

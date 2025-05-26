@@ -911,7 +911,7 @@ void doRag(const std::string &conversationId) {
     }
 }
 
-RagResult queryRag(const std::string &user_query, const std::string &corpus_dir) {
+RagResult queryRag(const std::string &user_query, const std::string &corpus_dir, const std::string &npu_model_path) {
     RagResult result;
 
     if (!g_db) {
@@ -931,10 +931,12 @@ RagResult queryRag(const std::string &user_query, const std::string &corpus_dir)
         std::cout << "Using NPU-accelerated similarity search..." << std::endl;
 
         // Use NPU-accelerated similarity search instead of database search
+        std::cout << "Using NPU model path: " << npu_model_path << std::endl;
         auto similar_chunks = searchSimilarVectorsNPU(
             query_embeddings[0], // Query vector
             translatePath(corpus_dir), // Vector corpus directory
-            K_SIMILAR_CHUNKS_TO_RETRIEVE // Number of results to return
+            K_SIMILAR_CHUNKS_TO_RETRIEVE, // Number of results to return
+            npu_model_path // NPU model path
         );
 
         // Fallback to traditional database search if NPU search returns no results
@@ -1051,9 +1053,7 @@ std::map<uint64_t, float> npuCosineSimSearchWrapper(
 
 // Wrapper function for NPU-accelerated vector similarity search
 std::vector<CtxChunkMeta> searchSimilarVectorsNPU(
-    const std::vector<float> &query_vector,
-    const std::string &corpus_dir,
-    int k) {
+    const std::vector<float> &query_vector, const std::string &corpus_dir, int k, const std::string &npu_model_path) {
     std::vector<CtxChunkMeta> similar_chunks;
 
     // We'll collect the hashes from the results and only then query the database
@@ -1070,7 +1070,8 @@ std::vector<CtxChunkMeta> searchSimilarVectorsNPU(
             query_vector.data(),
             query_vector.size(),
             k,
-            corpus_dir.c_str()
+            corpus_dir.c_str(),
+            npu_model_path.c_str()
         );
 
         // Print the hash values returned by the NPU search
@@ -1214,7 +1215,7 @@ bool test_vector_cache() {
     return header_verified && data_verified;
 }
 
-void command_loop() {
+/*void command_loop() {
     std::string input;
     std::map<std::string, std::function<void(const std::string &)> > actions = {
         {"do-rag", doRag},
@@ -1250,7 +1251,7 @@ void command_loop() {
             std::cout << "Unknown command: " << command << std::endl;
         }
     }
-}
+}*/
 
 std::string printRagResult(const RagResult &result) {
     std::stringstream formatted_result;

@@ -37,9 +37,10 @@ void deleteCorpus(const std::string& corpusId);
  * @brief Query the RAG system
  * @param user_query The user's question
  * @param corpus_dir Directory containing the corpus (defaults to current corpus)
+ * @param npu_model_path Path to the NPU model for cosine similarity search
  * @return RagResult containing the response and context chunks
  */
-RagResult queryRag(const std::string& user_query, const std::string& corpus_dir = "/Users/manu/proj_tldr/corpus/current/");
+RagResult queryRag(const std::string& user_query, const std::string& corpus_dir, const std::string& npu_model_path);
 
 /**
  * @brief Format the RAG result and its context metadata into a single string
