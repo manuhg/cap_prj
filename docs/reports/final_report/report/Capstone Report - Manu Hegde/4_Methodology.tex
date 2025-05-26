@@ -80,7 +80,7 @@ The codebase of the GUI application is illustrated in Figure~\ref{fig:tldrUIFs}.
     \label{fig:tldrUIFs}
 \end{figure}
 \begin{enumerate}[label=\Alph*.]
-    \item \textbf{Overall Structure:}
+    \itemOverall Structure:
     \begin{enumerate}[label=\alph*.]
         \item \texttt{tldr}: The Swift language codebase that creates the user interface.
         \item \texttt{TldrAPI}: C++ module with bindings for Swift UI. It serves as a bridge between the Swift UI and the C++ static library of the RAG Backend.
@@ -92,17 +92,17 @@ The codebase of the GUI application is illustrated in Figure~\ref{fig:tldrUIFs}.
     \end{itemize}
     \end{enumerate}
 
-    \item \textbf{UI Architecture (MVVM):}
+    \item UI Architecture (MVVM):
     \begin{enumerate}[label=\alph*.]
         \item \texttt{tldrApp}: The main SwiftUI entry point where the application lifecycle begins.
-        \item \textbf{Models:} Includes \texttt{ConversationData}, \texttt{Message}, and \texttt{RagResultSw} to represent the chat state and RAG outputs. These modules leverage \textit{UserDefaults} a built-in key-value persistance mechanism provided by Apple's Foundation framework to efficiently store and retrieve their information.
-        \item \textbf{Views:} Comprises SwiftUI components like \texttt{ChatView} and \texttt{ContentView} to render the main interface.
-        \item \textbf{ViewModels:} Contains \texttt{ChatViewModel}, which handles user interaction and backend coordination.
-        \item \textbf{Preview Content:} Includes \texttt{Preview Assets} for SwiftUI previews to support development and layout testing.
-        \item \textbf{Assets:} Stores static resources such as icons and other UI elements.
+        \item Models: Includes \texttt{ConversationData}, \texttt{Message}, and \texttt{RagResultSw} to represent the chat state and RAG outputs. These modules leverage \textit{UserDefaults} a built-in key-value persistance mechanism provided by Apple's Foundation framework to efficiently store and retrieve their information.
+        \item Views: Comprises SwiftUI components like \texttt{ChatView} and \texttt{ContentView} to render the main interface.
+        \item ViewModels: Contains \texttt{ChatViewModel}, which handles user interaction and backend coordination.
+        \item Preview Content: Includes \texttt{Preview Assets} for SwiftUI previews to support development and layout testing.
+        \item Assets: Stores static resources such as icons and other UI elements.
     \end{enumerate}
 \end{enumerate}
-This organization promotes maintainability and allows for clear separation of concerns between UI presentation, interaction logic, and backend communication.
+This organization promotes maintainability and allows for a clear separation of concerns between UI presentation, interaction logic, and backend communication.
 %----------------------
 \subsection{RAG Backend}
 \label{subsec:AppDesignModules-RAG Backend}
@@ -122,36 +122,36 @@ The architecture emphasizes modularity and resource efficiency, enabling plug-an
 
 Following are the logical sub-modules of RAG Backend:
 \begin{enumerate}[label=\Alph*.]
-\item{\textbf{Language Model Interface:}}
+\item{Language Model Interface:}
 
-The system utilizes \texttt{llama.cpp} as the backend for both text generation and embedding extraction. Following components facilitate this integration:
+The system utilizes \texttt{llama.cpp} as the backend for both text generation and embedding extraction. The following components facilitate this integration:
 
 \begin{enumerate}
-    \item \textbf{\texttt{LlmChat.cpp \& .h}}: Manage the logic to take user input and retrieved context and generate a response from the chat LLM. 
-    \item \textbf{\texttt{LlmEmbeddings.cpp \& .h}}: These modules extract dense vector representations (embeddings) from document chunks, which are subsequently used for semantic similarity search and retrieval.
-    \item \textbf{\texttt{LlmContextPool.cpp \& .h}}: These components manage the lifecycle of LLM context objects, which encapsulate the model state necessary for efficient inference. Since LLMs typically require a context to maintain internal buffers, tokenizer state, and memory allocations, it is computationally expensive to initialize a new context for every query or embedding operation. By pooling and reusing contexts across multiple operations, the system significantly reduces initialization overhead and ensures smoother, low-latency performance during both chat and embedding workflows.
-    \item \textbf{\texttt{Llm-Wrappers.cpp \& .h}}: Takes care of initializing and cleaning up resources related to the LLMs. It initializes common ggml backend for Apple metal and setting up LLM context pools and initialize Chat and Embedding LLMs by loading their weights into memory.
+    \item \texttt{LlmChat.cpp \&.h}: Manage the logic to take user input and retrieved context and generate a response from the chat LLM. 
+    \item \texttt{LlmEmbeddings.cpp \&.h}: These modules extract dense vector representations (embeddings) from document chunks, which are subsequently used for semantic similarity search and retrieval.
+    \item \texttt{LlmContextPool.cpp \&.h}: These components manage the lifecycle of LLM context objects, which encapsulate the model state necessary for efficient inference. Since LLMs typically require a context to maintain internal buffers, tokenizer state, and memory allocations, it is computationally expensive to initialize a new context for every query or embedding operation. By pooling and reusing contexts across multiple operations, the system significantly reduces initialization overhead and ensures smoother, low-latency performance during both chat and embedding workflows.
+    \item \texttt{Llm-Wrappers.cpp \&.h}: Takes care of initializing and cleaning up resources related to the LLMs. It initializes common ggml backend for Apple metal and setting up LLM context pools and initialize Chat and Embedding LLMs by loading their weights into memory.
 \end{enumerate}
 
-\item{\textbf{Database Interaction:}}
-All persistent storage is handled via the PostgreSQL backend, though an optional SQLite backend is also implemented (but not currently utilized). The database interaction is managed within the \texttt{db} submodule, which includes the follwing:
+\item{Database Interaction:}
+All persistent storage is handled via the PostgreSQL backend, though an optional SQLite backend is also implemented (but not currently utilized). The database interaction is managed within the \texttt{db} submodule, which includes the following:
 
 \begin{enumerate}[label=\alph*.]
-\item \textbf{\texttt{database.h}}\: Defines an abstract class that enforces a uniform interface for any underlying database implementation. This design allows the RAG codebase to remain unchanged when switching between different database technologies.
-    \item \textbf{\texttt{postgres\_database.cpp \& .h}}: These files handle database initialization, schema definition, and CRUD operations related to documents and embeddings in PostgreSQL Database.
-    \item \textbf{\texttt{connection\_pool.h}}: Provides a lightweight connection pooling mechanism to manage multiple concurrent database sessions efficiently. This is especially beneficial during large-scale embedding operations where multiple inserts are performed rapidly. It is efficient to store readily available connections and re-use them instead of creating a new connection for every db interaction.
+\item \texttt{database.h}\: Defines an abstract class that enforces a uniform interface for any underlying database implementation. This design allows the RAG codebase to remain unchanged when switching between different database technologies.
+    \item \texttt{postgres\_database.cpp \&.h}: These files handle database initialization, schema definition, and CRUD operations related to documents and embeddings in PostgreSQL Database.
+    \item \texttt{connection\_pool.h}: Provides a lightweight connection pooling mechanism to manage multiple concurrent database sessions efficiently. This is especially beneficial during large-scale embedding operations where multiple inserts are performed rapidly. It is efficient to store readily available connections and re-use them instead of creating a new connection for every db interaction.
 \end{enumerate}
 
 The PostgreSQL schema stores both high-level document metadata (e.g., title, author, page count) and low-level embedding-related information (e.g., text chunk, hash, embedding vector, page number, and timestamps).
 
-\item{\textbf{Embeddings Vector Storage and Retrieval\:}}
+\item{Embeddings Vector Storage and Retrieval\:}
 
-\texttt{vec\_dump.cpp \& .h}  are responsible for managing the serialized storage of raw vector data ("vecdumps"). These are binary representations of embedding vectors that can be rapidly accessed and processed.
+\texttt{vec\_dump.cpp \&.h}  are responsible for managing the serialized storage of raw vector data ("vecdumps"). These are binary representations of embedding vectors that can be rapidly accessed and processed.
 
 Additionally, the system incorporates a hardware-accelerated module referred to as the \texttt{npu-accelerator}, which leverages macOS’s Neural Engine to perform cosine similarity search over large sets of embeddings. This offloads compute-intensive operations from the CPU, enabling real-time retrieval performance on resource-constrained devices.
 
-\item{\textbf{Core Workflow:}}
-The \texttt{lib\_tldr.cpp \& .h} contain the core logic that glues the entire system together such as:
+\item{Core Workflow:}
+The \texttt{lib\_tldr.cpp \&.h} contains the core logic that glues the entire system together, such as:
 \begin{itemize}
     \item Initializing the LLMs and the Database tables (when necessary)
     \item Creating DB connection pool and LLM context pool
@@ -161,10 +161,10 @@ The \texttt{lib\_tldr.cpp \& .h} contain the core logic that glues the entire sy
 \end{itemize}
 
 
-\item{\textbf{RAG Backend API:}}
-While the backend contains numerous functions and data structures for internal logic, a clean and minimalistic API (Application Program Interface) is exposed. This allows its client modules (such as the UI module) to leverage its capabilities without being closely coupled with the internal mechanisms of the library.
+\item{RAG Backend API:}
+While the backend contains numerous functions and data structures for internal logic, a clean and minimalistic API (Application Programming Interface) is exposed. This allows its client modules (such as the UI module) to leverage its capabilities without being closely coupled with the internal mechanisms of the library.
 
-The \texttt{tldr\_api.cpp \& .h} files expose a clean, C-style API interface for the user-facing application layer on top of the functions present in \texttt{lib\_tldr.cpp \& .h}. 
+The \texttt{tldr\_api.cpp \&.h} files expose a clean, C-style API interface for the user-facing application layer on top of the functions present in \texttt{lib\_tldr.cpp \&.h}. 
 
 \end{enumerate}
 
@@ -172,47 +172,30 @@ The \texttt{tldr\_api.cpp \& .h} files expose a clean, C-style API interface for
 \subsection{Database (PostgreSQL)}
 \label{subsec:AppDesignModules-DatabasePSQL}
 %----------------------
-\begin{lstlisting}
-CREATE TABLE IF NOT EXISTS documents (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    file_hash TEXT NOT NULL UNIQUE,
-    file_path TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    title TEXT,
-    author TEXT,
-    subject TEXT,
-    keywords TEXT,
-    creator TEXT,
-    producer TEXT,
-    page_count INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-\end{lstlisting}
+The application uses PostgreSQL as its persistent storage backend to manage and retrieve embedding data required during the Retrieval-Augmented Generation (RAG) process. The database stores preprocessed document chunks, their vector embeddings, associated metadata, and file-level information.
+
+PostgreSQL was chosen over lighter-weight alternatives like SQLite due to its superior concurrency handling. Specifically, SQLite’s single-writer limitation presented a bottleneck in the multi-threaded embedding pipeline, where concurrent writes to the embedding store are common. PostgreSQL’s support for multiple concurrent writers allows the embedding process to scale efficiently without serialization delays.
+
+\subsubsection{Table: documents}
+This table stores metadata for each unique input file in the corpus. It ensures file-level uniqueness through the \texttt{file\_hash} field and includes fields such as file name, author, subject, page count, and timestamps. It acts as a parent entity in a one-to-many relationship with the \texttt{embeddings} table (refer to table definition in Fig~\ref{fig:psqlDocumentTableDesc}). 
+
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1.0\linewidth]{images/dbtable-documents.png}
-    \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+    \includegraphics[width=0.7\linewidth]{images/dbtable-documents.png}
+    \caption{Documents table description}
+    \label{fig:psqlDocumentTableDesc}
 \end{figure}
 
 
-\begin{lstlisting}
-CREATE TABLE IF NOT EXISTS embeddings (
-    id BIGSERIAL PRIMARY KEY,
-    document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
-    chunk_text TEXT NOT NULL,
-    embedding_hash TEXT,
-    embedding vector(EMBEDDING_SIZE) NOT NULL, 
-    page_number INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-\end{lstlisting}
+\subsubsection{Table: embeddings}
+
+This table stores the chunk-level data required for semantic search. Each row contains a reference to a document, the original text chunk, its embedding vector, and an embedding hash. During query time, the vector search module returns the top-$K$ most similar vectors based on cosine similarity. The corresponding text chunks are then retrieved from this table using the hash and document ID to form the LLM context (refer to table definition in Fig~\ref{fig:psqlEmbeddingsTable}).
+
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1.0\linewidth]{images/dbtable-embeddings.png}
-    \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+    \includegraphics[width=0.7\linewidth]{images/dbtable-embeddings.png}
+    \caption{Embeddings table description}
+    \label{fig:psqlEmbeddingsTable}
 \end{figure}
 %----------------------
 \subsection{File System: Corpus Directory and Vectordump Files}
@@ -224,17 +207,21 @@ Vector dump files are binary data structures designed for efficient storage of d
 \subsubsection{Corpus Directory}
 \label{subsec:AppDesignModules-CorpusDir}
 %----------------------
+The corpus directory serves as the source of truth for the RAG pipeline. It contains the raw documents—primarily PDF files—that are parsed, chunked, and processed by the language model to construct the knowledge base used for information retrieval. 
 
-
+This project recursively scans the specified corpus directory, identifies all PDF files, and computes their corresponding embeddings and stores them in \textbf{\.vecdump} files.
 %----------------------
 \subsubsection{Vectordump Files}
 \label{subsec:AppDesignModules-Vectordump_FileStructure}
 %----------------------
-The vector dump file follows a sequential binary layout consisting of three main components: a metadata header, followed by embedding data, and finally hash data. This structure allows for efficient random access to embeddings while maintaining data integrity through hash verification. Hash is also further used for fetching the corresponding text chunk after similar vectors are obtained for a query.
+Vector dump files are obtained as a result of the embedding process. After a document is split into chunks, each chunk is processed by the LLM and yields embeddings. Embeddings are higher dimensional representations of the input text, as interpreted by the LLM. 
+These embeddings are then stored in a dedicated subdirectory named \textit{\_vecdump}, located within the corpus directory itself. The \textit{\_vecdump} folder houses binary \texttt{.vecdump} files that are later used during the similarity search phase to efficiently retrieve semantically relevant chunks.
 
-   \begin{figure}[H]
+The vector dump file follows a sequential binary layout consisting of three main components: a metadata header, followed by embedding data, and finally hash data (as illustrated in Fig~\ref{fig:vectordumpfilestructure}. This structure allows for efficient random access to embeddings while maintaining data integrity through hash verification. Hash is also further used for fetching the corresponding text chunk after similar vectors are obtained for a query.
+
+   \begin{figure}[h]
     \centering
-    \includegraphics[width=1.0\linewidth]{images/VectorDumpFiles.png}
+    \includegraphics[width=0.9\linewidth]{images/VectorDumpFiles.png}
     \caption{Vector dump file structure}
     \label{fig:vectordumpfilestructure}
 \end{figure}
@@ -251,7 +238,7 @@ In order to process the vector dump file, the header is first read and the neces
     \item \texttt{vector\_dimensions} - Number of floating-point dimensions per embedding vector
 \end{itemize}
 
-The header is read by pointing the $VectorDumpHeader$ struct to the memory location of the loaded file. This helps obtain the  necessary information required to access the data sections of the file.
+The header is read by simply pointing a pointer of type $struct VectorDumpHeader$ to the memory location to which the file is loaded. This helps obtain the necessary information required to access the data sections of the file.
 
 %----------------------
 \subsubsection{Data Sections}
@@ -260,7 +247,7 @@ The header is read by pointing the $VectorDumpHeader$ struct to the memory locat
 Once the header section is loaded, the data obtained is then used for calculating the memory locations of the embedding and hash arrays.
 Pointers are used to access these locations to simulate the structure of an array on top of raw binary data read into the memory. This approach is simple and efficient and prevents needless memory allocations and data copies.
 
-\textbf{Embeddings:} Contains $N$ consecutive embedding vectors, where $N$ = \texttt{num\_entries}. Each vector occupies \texttt{vector\_size\_bytes} and represents a \texttt{vector\_dimensions}-dimensional embedding, typically stored as 32-bit floating-point values.
+\textbf{Embeddings:} Contains $N$ consecutive embedding vectors, where $N$ = \texttt{num\_entries}. Each vector occupies \texttt{vector\_size\_bytes} and represents a \texttt{vector\_dimensions}-dimensional embedding, stored as 32-bit floating point values. In the current case, we use a 384-dimensional vector embedding.
 
 \textbf{Hashes:} Contains $N$ consecutive MD5 hash values, each exactly 16 bytes. However, the smallest unit of storage is of $uint64_t$ type, i.e., units of 2 bytes. Hence, a 16 byte MD5 hash would have a hash size of 8. The hash at index $i$ corresponds to the MD5 digest of the original text chunk used to generate \texttt{embedding[i]}.
 
@@ -282,63 +269,70 @@ The data is used as follows:
     
 This design allows for prioritized access to necessary data and its direct usage for cosine similarity search with no further processing or data manipulations, allowing for an efficient search through the entire corpus.
 
-
-
-
-User Interface RAG Backend  PostgreSQL Database NPU Accelerated Cosine Similarity 
 %----------------------
 \subsection{NPU Accelerated Cosine Similarity}
 \label{subsec:AppDesignModules-NpuCosineSim}
 %----------------------
-(lib-npu\_accelerator)
-\begin{figure}[H]
+The NPU accelerator module (lib-npu\_accelerator) is a specialized component of the TLDR MacOS desktop application that leverages Apple's Neural Processing Unit to perform hardware-accelerated cosine similarity computations as part of the RAG pipeline.
+The module construction and usage is a multi-step process involving multiple components. The codebase structure is depicted in Fig~\ref{fig:libnpucodebase} and the workflow in Fig~\ref{fig:libnpuworkflow}.
+
+\subsubsection{Codebase structure}
+The codebase for the npu module as seen in Fig~\ref{fig:libnpucodebase} has the following components:
+\begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\linewidth]{images/npu-accelerator-module-worklfow.jpg}
-    \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+    \includegraphics[width=0.4\linewidth]{images/npu-fs.png}
+    \caption{lib-npu\_accelerator codebase}
+    \label{fig:libnpucodebase}
 \end{figure}
-
-\subsection{NPU Accelerator Module}
-
-The NPU accelerator module is a specialized component of the TLDR macOS desktop application that leverages Apple's Neural Processing Unit to perform hardware-accelerated cosine similarity computations for Retrieval-Augmented Generation (RAG) workflows. The module serves as a bridge between document processing, vector similarity computation, and language model integration, utilizing Apple's dedicated neural processing hardware to optimize performance. By integrating llama.cpp for embedding generation and chat functionality, the system enables efficient document processing and semantic search capabilities specifically optimized for Apple Silicon devices with Neural Engine support.
+\begin{itemize}
+    \item \textbf{PyTorch module (\texttt{tldr\_npu}):} Contains PyTorch code to perform batched cosine similarity. This module is used to generate a CoreML model package, which is later utilized by the NPU accelerator for high-performance similarity computation.
+    \item \textbf{Swift module (\texttt{npu-accelerator}):} Implements the logic in Swift to read vector dump files and leverage the CoreML cosine similarity model to perform efficient vector similarity search using the Apple Neural Engine (ANE).
+\end{itemize}
 
 \subsubsection{Processing Workflow}
-\begin{figure}[H]
+
+\begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\linewidth]{images/npu-fs.png}
-    \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+    \includegraphics[width=0.7\linewidth]{images/npu-accelerator-module-worklfow.jpg}
+    \caption{NPU accelerator module workflow}
+    \label{fig:libnpuworkflow}
 \end{figure}
+The NPU accelerator workflow could be visualized as  dual-pipeline workflow as illustrated in Fig~\ref{fig:libnpuworkflow}. 
 
-The NPU accelerator follows a comprehensive dual-pipeline processing workflow as illustrated in the system diagram. The left pipeline begins with a PyTorch-based cosine-similarity.py implementation that serves as the foundation for similarity computations. This PyTorch model undergoes a CoreML model conversion and compilation process, transforming the original implementation into an optimized CoreML artifact specifically designed for Apple's Neural Engine execution. The compilation step produces the cosine-similarity.mlmodelc package, which contains the optimized model ready for hardware acceleration.
+\textbf{Phase I - Prepare the components}:
+The left pipeline begins with a PyTorch-based cosine-similarity.py implementation that serves as the foundation for similarity computations. This PyTorch model undergoes a CoreML model conversion and compilation process, transforming the original implementation into an optimized CoreML artifact specifically designed for Apple's Neural Engine execution. The compilation step produces the \textit{cosine-similarity.mlmodelc} package, which contains the optimized model ready for hardware acceleration.
 
-The right pipeline operates in parallel, handling document processing and vector storage. PDF files from a designated corpus directory are processed through an embedding generation system that creates high-dimensional vector representations of the document content. These embeddings are systematically stored in a directory containing vectordump files, which serve as the persistent storage layer for the vector data. The vectordump files are designed for efficient access through memory mapping techniques.
+The right pipeline operates in parallel, handling document processing and vector storage. Although this portion of the pipeline is  executed by the RAG Backend and is not directly part of the NPU module, it still is a logical component of the NPU module workflow as depicted in Fig~\ref{fig:libnpuworkflow}.
 
-During runtime operations, the VecDumpReader component, powered by the lib-npu\_accelerator library, accesses the vectordump files through memory mapping (mmap file read) operations. This approach provides efficient access to vector data without loading entire datasets into memory. The VecDumpReader extracts vectordump data pointers that reference specific vector locations within the mapped memory space.
+\textbf{Phase II - Perform vector search}:
+This phase is triggered at runtime when a user submits a query and the RAG pipeline is activated. The workflow converges at \texttt{NpuAPI.swift}, a Swift-based interface that integrates the CoreML similarity model and the document embeddings obtained via the \texttt{VecDumpReader}.
 
-The workflow convergence occurs at the NpuAPI.swift interface, which acts as the central coordination point between the two processing pipelines. This Swift-based API receives input from both the CoreML package data (containing the optimized similarity computation model) and the vectordump data pointers (referencing the document embeddings). The NpuAPI facilitates communication with Apple's Neural Engine, orchestrating the hardware-accelerated cosine similarity computations between query vectors and the stored document embeddings. The final output consists of similarity scores that enable the RAG system to identify and retrieve the most relevant document segments for generating contextually appropriate responses.
+The \texttt{VecDumpReader} accesses vector dump files using memory-mapped I/O (\texttt{mmap}), exposing the data as raw pointers without intermediate copies. These pointers are passed directly to the \texttt{CosineSimilarityBatched} module, which performs batched cosine similarity computations using Apple's Neural Engine (ANE).
 
-\subsubsection{File Structure}
-BRIDGE TO NPU API AND C++ API
-The module is organized into a hierarchical structure within the main npu-accelerator directory, reflecting the different functional components of the system. At the top level, the CosineSimilarityBatched.h header file defines interfaces for batched similarity operations, enabling efficient processing of multiple similarity computations in parallel. The core npu\_accelerator directory contains the primary implementation files that handle the low-level neural processing operations and coordinate with the Apple Neural Engine.
+\texttt{NpuAPI} orchestrates this process by coordinating the CoreML model execution and the memory-resident embeddings, enabling efficient hardware-accelerated similarity search. The output consists of similarity scores and embedding hash values, which are used by the RAG system to retrieve the most relevant document chunks for generating a contextually informed response. Furthermore, \texttt{NpuAPI} also serves as a bridge to the C++ layer, exposing these capabilities to the RAG backend for use during the retrieval phase of the RAG pipeline.
 
-The NpuAPI directory houses the Swift interface components responsible for bridging between the CoreML models and the Neural Engine hardware. This component provides the primary API surface for the broader TLDR application to interact with the NPU acceleration capabilities. The VecDumpReader directory contains specialized components for handling vector data access operations, including memory mapping functionality and efficient data pointer management for large-scale vector datasets.
+Although cosine similarity involves a full scan of the embedded corpus for each query, the system architecture mitigates performance concerns through the following mechanisms:
 
-Supporting the main implementation are several auxiliary files that facilitate development and deployment. The cosine\_similarity.py script serves as the original PyTorch implementation and provides utilities for model preparation and conversion to CoreML format. The requirements.txt file specifies the necessary Python dependencies required for the model conversion pipeline and any associated preprocessing operations. This file structure reflects a clear separation of concerns between hardware acceleration interfaces, vector data management, model conversion utilities, and dependency management.
+\begin{itemize}
+    \item \textbf{Shared memory-mapped files:} When multiple threads handle different user requests, redundant file reads are avoided because the \texttt{mmap} mechanism loads the file into memory only once.
+    
+    \item \textbf{Zero-copy access:} Since the data is accessed directly from memory without duplication, there is no overhead for repeated reads. Additionally, the operating system can page the data out to swap memory and page it back in when needed, optimizing memory usage.
+    
+    \item \textbf{Unified memory architecture:} The Apple M1/M2 SoC’s unified memory architecture enables seamless access between CPU, GPU and NPU, eliminating the need for further data transfers during vector similarity computations.
+\end{itemize}
+
 %----------------------
 \subsection{llama.cpp}
 \label{subsec:AppDesignModules-LLaMaCpp}
 %----------------------
-(lib-llama)
 
-uses a fork of llama.cpp with minor modifcations to strip down build script to focus to build a static library for macos with ggml metal backend
+The project integrates a customized fork of \texttt{llama.cpp}—a lightweight C++ inference engine for LLaMA and related transformer models—to serve as the core engine for both text generation and embedding extraction. The fork is hosted at \url{https://github.com/manuhg/llama.cpp}, and includes minor modifications that streamline the build process for macOS targets. Specifically, the build scripts were stripped down to produce a static library using the \texttt{ggml} Metal backend, optimized for Apple Silicon devices.  The result is a single, portable C++ static library named \texttt{libllama.a} which is then statically linked with the RAG backend (\texttt{lib-tldr.a}).
 
-fork located at https://github.com/manuhg/llama.cpp
+The core functionalities such as tokenization, decoding, and sampling are accessed through the public APIs exposed in \texttt{llama.h} and \texttt{ggml.h}. Two primary components—\texttt{LLmChat} and \texttt{LLmEmbedding}—are built around workflows inspired by \textttt{simple.cpp}~\cite{llama_simple} \texttt{server.cpp}~\cite{llama_server} and \texttt{embedding.cpp}~\cite{llama_embedding} from the upstream \texttt{llama.cpp}~\cite{llamacpp} project. 
 
-uses functions exposed via llama.h and ggml.h to perform tokenization,  decoding and sampling
+Further, to improve the performance, \texttt{OpenMP} support was added for parallelizing the tokenization and batch decoding steps. This optimization ensures efficient utilization of CPU cores, resulting in faster preprocessing and inference, particularly during multi-threaded interactions.
 
-LLmChat and LLmEmbedding are based on workflows seen in llama.cpp's server.cpp and embedding.cpp files Uses \textbf{openmp} for optimizing the tokenization and batch decoding process
-
+The \texttt{llama.cpp} is hence directly integrated into the RAG backend at compile time. This enables the application to perform in-memory LLM inference by directly invoking components of \texttt{llama.cpp}, without relying on any external dependencies or background processes for this core functionality.
 %----------------------
 %----------------------
 \section{Application Design - Workflow Overview}
