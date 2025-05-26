@@ -9,6 +9,13 @@ namespace tldr_cpp_api {
 
 
 /**
+ * @brief Initialize the database connection with a specific connection string
+ * @param connection_string PostgreSQL connection string
+ * @return true if initialization was successful, false otherwise
+ */
+bool initializeDatabaseConnection(const std::string& connection_string);
+
+/**
  * @brief Initialize the TLDR system
  * @param chat_model_path Path to the chat model file (leave empty to use default)
  * @param embeddings_model_path Path to the embeddings model file (leave empty to use default)

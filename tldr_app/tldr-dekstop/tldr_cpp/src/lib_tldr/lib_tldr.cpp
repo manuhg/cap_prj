@@ -957,7 +957,7 @@ RagResult queryRag(const std::string &user_query, const std::string &corpus_dir,
         std::set<std::string> referenced_documents;
         
         // Track unique documents referenced in this result
-        
+        std::cout<<"\nPreparing LLM context ..."<<std::endl;
         for (const auto &chunk: similar_chunks) {
             // Format the document metadata to include in the prompt
             std::string source_info;
@@ -1012,6 +1012,7 @@ RagResult queryRag(const std::string &user_query, const std::string &corpus_dir,
         result.response = tldr::get_llm_manager().get_chat_response(context_str, user_query);
     } catch (const std::exception &e) {
         std::cerr << "RAG Query error: " << e.what() << std::endl;
+        result.response = "Error generating response!";
     }
 
     return result;
