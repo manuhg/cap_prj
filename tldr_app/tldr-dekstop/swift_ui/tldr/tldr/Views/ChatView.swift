@@ -342,9 +342,26 @@ struct CustomLinkTextView: View {
         
         // Handle file:// URLs - assuming all are PDF files with page numbers
         if url.scheme == "file" {
-            // Simply open the original URL with the page number fragment intact
-            print("Opening PDF with page number: \(url)")
-            NSWorkspace.shared.open(url)
+            // Use AppleScript to open the URL with page number intact
+            print("Opening PDF with AppleScript: \(url)")
+            
+            // Create AppleScript to open the URL in Brave Browser
+            let script = "tell application \"Brave Browser\" to open location \"\(url.absoluteString)\""
+            
+            // Execute the AppleScript
+            var error: NSDictionary?
+            if let scriptObject = NSAppleScript(source: script) {
+                scriptObject.executeAndReturnError(&error)
+                
+                if let error = error {
+                    print("Error executing AppleScript: \(error)")
+                    // Fallback to regular open
+                    NSWorkspace.shared.open(url)
+                }
+            } else {
+                // Fallback to regular open if script creation fails
+                NSWorkspace.shared.open(url)
+            }
             return
         }
         // Handle localhost URLs
@@ -356,15 +373,55 @@ struct CustomLinkTextView: View {
                 return
             }
             
+            // Get the page number if available
+            let pageNumber = components.queryItems?.first(where: { $0.name == "page" })?.value
+            
             // Create a file URL with the path
             let fileURL = URL(fileURLWithPath: filePath)
             
-            // Open the file with NSWorkspace
-            NSWorkspace.shared.open(fileURL)
+            // Create a URL with page number if available
+            var urlString = "file://" + filePath
+            if let pageNumber = pageNumber {
+                urlString += "#page=" + pageNumber
+            }
+            
+            // Use AppleScript to open the URL in Brave Browser
+            let script = "tell application \"Brave Browser\" to open location \"\(urlString)\""
+            
+            // Execute the AppleScript
+            var error: NSDictionary?
+            if let scriptObject = NSAppleScript(source: script) {
+                scriptObject.executeAndReturnError(&error)
+                
+                if let error = error {
+                    print("Error executing AppleScript: \(error)")
+                    // Fallback to regular open
+                    NSWorkspace.shared.open(fileURL)
+                }
+            } else {
+                // Fallback to regular open if script creation fails
+                NSWorkspace.shared.open(fileURL)
+            }
         }
         // Handle other URLs
         else {
-            NSWorkspace.shared.open(url)
+            // Use AppleScript to open the URL in Brave Browser
+            let script = "tell application \"Brave Browser\" to open location \"\(url.absoluteString)\""
+            
+            // Execute the AppleScript
+            var error: NSDictionary?
+            if let scriptObject = NSAppleScript(source: script) {
+                scriptObject.executeAndReturnError(&error)
+                
+                if let error = error {
+                    print("Error executing AppleScript: \(error)")
+                    // Fallback to regular open
+                    NSWorkspace.shared.open(url)
+                }
+            } else {
+                // Fallback to regular open if script creation fails
+                NSWorkspace.shared.open(url)
+            }
         }
     }
 }
