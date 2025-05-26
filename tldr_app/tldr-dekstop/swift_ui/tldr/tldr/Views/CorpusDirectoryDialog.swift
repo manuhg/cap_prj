@@ -66,7 +66,7 @@ struct CorpusDirectoryDialog: View {
                 .cornerRadius(4)
                 
                 Button(action: {
-                    viewModel.updateCorpusDirectory(tempPath)
+                    viewModel.updateConversationCorpusDirectory(tempPath)
                     dismiss()
                 }) {
                     Text("Save")

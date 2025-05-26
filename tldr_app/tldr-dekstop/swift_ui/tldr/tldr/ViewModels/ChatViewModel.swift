@@ -13,6 +13,7 @@ class ChatViewModel: ObservableObject {
     
     private let conversationsKey = "savedConversations"
     private let selectedConversationIdKey = "selectedConversationId"
+    private let defaultCorpusDir = "~/Downloads"
     
     init() {
         // Initialize the TLDR system
@@ -49,7 +50,7 @@ class ChatViewModel: ObservableObject {
             // If no saved conversations, create a new one with default corpus dir and welcome message
             let newConversation = ConversationData(
                 title: "New Conversation",
-                corpusDir: "~/Downloads",
+                corpusDir: defaultCorpusDir,
                 messages: [
                     Message(content: "Welcome to TLDR! I'll help you understand your codebase. Start by selecting a corpus directory using the folder icon above.", sender: .system)
                 ]
@@ -173,7 +174,7 @@ class ChatViewModel: ObservableObject {
     
     func createNewConversation() {
         // Use the corpus directory from the currently selected conversation, or the default if none is selected
-        let corpusDir = selectedConversation?.corpusDir ?? "~/Downloads"
+        let corpusDir = selectedConversation?.corpusDir ?? defaultCorpusDir
         let newConversation = ConversationData(
             title: "New Conversation",
             corpusDir: corpusDir,
@@ -189,6 +190,27 @@ class ChatViewModel: ObservableObject {
     }
     
 
+    
+    func updateConversationCorpusDirectory(_ newPath: String) {
+        guard let conversation = selectedConversation,
+              let index = conversations.firstIndex(where: { $0.id == conversation.id }) else {
+            return
+        }
+        
+        var updatedConversation = conversation
+        updatedConversation.corpusDir = newPath
+        
+        // Add a system message about the change
+        updatedConversation.messages.append(
+            Message(content: "Corpus directory changed to: " + newPath, sender: .system)
+        )
+        
+        conversations[index] = updatedConversation
+        selectedConversation = updatedConversation
+        
+        // Save changes
+        saveConversations()
+    }
     
     func updateConversationTitle(_ conversation: ConversationData, newTitle: String) {
         if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
