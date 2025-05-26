@@ -1,8 +1,12 @@
 import SwiftUI
 @MainActor
 struct ChatView: View {
-    let conversation: ConversationData
     @ObservedObject var viewModel: ChatViewModel
+    
+    // Use a computed property to get the current conversation from the viewModel
+    private var conversation: ConversationData {
+        viewModel.selectedConversation ?? ConversationData(title: "No Conversation")
+    }
     
     @State private var scrollToBottomId: UUID? = nil
     
@@ -67,6 +71,11 @@ struct ChatView: View {
                     scrollView.scrollTo("BOTTOM", anchor: .bottom)
                 }
                 .onChange(of: conversation.messages.count) { _ in
+                    withAnimation {
+                        scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                    }
+                }
+                .onChange(of: viewModel.selectedConversation?.id) { _ in
                     withAnimation {
                         scrollView.scrollTo("BOTTOM", anchor: .bottom)
                     }
@@ -184,17 +193,20 @@ struct MessageBubble: View {
 struct ChatView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
-            ChatView(
-                conversation: ConversationData(
-                    title: "Preview",
-                    corpusDir: "~/Downloads",
-                    messages: [
-                        Message(content: "Hello, how can I help you today?", sender: .assistant),
-                        Message(content: "I need help with my project", sender: .user)
-                    ]
-                ),
-                viewModel: ChatViewModel()
+            let viewModel = ChatViewModel()
+            // Set up the preview viewModel with a test conversation
+            let previewConversation = ConversationData(
+                title: "Preview",
+                corpusDir: "~/Downloads",
+                messages: [
+                    Message(content: "Hello, how can I help you today?", sender: .assistant),
+                    Message(content: "I need help with my project", sender: .user)
+                ]
             )
+            viewModel.conversations = [previewConversation]
+            viewModel.selectedConversation = previewConversation
+            
+            return ChatView(viewModel: viewModel)
         }
     }
 }

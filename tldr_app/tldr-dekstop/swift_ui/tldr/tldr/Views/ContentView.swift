@@ -73,8 +73,8 @@ struct ContentView: View {
                 }
             }
         } detail: {
-            if let conversation = viewModel.selectedConversation {
-                ChatView(conversation: conversation, viewModel: viewModel)
+            if viewModel.selectedConversation != nil {
+                ChatView(viewModel: viewModel)
             } else {
                 Text("Select a conversation")
                     .foregroundColor(.secondary)
