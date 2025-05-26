@@ -11,7 +11,7 @@ namespace tldr {
     // --- Static Instance and Initialization ---
 
     // Static instance, managed internally
-    static LlmManager g_llm_manager_instance = LlmManager(CHAT_MODEL_PATH, EMBEDDINGS_MODEL_PATH);
+    static LlmManager g_llm_manager_instance = LlmManager();
     static std::once_flag g_init_flag;
 
     // Accessor implementation
@@ -22,59 +22,74 @@ namespace tldr {
     }
 
     // Moved initialization function
-    void initialize_llm_manager_once() {
+    void initialize_llm_manager_once(const std::string& chat_model_path,
+                                   const std::string& embeddings_model_path) {
         std::call_once(g_init_flag, [&]() {
-            // llama_backend_init();
-
-            std::cout << "Initializing chat model..." << std::endl;
-            if (!g_llm_manager_instance.initialize_chat_model()) {
-            std::cerr << "Failed to initialize chat model." << std::endl;
-            // Handle initialization failure
+            if (chat_model_path.empty()) {
+                throw std::invalid_argument("Chat model path cannot be empty");
+            }
+            if (embeddings_model_path.empty()) {
+                throw std::invalid_argument("Embeddings model path cannot be empty");
             }
 
-            std::cout << "Initializing embeddings model..." << std::endl;
-            if (!g_llm_manager_instance.initialize_embeddings_model()) {
-                std::cerr << "Failed to initialize embeddings model." << std::endl;
-                // Handle initialization failure
+            // Recreate the manager instance with the new paths
+            g_llm_manager_instance = LlmManager();
+            if (chat_model_path.empty()) {
+                throw std::invalid_argument("Chat model path cannot be empty");
             }
+            if (embeddings_model_path.empty()) {
+                throw std::invalid_argument("Embeddings model path cannot be empty");
+            }
+
+            // Initialize models with their respective paths
+            if (!g_llm_manager_instance.initialize_chat_model(chat_model_path)) {
+                throw std::runtime_error("Failed to initialize chat model");
+            }
+            if (!g_llm_manager_instance.initialize_embeddings_model(embeddings_model_path)) {
+                throw std::runtime_error("Failed to initialize embeddings model");
+            }
+
+
+            std::cout << "LLM Manager initialized with models:" << std::endl;
+            std::cout << "- Chat model: " << chat_model_path << std::endl;
+            std::cout << "- Embeddings model: " << embeddings_model_path << std::endl;
         });
     }
 
     // --- LlmManager Class Implementation ---
 
-    LlmManager::LlmManager(const std::string &chat_model_path,
-                           const std::string &embeddings_model_path): chat(chat_model_path),
-                                                                      embedding(embeddings_model_path) {}
-
-    bool LlmManager::initialize_chat_model() {
-        try {
-            chat.initialize_model();
-            return true; // Return true on success
-        } catch (const std::exception &e) {
-            std::cerr << "Error: Failed to load embedding model.:" << e.what() << std::endl;
-            return false;
-        }
+    LlmManager::LlmManager() {
+        // do nothing
     }
 
-    bool LlmManager::initialize_embeddings_model() {
-        try {
-            embedding.initialize_model();
-            return true; // Return true on success
-        } catch (const std::exception &e) {
-            std::cerr << "Error: Failed to load embedding model.:" << e.what() << std::endl;
-            return false;
-        }
+    bool LlmManager::initialize_chat_model(const std::string& model_path) {
+    try {
+        return chat.initialize_model(model_path);
+    } catch (const std::exception &e) {
+        std::cerr << "Error: Failed to load chat model: " << e.what() << std::endl;
+        return false;
     }
+}
+
+    bool LlmManager::initialize_embeddings_model(const std::string& model_path) {
+    try {
+        return embedding.initialize_model(model_path);
+    } catch (const std::exception &e) {
+        std::cerr << "Error: Failed to load embeddings model: " << e.what() << std::endl;
+        return false;
+    }
+}
 
     std::vector<std::vector<float>> LlmManager::get_embeddings(const std::vector<std::string_view> &texts) {
         return embedding.llm_get_embeddings(texts);
     }
 
     std::string LlmManager::get_chat_response(const std::string &context, const std::string &prompt) {
+        std::cout<<"\nGenerating Chat LLM Response ..."<<std::endl;
         const std::string system_prompt =
-                "You are a helpful AI Assistant. Go through the given context and answer the user's questions. Keep the answers short and precise.";
+                "You are a helpful AI Assistant. Use the context and answer the user's question. Keep it short and precise. Don't mention sources.";
         std::string formatted_prompt = "<|system|>\n" + system_prompt + "\n<|context|>\n" + context + "\n<|user|>\n" +
-                                       prompt + "\n<|assistant|>\n";
+                                       prompt + "\nBrief response:\n";
 
         // A simpler alternative if the model doesn't use special tokens:
         // std::string formatted_prompt = system_prompt + "\n\nUser: " + user_prompt + "\nAssistant: ";

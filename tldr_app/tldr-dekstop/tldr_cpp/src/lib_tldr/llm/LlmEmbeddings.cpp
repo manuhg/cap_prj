@@ -13,8 +13,6 @@
 #include <algorithm>
 #include <iostream>
 #include <vector>
-#include <vector>
-#include <vector>
 #include <chrono>
 #include <omp.h>
 
@@ -75,14 +73,14 @@ static void batch_decode(llama_context *ctx, llama_batch &batch, float *output, 
     }
 }
 
-LlmEmbeddings::LlmEmbeddings(std::string model_path) {
-    this->model_path = model_path;
+LlmEmbeddings::LlmEmbeddings() {
     call_times_ms = std::vector<double>();
     batch_sizes = std::vector<size_t>();
     prompt_sizes = std::vector<size_t>();
 }
 
-bool LlmEmbeddings::initialize_model() {
+bool LlmEmbeddings::initialize_model(const std::string& model_path) {
+    this->model_path = model_path; 
     ggml_backend_load_all();
 
     llama_model_params model_params = llama_model_default_params();

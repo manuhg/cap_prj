@@ -9,6 +9,7 @@ struct Message: Identifiable, Codable {
     enum Sender: String, Codable {
         case user
         case assistant
+        case system
     }
     
     init(id: UUID = UUID(), content: String, timestamp: Date = Date(), sender: Sender) {

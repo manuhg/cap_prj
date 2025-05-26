@@ -1,56 +1,53 @@
-#ifndef TLDRAPI_C_H
-#define TLDRAPI_C_H
+#ifndef TLDR_API_C_H
+#define TLDR_API_C_H
 
+#include <stddef.h>  // for size_t
 #include <stdbool.h>
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Forward declaration of RagResult structure
-typedef struct RagResult RagResult;
-
-// Structure to hold a context chunk
 typedef struct {
-    const char* text;
+    char* text;
+    char* file_path;
+    char* file_name;
+    char* title;
+    char* author;
+    int page_count;
+    int page_number;
     float similarity;
-    uint64_t hash;
-} ContextChunk;
+    unsigned long long hash;
+} CtxChunkMetaC;
 
-// Structure to hold RAG query results
-struct RagResult {
+typedef struct {
     char* response;
-    ContextChunk* context_chunks;
+    CtxChunkMetaC* context_chunks;
     size_t context_chunks_count;
-};
+    int referenced_document_count;
+} RagResultC;
 
-// Test function that can be called from Swift
-int tldr_api_trial_tldr(void);
+// Initialize the TLDR system with model paths
+bool tldr_initializeSystem(const char* chatModel="Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf", const char* embeddingsModel="all-MiniLM-L6-v2-Q8_0.gguf");
 
-// Initialize the TLDR system
-bool tldr_initializeSystem(void);
-
-// Clean up the system
+// Clean up the TLDR system
 void tldr_cleanupSystem(void);
 
-// Add a corpus from a PDF file or directory
+// Add a document to the corpus
 void tldr_addCorpus(const char* sourcePath);
 
-// Add a single PDF file to the corpus
-void tldr_addFileToCorpus(const char* filePath);
-
-// Delete a corpus by ID
+// Delete a document from the corpus
 void tldr_deleteCorpus(const char* corpusId);
 
 // Query the RAG system
-RagResult* tldr_queryRag(const char* user_query, const char* corpus_dir);
+RagResultC* tldr_queryRag(const char* user_query, const char* corpus_dir);
 
-// Free memory allocated by tldr_queryRag
-void tldr_freeRagResult(RagResult* result);
+// Free a RagResult
+void tldr_freeRagResult(RagResultC* result);
 
+void tldr_freeString(char* str);
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* TLDRAPI_C_H */
+#endif // TLDR_API_C_H

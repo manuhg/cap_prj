@@ -3,7 +3,9 @@
 
 int main() {
     // Initialize system
-    if (!tldr_cpp_api::initializeSystem()) {
+    if (!tldr_cpp_api::initializeSystem(
+        "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf",
+        "/Users/manu/llm-weights/embedding/all-MiniLM-L6-v2-Q8_0.gguf")){
         std::cerr << "Failed to initialize system" << std::endl;
         return 1;
     }
@@ -17,7 +19,7 @@ int main() {
     // Do RAG
     std::string query = "What is the hotspot problem in cache?";
     std::string corpus_dir = "~/proj_tldr/corpus/current";
-    RagResult result = tldr_cpp_api::queryRag(query, corpus_dir);
+    RagResult result = tldr_cpp_api::queryRag(query, corpus_dir, "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/release-products/artefacts/CosineSimilarityBatched.mlmodelc");
     
     // Format and print the result with all context metadata
     std::string formatted_result = tldr_cpp_api::printRagResult(result);

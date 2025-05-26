@@ -6,14 +6,14 @@
 
 namespace tldr_cpp_api {
 
-bool initializeSystem() {
-    return ::initializeSystem();
+bool initializeSystem(const std::string& chat_model_path, const std::string& embeddings_model_path) {
+    return ::initializeSystem(chat_model_path, embeddings_model_path);
 }
 
 void cleanupSystem() {
     ::cleanupSystem();
 }
-
+ 
 void addCorpus(const std::string& sourcePath) {
     ::addCorpus(sourcePath);
 }
@@ -22,9 +22,9 @@ void deleteCorpus(const std::string& corpusId) {
     ::deleteCorpus(corpusId);
 }
 
-RagResult queryRag(const std::string& user_query, const std::string& corpus_dir) {
+RagResult queryRag(const std::string& user_query, const std::string& corpus_dir, const std::string& npu_model_path) {
     // Call the global queryRag function
-    return ::queryRag(user_query, corpus_dir);
+    return ::queryRag(user_query, corpus_dir, npu_model_path);
 }
 
 std::string printRagResult(const RagResult& result) {
@@ -86,6 +86,8 @@ std::string printRagResult(const RagResult& result) {
 
 } // namespace tldr_cpp_api
 
+
+/*
 // C linkage function for Swift to call
 extern "C" {
     int tldr_api_trial_tldr() {
@@ -93,4 +95,4 @@ extern "C" {
         tldr_cpp_api::initializeSystem();
         return 42;
     }
-}
+}*/

@@ -7,7 +7,6 @@
 #include <map>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include <pqxx/pqxx>
@@ -29,16 +28,12 @@
 #include <cstdlib>
 #include <vector>
 #include <regex>
-// #include <curl/curl.h>
 #include <nlohmann/json.hpp>
-#include <memory>
-#include <functional> // Include for std::hash
-#include<vector>
+#include <functional>
 #include<unordered_set>
 #include<set>
-#include "lib_tldr.h"
-#include <curl/curl.h>
 #include <openssl/md5.h> // Include for MD5 hashing
+#include "lib_tldr.h"
 
 // Helper function to extract content from XML tags
 std::string extract_xml_content(const std::string &xml) {
@@ -438,30 +433,18 @@ int saveEmbeddingsThreadSafe(const std::vector<std::string_view> &batch,
     return saved_id;
 }
 
-bool initializeSystem() {
+bool initializeSystem(const std::string& chat_model_path, const std::string& embeddings_model_path) {
     std::cout << "Initialize the system" << std::endl;
-
-    // Initialize llama.cpp backend (required before model loading)
-    // TODO: Consider where backend init/free should ideally live
-
-    // perform_similarity_check("/Users/manu/proj_tldr/tldr-dekstop/release-products/CosineSimilarityBatched.mlmodelc");
     if (!initializeDatabase()) {
         std::cerr << "Failed to initialize database" << std::endl;
         return false;
     }
-
-    // Initialize CURL globally (Restored)
-    // CURLcode curl_init_ret = curl_global_init(CURL_GLOBAL_DEFAULT);
-    // if (curl_init_ret != CURLE_OK) {
-    // std::cerr << "Failed to initialize CURL: " << curl_easy_strerror(curl_init_ret) << std::endl;
-    // Cleanup already initialized components
-    // LlmManager destructor will handle chat model cleanup.
-    // Database unique_ptr handles db connection
-    // return false;
-    // }
-    tldr::initialize_llm_manager_once();
-
-    std::cout << "System initialized successfully." << std::endl;
+    
+    // Use default paths if not provided
+    std::string chat_path = chat_model_path.empty() ? CHAT_MODEL_PATH : chat_model_path;
+    std::string embeddings_path = embeddings_model_path.empty() ? EMBEDDINGS_MODEL_PATH : embeddings_model_path;
+    
+    tldr::initialize_llm_manager_once(chat_path, embeddings_path);
     return true;
 }
 
@@ -928,7 +911,7 @@ void doRag(const std::string &conversationId) {
     }
 }
 
-RagResult queryRag(const std::string &user_query, const std::string &corpus_dir) {
+RagResult queryRag(const std::string &user_query, const std::string &corpus_dir, const std::string &npu_model_path) {
     RagResult result;
 
     if (!g_db) {
@@ -948,10 +931,12 @@ RagResult queryRag(const std::string &user_query, const std::string &corpus_dir)
         std::cout << "Using NPU-accelerated similarity search..." << std::endl;
 
         // Use NPU-accelerated similarity search instead of database search
+        std::cout << "Using NPU model path: " << npu_model_path << std::endl;
         auto similar_chunks = searchSimilarVectorsNPU(
             query_embeddings[0], // Query vector
             translatePath(corpus_dir), // Vector corpus directory
-            K_SIMILAR_CHUNKS_TO_RETRIEVE // Number of results to return
+            K_SIMILAR_CHUNKS_TO_RETRIEVE, // Number of results to return
+            npu_model_path // NPU model path
         );
 
         // Fallback to traditional database search if NPU search returns no results
@@ -972,7 +957,7 @@ RagResult queryRag(const std::string &user_query, const std::string &corpus_dir)
         std::set<std::string> referenced_documents;
         
         // Track unique documents referenced in this result
-        
+        std::cout<<"\nPreparing LLM context ..."<<std::endl;
         for (const auto &chunk: similar_chunks) {
             // Format the document metadata to include in the prompt
             std::string source_info;
@@ -1027,6 +1012,7 @@ RagResult queryRag(const std::string &user_query, const std::string &corpus_dir)
         result.response = tldr::get_llm_manager().get_chat_response(context_str, user_query);
     } catch (const std::exception &e) {
         std::cerr << "RAG Query error: " << e.what() << std::endl;
+        result.response = "Error generating response!";
     }
 
     return result;
@@ -1068,9 +1054,7 @@ std::map<uint64_t, float> npuCosineSimSearchWrapper(
 
 // Wrapper function for NPU-accelerated vector similarity search
 std::vector<CtxChunkMeta> searchSimilarVectorsNPU(
-    const std::vector<float> &query_vector,
-    const std::string &corpus_dir,
-    int k) {
+    const std::vector<float> &query_vector, const std::string &corpus_dir, int k, const std::string &npu_model_path) {
     std::vector<CtxChunkMeta> similar_chunks;
 
     // We'll collect the hashes from the results and only then query the database
@@ -1087,7 +1071,8 @@ std::vector<CtxChunkMeta> searchSimilarVectorsNPU(
             query_vector.data(),
             query_vector.size(),
             k,
-            corpus_dir.c_str()
+            corpus_dir.c_str(),
+            npu_model_path.c_str()
         );
 
         // Print the hash values returned by the NPU search
@@ -1231,7 +1216,7 @@ bool test_vector_cache() {
     return header_verified && data_verified;
 }
 
-void command_loop() {
+/*void command_loop() {
     std::string input;
     std::map<std::string, std::function<void(const std::string &)> > actions = {
         {"do-rag", doRag},
@@ -1267,7 +1252,7 @@ void command_loop() {
             std::cout << "Unknown command: " << command << std::endl;
         }
     }
-}
+}*/
 
 std::string printRagResult(const RagResult &result) {
     std::stringstream formatted_result;
