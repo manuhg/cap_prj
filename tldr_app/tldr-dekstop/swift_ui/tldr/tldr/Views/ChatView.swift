@@ -5,6 +5,7 @@ struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
     
     @State private var scrollToBottomId: UUID? = nil
+    @State private var showingDeleteConfirmation = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -108,10 +109,33 @@ struct ChatView: View {
             }
         }
         .navigationTitle(conversation.title)
+        .toolbar {
+            ToolbarItem(placement: .destructiveAction) {
+                Button(action: {
+                    showingDeleteConfirmation = true
+                }) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+                .help("Delete this conversation")
+            }
+        }
         .animation(.easeInOut, value: viewModel.isLoading)
         .animation(.easeInOut, value: viewModel.errorMessage != nil)
         .sheet(isPresented: $viewModel.showingCorpusDialog) {
             CorpusDirectoryDialog(viewModel: viewModel)
+        }
+        .confirmationDialog(
+            "Delete Conversation",
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                viewModel.deleteConversation(conversation)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this conversation? This action cannot be undone.")
         }
     }
 }

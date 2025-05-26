@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import TldrAPI
 
+@MainActor
 class ChatViewModel: ObservableObject {
     @Published var conversations: [ConversationData] = []
     @Published var selectedConversation: ConversationData?
@@ -157,6 +158,19 @@ class ChatViewModel: ObservableObject {
         isLoading = false
     }
     
+    func deleteConversation(_ conversation: ConversationData) {
+        // Remove the conversation from the list
+        conversations.removeAll { $0.id == conversation.id }
+        
+        // If this was the selected conversation, select another one
+        if selectedConversation?.id == conversation.id {
+            selectedConversation = conversations.first
+        }
+        
+        // Save changes
+        saveConversations()
+    }
+    
     func createNewConversation() {
         // Use the corpus directory from the currently selected conversation, or the default if none is selected
         let corpusDir = selectedConversation?.corpusDir ?? "~/Downloads"
@@ -174,17 +188,7 @@ class ChatViewModel: ObservableObject {
         saveConversations()
     }
     
-    func deleteConversation(_ conversation: ConversationData) {
-        conversations.removeAll { $0.id == conversation.id }
-        
-        // If we deleted the selected conversation, select another one
-        if selectedConversation?.id == conversation.id {
-            selectedConversation = conversations.first
-        }
-        
-        // Save changes
-        saveConversations()
-    }
+
     
     func updateConversationTitle(_ conversation: ConversationData, newTitle: String) {
         if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
