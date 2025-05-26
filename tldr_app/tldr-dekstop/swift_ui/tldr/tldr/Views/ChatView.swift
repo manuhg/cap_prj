@@ -175,52 +175,37 @@ struct MessageBubble: View {
                 Spacer(minLength: 100)
             }
             
-            // Use a VStack to contain the message content
-            VStack {
-                // Use Text with .environment(\openURL) to make URLs clickable
-                Text(LocalizedStringKey(message.content))
-                    .environment(\.openURL, OpenURLAction { url in
-                        // Handle our custom localhost URLs for PDFs
-                        if url.host == "localhost" && url.path == "/pdf" {
-                            // Extract the file path and page number from the URL query parameters
-                            guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-                                  let pathItem = components.queryItems?.first(where: { $0.name == "path" }),
-                                  let filePath = pathItem.value?.removingPercentEncoding else {
-                                return .systemAction
-                            }
-                            
-                            // Get the page number if available
-                            let pageNumber = components.queryItems?.first(where: { $0.name == "page" })?.value
-                            
-                            // Create a file URL with the path
-                            var fileURL = URL(fileURLWithPath: filePath)
-                            
-                            // Try to open in browser first for better page number support
-                            if let pageNumber = pageNumber, let pageInt = Int(pageNumber) {
-                                // Try to open in browser with NSWorkspace
-                                NSWorkspace.shared.open(fileURL)
-                                return .handled
-                            } else {
-                                // Just open the file directly
-                                NSWorkspace.shared.open(fileURL)
-                                return .handled
-                            }
+            // Use NSTextView for better link handling
+            if message.content.contains("file://") {
+                ClickableLinksTextView(text: message.content, textColor: textColor)
+                    .padding(12)
+                    .background(bubbleColor)
+                    .cornerRadius(16)
+                    .frame(maxWidth: 600, alignment: alignment)
+                    .contextMenu {
+                        Button(action: {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(message.content, forType: .string)
+                        }) {
+                            Label("Copy", systemImage: "doc.on.doc")
                         }
-                        return .systemAction
-                    })
-            }
-            .padding(12)
-            .background(bubbleColor)
-            .foregroundColor(textColor)
-            .cornerRadius(16)
-            .frame(maxWidth: 600, alignment: alignment)
-            .contextMenu {
-                Button(action: {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(message.content, forType: .string)
-                }) {
-                    Label("Copy", systemImage: "doc.on.doc")
-                }
+                    }
+            } else {
+                // Regular text for messages without links
+                Text(message.content)
+                    .padding(12)
+                    .background(bubbleColor)
+                    .foregroundColor(textColor)
+                    .cornerRadius(16)
+                    .frame(maxWidth: 600, alignment: alignment)
+                    .contextMenu {
+                        Button(action: {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(message.content, forType: .string)
+                        }) {
+                            Label("Copy", systemImage: "doc.on.doc")
+                        }
+                    }
             }
             
             if message.sender != .user {
@@ -228,6 +213,90 @@ struct MessageBubble: View {
             }
         }
         .padding(.horizontal, 8)
+    }
+}
+
+// NSTextView wrapper for clickable links
+struct ClickableLinksTextView: NSViewRepresentable {
+    let text: String
+    let textColor: Color
+    
+    func makeNSView(context: Context) -> NSScrollView {
+        // Create a text storage with the attributed string
+        let textStorage = NSTextStorage(attributedString: createAttributedString())
+        
+        // Create layout manager and text container
+        let layoutManager = NSLayoutManager()
+        textStorage.addLayoutManager(layoutManager)
+        
+        let textContainer = NSTextContainer(containerSize: CGSize(width: 600, height: CGFloat.greatestFiniteMagnitude))
+        textContainer.widthTracksTextView = true
+        layoutManager.addTextContainer(textContainer)
+        
+        // Create NSTextView with the text container
+        let textView = NSTextView(frame: .zero, textContainer: textContainer)
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.drawsBackground = false
+        textView.textColor = NSColor(textColor)
+        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        textView.isAutomaticLinkDetectionEnabled = true
+        textView.allowsUndo = false
+        textView.textContainerInset = NSSize(width: 0, height: 0)
+        
+        // Create a scroll view to contain the text view
+        let scrollView = NSScrollView()
+        scrollView.documentView = textView
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.drawsBackground = false
+        
+        // Size the text view to fit its content
+        textView.sizeToFit()
+        
+        return scrollView
+    }
+    
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        if let textView = nsView.documentView as? NSTextView {
+            textView.textStorage?.setAttributedString(createAttributedString())
+            textView.textColor = NSColor(textColor)
+            textView.sizeToFit()
+        }
+    }
+    
+    private func createAttributedString() -> NSAttributedString {
+        let attributedString = NSMutableAttributedString(string: text)
+        
+        // Find file:/// URLs using regex
+        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+        let range = NSRange(location: 0, length: text.utf16.count)
+        
+        // Apply link attributes to URLs
+        detector?.enumerateMatches(in: text, options: [], range: range) { (match, _, _) in
+            if let match = match, let url = match.url {
+                attributedString.addAttribute(.link, value: url, range: match.range)
+                attributedString.addAttribute(.foregroundColor, value: NSColor.blue, range: match.range)
+                attributedString.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: match.range)
+            }
+        }
+        
+        // Additional regex for file:/// URLs which might not be detected by NSDataDetector
+        let fileURLPattern = "file://[^ \n]+"
+        if let regex = try? NSRegularExpression(pattern: fileURLPattern, options: []) {
+            regex.enumerateMatches(in: text, options: [], range: range) { (match, _, _) in
+                if let match = match {
+                    let urlString = (text as NSString).substring(with: match.range)
+                    if let url = URL(string: urlString) {
+                        attributedString.addAttribute(.link, value: url, range: match.range)
+                        attributedString.addAttribute(.foregroundColor, value: NSColor.blue, range: match.range)
+                        attributedString.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: match.range)
+                    }
+                }
+            }
+        }
+        
+        return attributedString
     }
 }
 
