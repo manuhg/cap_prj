@@ -120,21 +120,38 @@ struct MessageBubble: View {
     let message: Message
     
     private var bubbleColor: Color {
-        message.sender == .user ? .blue : Color(NSColor.controlBackgroundColor)
+        switch message.sender {
+        case .user:
+            return .blue
+        case .system:
+            return Color(.systemGreen)
+        case .assistant:
+            return Color(NSColor.controlBackgroundColor)
+        }
     }
     
     private var textColor: Color {
-        message.sender == .user ? .white : .primary
+        switch message.sender {
+        case .user, .system:
+            return .white
+        case .assistant:
+            return .primary
+        }
     }
     
-    private var alignment: HorizontalAlignment {
-        message.sender == .user ? .trailing : .leading
+    private var alignment: Alignment {
+        switch message.sender {
+        case .user:
+            return .trailing
+        case .system, .assistant:
+            return .leading
+        }
     }
     
     var body: some View {
         HStack {
-            if message.sender == .assistant {
-                Spacer()
+            if message.sender == .user {
+                Spacer(minLength: 100)
             }
             
             Text(message.content)
@@ -142,6 +159,7 @@ struct MessageBubble: View {
                 .background(bubbleColor)
                 .foregroundColor(textColor)
                 .cornerRadius(16)
+                .frame(maxWidth: 600, alignment: alignment)
                 .contextMenu {
                     Button(action: {
                         NSPasteboard.general.clearContents()
@@ -151,8 +169,8 @@ struct MessageBubble: View {
                     }
                 }
             
-            if message.sender == .user {
-                Spacer()
+            if message.sender != .user {
+                Spacer(minLength: 100)
             }
         }
         .padding(.horizontal, 8)

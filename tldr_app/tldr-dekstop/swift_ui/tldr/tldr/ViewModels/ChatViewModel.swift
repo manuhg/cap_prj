@@ -50,7 +50,7 @@ class ChatViewModel: ObservableObject {
                 title: "New Conversation",
                 corpusDir: "~/Downloads",
                 messages: [
-                    Message(content: "Hello! I'm your TLDR assistant. I'll help you understand your codebase. Start by selecting a corpus directory.", sender: .assistant)
+                    Message(content: "Welcome to TLDR! I'll help you understand your codebase. Start by selecting a corpus directory using the folder icon above.", sender: .system)
                 ]
             )
             conversations = [newConversation]
@@ -164,7 +164,7 @@ class ChatViewModel: ObservableObject {
             title: "New Conversation",
             corpusDir: corpusDir,
             messages: [
-                Message(content: "Hello! I'm your TLDR assistant. I'll help you understand your codebase.", sender: .assistant)
+                Message(content: "New conversation started. Using corpus directory: " + corpusDir, sender: .system)
             ]
         )
         conversations.append(newConversation)
