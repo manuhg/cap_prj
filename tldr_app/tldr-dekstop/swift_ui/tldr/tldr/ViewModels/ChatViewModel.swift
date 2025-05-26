@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AppKit
 import TldrAPI
 
 @MainActor
@@ -9,7 +10,7 @@ class ChatViewModel: ObservableObject {
     @Published var newMessageText: String = ""
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
-    @Published var showingCorpusDialog: Bool = false
+
     
     private let conversationsKey = "savedConversations"
     private let selectedConversationIdKey = "selectedConversationId"
@@ -34,6 +35,7 @@ class ChatViewModel: ObservableObject {
         // Load conversations from UserDefaults
         if let data = UserDefaults.standard.data(forKey: conversationsKey),
            let savedConversations = try? JSONDecoder().decode([ConversationData].self, from: data) {
+            print("[DEBUG] Loaded conversations: \(savedConversations.map { "\($0.title): \($0.corpusDir)" })")
             conversations = savedConversations
             
             // Load selected conversation ID
@@ -65,11 +67,13 @@ class ChatViewModel: ObservableObject {
         // Save conversations to UserDefaults
         if let data = try? JSONEncoder().encode(conversations) {
             UserDefaults.standard.set(data, forKey: conversationsKey)
+            print("[DEBUG] Saved conversations: \(conversations.map { "\($0.title): \($0.corpusDir)" })")
         }
         
         // Save selected conversation ID
         if let selectedId = selectedConversation?.id {
             UserDefaults.standard.set(selectedId.uuidString, forKey: selectedConversationIdKey)
+            print("[DEBUG] Saved selected conversation ID: \(selectedId)")
         }
     }
     
@@ -81,6 +85,13 @@ class ChatViewModel: ObservableObject {
         
         var updatedConversation = conversation
         updatedConversation.corpusDir = newPath
+        updatedConversation.lastUpdated = Date()
+        
+        // Add a system message about the change
+        updatedConversation.messages.append(
+            Message(content: "Corpus directory changed to: " + newPath, sender: .system)
+        )
+        
         conversations[index] = updatedConversation
         selectedConversation = updatedConversation
         saveConversations()
@@ -191,26 +202,25 @@ class ChatViewModel: ObservableObject {
     
 
     
-    func updateConversationCorpusDirectory(_ newPath: String) {
-        guard let conversation = selectedConversation,
-              let index = conversations.firstIndex(where: { $0.id == conversation.id }) else {
-            return
+    @MainActor func selectCorpusDirectory() {
+        Task {
+            let openPanel = NSOpenPanel()
+            openPanel.canChooseFiles = false
+            openPanel.canChooseDirectories = true
+            openPanel.allowsMultipleSelection = false
+            openPanel.message = "Select a corpus directory"
+            
+            if openPanel.runModal() == .OK {
+                if let url = openPanel.url {
+                    await MainActor.run {
+                        updateCorpusDirectory(url.path)
+                    }
+                }
+            }
         }
-        
-        var updatedConversation = conversation
-        updatedConversation.corpusDir = newPath
-        
-        // Add a system message about the change
-        updatedConversation.messages.append(
-            Message(content: "Corpus directory changed to: " + newPath, sender: .system)
-        )
-        
-        conversations[index] = updatedConversation
-        selectedConversation = updatedConversation
-        
-        // Save changes
-        saveConversations()
     }
+    
+
     
     func updateConversationTitle(_ conversation: ConversationData, newTitle: String) {
         if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {

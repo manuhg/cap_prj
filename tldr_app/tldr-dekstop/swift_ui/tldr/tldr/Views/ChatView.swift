@@ -13,15 +13,15 @@ struct ChatView: View {
                 Image(systemName: "folder")
                     .foregroundColor(.secondary)
                 Text("Corpus: \(viewModel.selectedConversation?.corpusDir ?? "Not set")")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(.headline)
+                    .foregroundColor(.black)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .padding(.vertical, 2)
                 Spacer()
-                Button(action: { viewModel.showingCorpusDialog = true }) {
+                Button(action: viewModel.selectCorpusDirectory) {
                     Image(systemName: "pencil")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.black)
                 }
             }
             .padding(.horizontal)
@@ -110,9 +110,6 @@ struct ChatView: View {
         .navigationTitle(conversation.title)
         .animation(.easeInOut, value: viewModel.isLoading)
         .animation(.easeInOut, value: viewModel.errorMessage != nil)
-        .sheet(isPresented: $viewModel.showingCorpusDialog) {
-            CorpusDirectoryDialog(viewModel: viewModel)
-        }
     }
 }
 

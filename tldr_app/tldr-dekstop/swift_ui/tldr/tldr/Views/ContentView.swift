@@ -15,6 +15,7 @@ struct ContentView: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 32, height: 32)
+                        .background(.clear)
                     Text("TLDR")
                         .font(.system(size: 24, weight: .bold))
                     Spacer()
