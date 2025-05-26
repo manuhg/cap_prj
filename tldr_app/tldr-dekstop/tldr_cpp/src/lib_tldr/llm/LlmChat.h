@@ -20,9 +20,9 @@ struct llm_result {
 
 class LlmChat {
 public:
-    LlmChat(std::string model_path);
+    LlmChat();
     void llm_chat_cleanup();
-    bool initialize_model();
+    bool initialize_model(const std::string& model_path);
     llm_result chat_with_llm(std::string prompt);
 
 private:

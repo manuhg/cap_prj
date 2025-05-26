@@ -472,7 +472,7 @@ public func retrieve_similar_vectors_from_corpus(
     print("Swift: modelPath = \(modelPath)")
     print("Swift: corpusDir = \(corpusDir)")
     print("Swift: k = \(k)")
-    
+
     do {
         // Step 1: Load the model once for reuse
         let model = try loadCosineSimilarityModel(from: modelPath)
@@ -484,28 +484,81 @@ public func retrieve_similar_vectors_from_corpus(
         let fileManager = FileManager.default
         let corpusURL = URL(fileURLWithPath: corpusDir)
         
-        // Get all files with .vecdump extension
-        let directoryContents = try fileManager.contentsOfDirectory(at: corpusURL, 
-                                                                   includingPropertiesForKeys: nil)
-        let dumpFiles = directoryContents.filter { $0.pathExtension == "vecdump" }
+        // Get all files with .vecdump extension recursively
+        let resourceKeys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey]
+        let enumerator = fileManager.enumerator(
+            at: corpusURL,
+            includingPropertiesForKeys: resourceKeys,
+            options: [.skipsHiddenFiles],
+            errorHandler: { (url, error) -> Bool in
+                print("Error accessing \(url.path): \(error.localizedDescription)")
+                return true
+            }
+        )
+        
+        var dumpFiles: [URL] = []
+        while let fileURL = enumerator?.nextObject() as? URL {
+            do {
+                let resourceValues = try fileURL.resourceValues(forKeys: Set(resourceKeys))
+                if resourceValues.isRegularFile == true && fileURL.pathExtension == "vecdump" {
+                    dumpFiles.append(fileURL)
+                }
+            } catch {
+                print("Error getting resource values for \(fileURL): \(error.localizedDescription)")
+            }
+        }
         
         print("Found \(dumpFiles.count) vector dump files in corpus directory")
         
-        // Step 4: Process each dump file to find potential matches
+        // Step 4: Process dump files in parallel
+        let concurrentQueue = DispatchQueue(label: "com.tldr.vectorSearch", attributes: .concurrent)
+        let group = DispatchGroup()
+        
+        // Thread-safe storage for results
+        let resultsLock = NSLock()
         var allResults: [VectorSimilarityResult] = []
         
-        for dumpFile in dumpFiles {
-            // Get results from this dump file
-            let dumpResults = try get_relevant_vecs_from_dump(
-                modelPath: modelPath,
-                vectorDumpPath: dumpFile.path,
-                queryVector: queryVector,
-                model: model
-            )
+        // Process files in parallel, but limit concurrency to avoid memory pressure
+        let batchSize = min(8, ProcessInfo.processInfo.processorCount) // Use up to 8 threads or CPU count, whichever is smaller
+        let batchCount = (dumpFiles.count + batchSize - 1) / batchSize // Ceiling division
+        
+        print("Processing \(dumpFiles.count) files in parallel using \(batchSize) threads")
+        
+        for batchIndex in 0..<batchCount {
+            let startIdx = batchIndex * batchSize
+            let endIdx = min(startIdx + batchSize, dumpFiles.count)
+            let batchFiles = Array(dumpFiles[startIdx..<endIdx])
             
-            // Add to combined results
-            allResults.append(contentsOf: dumpResults)
+            group.enter()
+            concurrentQueue.async {
+                defer { group.leave() }
+                
+                var batchResults: [VectorSimilarityResult] = []
+                
+                for dumpFile in batchFiles {
+                    do {
+                        // Get results from this dump file
+                        let dumpResults = try get_relevant_vecs_from_dump(
+                            modelPath: modelPath,
+                            vectorDumpPath: dumpFile.path,
+                            queryVector: queryVector,
+                            model: model
+                        )
+                        batchResults.append(contentsOf: dumpResults)
+                    } catch {
+                        print("Error processing \(dumpFile.path): \(error.localizedDescription)")
+                    }
+                }
+                
+                // Safely append results
+                resultsLock.lock()
+                allResults.append(contentsOf: batchResults)
+                resultsLock.unlock()
+            }
         }
+        
+        // Wait for all parallel tasks to complete
+        group.wait()
         
         // Step 5: Sort all results by similarity score
         allResults.sort { $0.score > $1.score }

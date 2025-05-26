@@ -2,9 +2,8 @@
 #define TLDR_CPP_CONSTANTS_H
 #include <nlohmann/json.hpp>
 #include <vector>
-
+#include "definitions.h"
 // Text processing constants
-#define PAGE_DELIMITER "\n\n"
 #define AVG_WORDS_PER_SENTENCE 6
 #define AVG_CHARS_PER_WORD 5
 #define CHUNK_N_SENTENCES 10
@@ -18,9 +17,25 @@
 #define DB_HASH_PRESENT_DO_NOTHING 2
 #define DB_HASH_PRESENT_ACTION DB_HASH_PRESENT_DO_NOTHING
 
-#define NUM_THREADS 4
-#define DB_CONN_POOL_SIZE NUM_THREADS
+#define EMB_PROC_NUM_THREADS 2
+#define ADD_CORPUS_N_THREADS (3)  // Maximum number of threads for processing PDFs in parallel
+#define DB_CONN_POOL_SIZE 2
 
+// LLM context pool constants
+// Chat model context pool sizes
+#define CHAT_MIN_CONTEXTS 1
+#define CHAT_MAX_CONTEXTS 2
+// Embedding model context pool sizes - can have more contexts since embedding operations are faster
+#define EMBEDDING_MIN_CONTEXTS (4)
+#define EMBEDDING_MAX_CONTEXTS (2+4)
+
+
+#define CORPUS_FILE_PROC_TYPE_PARALLEL 1
+#define CORPUS_FILE_PROC_TYPE_SEQUENTIAL 2
+#define CORPUS_FILE_PROC_TYPE CORPUS_FILE_PROC_TYPE_PARALLEL
+
+// Directory name for storing vector cache files
+constexpr const char* VECDUMP_DIR = "_vecdumps";
 // Database constants
 #define USE_POSTGRES true  // Set to true to use PostgreSQL, false for SQLite
 #define DB_PATH "~/proj_tldr/datastore/embeddings.db"
@@ -31,8 +46,7 @@
 #define CHAT_URL "http://localhost:8088/v1/chat/completions"
 
 #define CHAT_MODEL_PATH "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf"
-// #define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf"
-#define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/embedding/all-MiniLM-L6-v2-ggml-model-f16.gguf"
+#define EMBEDDINGS_MODEL_PATH "/Users/manu/llm-weights/embedding/all-MiniLM-L6-v2-Q8_0.gguf"
 
 #define CONNECT_TIMEOUT_SECONDS 5
 #define REQUEST_TIMEOUT_SECONDS 30
@@ -40,18 +54,8 @@
 #define RETRY_DELAY_MS 1000
 #define EMBEDDING_SIZE "384" // keep it string so that it can be inserted into create table stmt
 #define EMBEDDING_SIZE_INT 384 // keep it string so that it can be inserted into create table stmt
-#define K_SIMILAR_CHUNKS_TO_RETRIEVE 5
+#define K_SIMILAR_CHUNKS_TO_RETRIEVE 3
 
-// LLM context pool constants
-// Chat model context pool sizes
-#define CHAT_MIN_CONTEXTS 1
-#define CHAT_MAX_CONTEXTS 2
-// Embedding model context pool sizes - can have more contexts since embedding operations are faster
-#define EMBEDDING_MIN_CONTEXTS 4
-#define EMBEDDING_MAX_CONTEXTS 6
-struct embeddings_request {
-    std::vector<std::string> input;
-};
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(embeddings_request, input)
 #endif //TLDR_CPP_CONSTANTS_H

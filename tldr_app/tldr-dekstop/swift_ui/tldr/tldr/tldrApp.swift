@@ -9,4 +9,4 @@ struct tldrApp: App {
         }
         .windowStyle(.hiddenTitleBar)
     }
-} 
+}

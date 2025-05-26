@@ -1,30 +1,53 @@
-#ifndef TLDRAPI_C_H
-#define TLDRAPI_C_H
+#ifndef TLDR_API_C_H
+#define TLDR_API_C_H
+
+#include <stddef.h>  // for size_t
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Test function that can be called from Swift
-int tldr_api_trial_tldr(void);
+typedef struct {
+    char* text;
+    char* file_path;
+    char* file_name;
+    char* title;
+    char* author;
+    int page_count;
+    int page_number;
+    float similarity;
+    unsigned long long hash;
+} CtxChunkMetaC;
 
-// Returns 1 if initialization was successful, 0 otherwise
-bool tldr_initializeSystem(void);
+typedef struct {
+    char* response;
+    CtxChunkMetaC* context_chunks;
+    size_t context_chunks_count;
+    int referenced_document_count;
+} RagResultC;
 
-// Cleans up the system
+// Initialize the TLDR system with model paths
+bool tldr_initializeSystem(const char* chatModel="Llama-3.2-1B-Instruct-Q3_K_L-lms.gguf", const char* embeddingsModel="all-MiniLM-L6-v2-Q8_0.gguf");
+
+// Clean up the TLDR system
 void tldr_cleanupSystem(void);
 
-// Adds a corpus from a PDF file path
+// Add a document to the corpus
 void tldr_addCorpus(const char* sourcePath);
 
-// Deletes a corpus by ID
+// Delete a document from the corpus
 void tldr_deleteCorpus(const char* corpusId);
 
-// Queries the RAG system
-void tldr_queryRag(const char* user_query, const char* embeddings_url, const char* chat_url);
+// Query the RAG system
+RagResultC* tldr_queryRag(const char* user_query, const char* corpus_dir);
 
+// Free a RagResult
+void tldr_freeRagResult(RagResultC* result);
+
+void tldr_freeString(char* str);
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* TLDRAPI_C_H */
+#endif // TLDR_API_C_H

@@ -1,100 +1,144 @@
 //
-//  TldrAPI.cpp (Simplified Stub)
+//  TldrAPI.cpp
 //  TldrAPI
 //
 //  Created by Manu Hegde on 4/23/25.
-//  Provides a stub implementation for Swift UI development.
+//  Provides bridge implementation between C++ and Swift for TLDR functionality.
 //
 
-#include "TldrAPI.hpp" // Includes TldrAPI_C.h indirectly
-
-// Include the header from the actual tldr_cpp library
-// Note: The path to this header must be added to Xcode's Header Search Paths.
+#include "TldrAPI.hpp"
 #include "tldr_api.h"
+
+// Core Foundation includes for macOS/iOS bundle access
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreServices/CoreServices.h> // For UInt8 type
+#include <limits.h> // For PATH_MAX
 
 #include <string>
 #include <iostream>
+#include <cstring>
+#include <stdexcept> // For std::runtime_error
+
+// Helper function to get the path to a resource in the app bundle
+static std::string getResourcePath(const std::string& filename) {
+    CFBundleRef mainBundle = CFBundleGetMainBundle();
+    if (!mainBundle) {
+        throw std::runtime_error("Could not get main bundle");
+    }
+
+    CFStringRef filenameStr = CFStringCreateWithCString(kCFAllocatorDefault, 
+                                                      filename.c_str(), 
+                                                      kCFStringEncodingUTF8);
+    if (!filenameStr) {
+        throw std::runtime_error("Could not create CFString from filename");
+    }
+
+    CFURLRef resourceURL = CFBundleCopyResourceURL(mainBundle, filenameStr, NULL, NULL);
+    CFRelease(filenameStr);
+    
+    if (!resourceURL) {
+        throw std::runtime_error("Could not find resource: " + filename);
+    }
+
+    char path[PATH_MAX];
+    if (!CFURLGetFileSystemRepresentation(resourceURL, true, (UInt8*)path, PATH_MAX)) {
+        CFRelease(resourceURL);
+        throw std::runtime_error("Could not get filesystem path for resource");
+    }
+
+    std::string result(path);
+    CFRelease(resourceURL);
+    return result;
+}
 
 // Provide the C implementations that call the actual C++ library functions.
 extern "C" {
 
-// Test function that can be called from Swift
-int tldr_api_trial_tldr(void) {
-    // Assuming the real library might not have this exact test function,
-    // we can return a specific value or call another simple function.
-    std::cout << "[TldrAPI Wrapper] tldr_api_trial_tldr() called. Calling real library..." << std::endl;
-    // Replace with an actual call if one exists, or keep simple.
-    bool success = tldr_cpp_api::initializeSystem(); // Example call to check linking (use correct namespace)
-    if (!success) {
-        std::cerr << "[TldrAPI Wrapper] Real library init failed in trial function!" << std::endl;
-        return -1; // Indicate failure
+// Initialize the TLDR system with model paths
+bool tldr_initializeSystem(const char* chatModel, const char* embeddingsModel) {
+    try {
+        // Get paths to model files in the bundle
+        std::string chatModelPath = getResourcePath(chatModel);
+        std::string embeddingsModelPath = getResourcePath(embeddingsModel);
+        std::cout << "Model paths obtained are as follows: \nchatModelPath:" << chatModelPath << "\nembeddingsModelPath:" << embeddingsModelPath << std::endl;
+
+        // Initialize the LLM manager with the paths
+        tldr_cpp_api::initializeSystem(chatModelPath.c_str(), embeddingsModelPath.c_str());
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Error initializing LLM models: " << e.what() << std::endl;
+        return false;
     }
-    std::cout << "[TldrAPI Wrapper] Real library init succeeded in trial function." << std::endl;
-    tldr_cpp_api::cleanupSystem(); // Clean up after test init (use correct namespace)
-    return 123; // Return a distinct value for testing
 }
 
-// Returns 1 if initialization was successful, 0 otherwise
-bool tldr_initializeSystem(void) {
-    std::cout << "[TldrAPI Wrapper] tldr_initializeSystem() called. Calling real library..." << std::endl;
-    bool result = tldr_cpp_api::initializeSystem(); // Use correct namespace
-    std::cout << "[TldrAPI Wrapper] Real library initializeSystem() returned: " << result << std::endl;
-    return result;
-}
-
-// Cleans up the system
+// Clean up the system
 void tldr_cleanupSystem(void) {
-    std::cout << "[TldrAPI Wrapper] tldr_cleanupSystem() called. Calling real library..." << std::endl;
-    tldr_cpp_api::cleanupSystem(); // Use correct namespace
-    std::cout << "[TldrAPI Wrapper] Real library cleanupSystem() finished." << std::endl;
+    tldr_cpp_api::cleanupSystem();
 }
 
-// Adds a corpus from a PDF file path
+// Add a corpus from a PDF file or directory
 void tldr_addCorpus(const char* sourcePath) {
-    std::cout << "[TldrAPI Wrapper] tldr_addCorpus() called with path: " << (sourcePath ? sourcePath : "NULL") << ". Calling real library..." << std::endl;
-    if (sourcePath) {
-        tldr_cpp_api::addCorpus(std::string(sourcePath)); // Use correct namespace
-        std::cout << "[TldrAPI Wrapper] Real library addCorpus() finished." << std::endl;
-    } else {
-        std::cerr << "[TldrAPI Wrapper] Error: sourcePath is NULL." << std::endl;
-    }
+    tldr_cpp_api::addCorpus(sourcePath);
 }
 
-// Deletes a corpus by ID
+// Delete a corpus by ID
 void tldr_deleteCorpus(const char* corpusId) {
-     std::cout << "[TldrAPI Wrapper] tldr_deleteCorpus() called with ID: " << (corpusId ? corpusId : "NULL") << ". Calling real library..." << std::endl;
-    if (corpusId) {
-        tldr_cpp_api::deleteCorpus(std::string(corpusId)); // Use correct namespace
-         std::cout << "[TldrAPI Wrapper] Real library deleteCorpus() finished." << std::endl;
-    } else {
-         std::cerr << "[TldrAPI Wrapper] Error: corpusId is NULL." << std::endl;
-    }
+    tldr_cpp_api::deleteCorpus(corpusId);
 }
 
-// Queries the RAG system
-void tldr_queryRag(const char* user_query, const char* embeddings_url, const char* chat_url) {
-    std::cout << "[TldrAPI Wrapper] tldr_queryRag() called with query: " << (user_query ? user_query : "NULL") << ". Calling real library..." << std::endl;
-    if (user_query && embeddings_url && chat_url) {
-        tldr_cpp_api::queryRag(std::string(user_query), std::string(embeddings_url), std::string(chat_url)); // Use correct namespace
-         std::cout << "[TldrAPI Wrapper] Real library queryRag() finished." << std::endl;
-    } else {
-        std::cerr << "[TldrAPI Wrapper] Error: One or more arguments to queryRag are NULL." << std::endl;
+// Query the RAG system
+RagResultC* tldr_queryRag(const char* user_query, const char* corpus_dir) {
+    std::string npu_model_path_str;
+    
+        try {
+            // If no model path provided, try to get it from the bundle
+            npu_model_path_str = getResourcePath("CosineSimilarityBatched.mlmodelc");
+            std::cout << "Using NPU model from bundle: " << npu_model_path_str << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Error getting NPU model path from bundle: " << e.what() << std::endl;
+            // Continue without the NPU model path, the C++ API will use a default
+        }
+   
+    
+    auto cpp_result = tldr_cpp_api::queryRag(user_query, corpus_dir, npu_model_path_str);
+
+    RagResultC* c_result = new RagResultC;
+    c_result->response = strdup(cpp_result.response.c_str());
+    c_result->referenced_document_count = cpp_result.referenced_document_count;
+    c_result->context_chunks_count = cpp_result.context_chunks.size();
+    c_result->context_chunks = new CtxChunkMetaC[c_result->context_chunks_count];
+
+    for (size_t i = 0; i < c_result->context_chunks_count; ++i) {
+        const auto& chunk = cpp_result.context_chunks[i];
+        c_result->context_chunks[i].text = strdup(chunk.text.c_str());
+        c_result->context_chunks[i].file_path = strdup(chunk.file_path.c_str());
+        c_result->context_chunks[i].file_name = strdup(chunk.file_name.c_str());
+        c_result->context_chunks[i].title = strdup(chunk.title.c_str());
+        c_result->context_chunks[i].author = strdup(chunk.author.c_str());
+        c_result->context_chunks[i].page_count = chunk.page_count;
+        c_result->context_chunks[i].page_number = chunk.page_number;
+        c_result->context_chunks[i].similarity = chunk.similarity;
+        c_result->context_chunks[i].hash = chunk.hash;
     }
+    return c_result;
+}
+
+void tldr_freeRagResult(RagResultC* result) {
+    if (!result) return;
+    free(result->response);
+    for (size_t i = 0; i < result->context_chunks_count; ++i) {
+        free(result->context_chunks[i].text);
+        free(result->context_chunks[i].file_path);
+        free(result->context_chunks[i].file_name);
+        free(result->context_chunks[i].title);
+        free(result->context_chunks[i].author);
+    }
+    delete[] result->context_chunks;
+    delete result;
+}
+
+void tldr_freeString(char* str) {
+    free(str);
 }
 
 } // extern "C"
-
-int tldr_trial_main() {
-    // Initialize system
-    if (!tldr_initializeSystem()) {
-        std::cerr << "Failed to initialize system" << std::endl;
-        return 1;
-    }
-
-    std::cout << "System initialized successfully" << std::endl;
-
-    // Cleanup system
-    tldr_cleanupSystem();
-
-    return 0;
-}
