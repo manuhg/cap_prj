@@ -27,6 +27,15 @@ struct ChatView: View {
                     Image(systemName: "pencil")
                         .foregroundColor(.black)
                 }
+                Button(action: viewModel.addCorpus) {
+                    Text("Analyze")
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .cornerRadius(4)
+                }
+                .disabled(viewModel.isLoading)
+                .help("Analyze corpus directory to generate embeddings")
             }
             .padding(.horizontal)
             .padding(.vertical, 8)

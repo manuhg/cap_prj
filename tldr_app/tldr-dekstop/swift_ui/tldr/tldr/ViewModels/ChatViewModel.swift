@@ -84,6 +84,51 @@ class ChatViewModel: ObservableObject {
         }
     }
     
+    func corpusDirStats(path: String) -> (pdfCount: Int, vecdumpCount: Int) {
+        print("[DEBUG] Checking corpus directory stats for: \(path)")
+        
+        // Expand tilde in path if present
+        let expandedPath = (path as NSString).expandingTildeInPath
+        let fileManager = FileManager.default
+        
+        // Check if directory exists
+        guard fileManager.fileExists(atPath: expandedPath) else {
+            print("[DEBUG] Corpus directory does not exist: \(expandedPath)")
+            return (0, 0)
+        }
+        
+        // Count PDF and vecdump files recursively
+        var pdfCount = 0
+        var vecdumpCount = 0
+        
+        // Function to recursively count files
+        func countFiles(in directory: String) {
+            guard let enumerator = fileManager.enumerator(atPath: directory) else { return }
+            
+            while let file = enumerator.nextObject() as? String {
+                let filePath = (directory as NSString).appendingPathComponent(file)
+                
+                // Skip directories in the count
+                var isDir: ObjCBool = false
+                if fileManager.fileExists(atPath: filePath, isDirectory: &isDir) && isDir.boolValue {
+                    continue
+                }
+                
+                if file.lowercased().hasSuffix(".pdf") {
+                    pdfCount += 1
+                } else if file.lowercased().hasSuffix(".vecdump") {
+                    vecdumpCount += 1
+                }
+            }
+        }
+        
+        // Count files in the directory recursively
+        countFiles(in: expandedPath)
+        
+        print("[DEBUG] Found \(pdfCount) PDF files and \(vecdumpCount) vecdump files")
+        return (pdfCount, vecdumpCount)
+    }
+    
     func updateCorpusDirectory(_ newPath: String) {
         guard let conversation = selectedConversation,
               let index = conversations.firstIndex(where: { $0.id == conversation.id }) else {
@@ -97,6 +142,16 @@ class ChatViewModel: ObservableObject {
         // Add a system message about the change
         updatedConversation.messages.append(
             Message(content: "Corpus directory changed to: " + newPath, sender: .system)
+        )
+        
+        // Get corpus directory stats and add as system message
+        let stats = corpusDirStats(path: newPath)
+        let statsMessage = "Corpus Directory Stats:\n" +
+                          "- PDF files: \(stats.pdfCount)\n" +
+                          "- Vecdump files: \(stats.vecdumpCount)"
+        
+        updatedConversation.messages.append(
+            Message(content: statsMessage, sender: .system)
         )
         
         conversations[index] = updatedConversation
@@ -214,13 +269,24 @@ class ChatViewModel: ObservableObject {
     func createNewConversation() {
         // Use the corpus directory from the currently selected conversation, or the default if none is selected
         let corpusDir = selectedConversation?.corpusDir ?? defaultCorpusDir
+        
+        // Create welcome message
+        let welcomeMessage = Message(content: "New conversation started. Using corpus directory: " + corpusDir, sender: .system)
+        
+        // Get corpus directory stats
+        let stats = corpusDirStats(path: corpusDir)
+        let statsMessage = Message(content: "Corpus Directory Stats:\n" +
+                                  "- PDF files: \(stats.pdfCount)\n" +
+                                  "- Vecdump files: \(stats.vecdumpCount)", 
+                                  sender: .system)
+        
+        // Create new conversation with both messages
         let newConversation = ConversationData(
             title: "New Conversation",
             corpusDir: corpusDir,
-            messages: [
-                Message(content: "New conversation started. Using corpus directory: " + corpusDir, sender: .system)
-            ]
+            messages: [welcomeMessage, statsMessage]
         )
+        
         conversations.append(newConversation)
         selectedConversation = newConversation
         
@@ -249,6 +315,53 @@ class ChatViewModel: ObservableObject {
     }
     
 
+    
+    func addCorpus() {
+        guard let conversation = selectedConversation else { return }
+        
+        // Show loading indicator
+        isLoading = true
+        
+        // Add a system message about the action
+        if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
+            var updatedConversation = conversation
+            updatedConversation.messages.append(
+                Message(content: "Analyzing corpus directory: \(conversation.corpusDir)", sender: .system)
+            )
+            conversations[index] = updatedConversation
+            selectedConversation = updatedConversation
+            saveConversations()
+        }
+        
+        // Run corpus analysis in background
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            // Call the existing TldrWrapper.addCorpus method
+            TldrWrapper.addCorpus(conversation.corpusDir)
+            
+            // Update UI on main thread
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                // Add completion message
+                if let index = self.conversations.firstIndex(where: { $0.id == conversation.id }) {
+                    var updatedConversation = self.conversations[index]
+                    updatedConversation.messages.append(
+                        Message(content: "Corpus directory analysis completed", sender: .system)
+                    )
+                    updatedConversation.lastUpdated = Date()
+                    
+                    self.conversations[index] = updatedConversation
+                    self.selectedConversation = updatedConversation
+                    self.saveConversations()
+                }
+                
+                // Hide loading indicator
+                self.isLoading = false
+            }
+        }
+    }
     
     func updateConversationTitle(_ conversation: ConversationData, newTitle: String) {
         if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
