@@ -27,6 +27,7 @@ The TLDR application follows a modular architecture where different components a
     \label{fig:tldr_modules}
 \end{figure}
 
+
 \begin{itemize}
     \item \textbf{User Interface:} This module provides the graphical frontend for the user. Developed using Swift language for MacOS, it allows users for the users to seamlessly leverage the capabilities of the application. It is responsible for workflows dealing with user experience while delegating all core logic to the backend modules.
 
@@ -80,7 +81,7 @@ The codebase of the GUI application is illustrated in Figure~\ref{fig:tldrUIFs}.
     \label{fig:tldrUIFs}
 \end{figure}
 \begin{enumerate}[label=\Alph*.]
-    \itemOverall Structure:
+    \item Overall Structure:
     \begin{enumerate}[label=\alph*.]
         \item \texttt{tldr}: The Swift language codebase that creates the user interface.
         \item \texttt{TldrAPI}: C++ module with bindings for Swift UI. It serves as a bridge between the Swift UI and the C++ static library of the RAG Backend.
@@ -335,20 +336,52 @@ Further, to improve the performance, \texttt{OpenMP} support was added for paral
 The \texttt{llama.cpp} is hence directly integrated into the RAG backend at compile time. This enables the application to perform in-memory LLM inference by directly invoking components of \texttt{llama.cpp}, without relying on any external dependencies or background processes for this core functionality.
 %----------------------
 %----------------------
-\section{Application Design - Workflow Overview}
+\section{Application Workflow}
+\label{sec:AppWorkflow}
+%----------------------
+
+%----------------------
+\subsection{Workflow Overview}
 \label{subsec:AppDesignWorkflow-Overview}
 %----------------------
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.0\linewidth]{images/tldr-app-module-interactions.jpg}
-    \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+    \caption{TLDR application module interactions}
+    \label{fig:tldrmodulesinteraction}
 \end{figure}
 
+Figure~\ref{fig:tldrmodulesinteraction} illustrates the high-level architecture of the TLDR application, highlighting its modular design and control flow between components.
+
+At the center is the \textbf{RAG Backend} (\texttt{lib-tldr}), which serves as the core orchestrator. It interfaces with several specialized modules to perform retrieval-augmented generation.
+
+\begin{itemize}
+    \item The \textbf{User Interface}, interacts with the RAG backend to initiate queries and display responses to the user.
+    
+    \item \textbf{llama.cpp} (\texttt{lib-llama}) is linked as a static library and provides language model functionality. The backend calls it for both text generation and embedding, receiving outputs directly in memory.
+    
+    \item \textbf{PostgreSQL Database} is used to store and retrieve document metadata and precomputed embeddings. The RAG backend communicates with it to persist and query structured data including document metadata and text chunks for embeddings.
+    
+    \item The \textbf{File System} acts as the persistent store for documents and vector dumps. The backend reads PDF files for embedding and writes embedding outputs into binary vector dump files.
+    
+    \item \textbf{NPU-Accelerated Cosine Similarity} (\texttt{lib-npu\_accelerator}) reads the vector dump files through memory-mapped I/O and executes similarity search using a CoreML model on Apple's Neural Engine (ANE).
+\end{itemize}
+
+This modular architecture allows each component to focus on a specific responsibility while maintaining efficient communication with the core backend. All dependencies are statically compiled or locally integrated, ensuring portability and performance.
 
 
-Figure~\ref{fig:tldr_workflow} illustrates the end-to-end workflow of the TLDR application. It is divided into three primary phases: system initialization, document corpus embedding, and query-based retrieval-augmented generation (RAG).
+%----------------------
+\subsection{RAG Pipeline Workflow}
+\label{subsec:RAGWorkflow}
+%----------------------
+The workflow of the modules of the system and the RAG pipeline can be divided into 3 logical phases. 
+\begin{itemize}
+    \item System Initialization: Initializes the resources required by the system.
+    \item Embedding Phase: Generate embeddings for documents in the source corpus.
+    \item Retrieval and Generation Phase: Leverage embedded documents to retrieve information relevant to a query made by the user and generate a response using the LLM.
+\end{itemize}
+The following sections show a detailed breakdown of these phases.
 
 %----------------------
 \subsubsection{System Initialization}
@@ -386,24 +419,19 @@ The initialization phase sets up the backend infrastructure and prepares the app
     \label{fig:autoregressive_decoding}
 \end{figure}
 
-When a user specifies a directory to embed:
-
+When a user selects a directory to embed the following actions take place:
 \begin{itemize}
     \item The \textbf{RAG Backend} scans the specified directory for documents using the File System.
     \item Each document is loaded, chunked, and converted to embeddings using a pre-defined embedder.
     \item Embeddings, text chunks, and associated metadata are inserted into the \textbf{PostgreSQL Database}.
     \item In parallel, the backend also writes a vector dump file to the \textbf{File System}, which stores the hash of each vector for quick access.
 \end{itemize}
-
 This dual-storage mechanism (DB + mmap vector cache) allows fast retrieval during inference while maintaining queryable metadata.
-
 
 %----------------------
 \subsubsection{Performing RAG}
 \label{subsec:AppDesignWorkflow-PerformingRAG}
 %----------------------
-
-
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.0\linewidth]{images/tldr-app-worklfow-pt3.jpg}
@@ -411,7 +439,7 @@ This dual-storage mechanism (DB + mmap vector cache) allows fast retrieval durin
     \label{fig:autoregressive_decoding}
 \end{figure}
 
-Once the corpus is embedded, the user may input a query. The following steps are executed:
+Once the corpus is embedded, the system is ready to answer user's queries. When the user proceeds to inquire the system, the following steps are executed:
 
 \begin{itemize}
     \item The user query is embedded using the same embedding model.
@@ -422,5 +450,5 @@ Once the corpus is embedded, the user may input a query. The following steps are
     \item The generated response is sent back to the \textbf{User Interface}.
 \end{itemize}
 
-This phase exemplifies the retrieval-augmented generation paradigm, grounded entirely in the user’s local corpus and executed with optimized hardware utilization.
 
+With these steps, the TLDR project is able to perform retrieval augmented generation on documents present in the user's device, without requring any external resources or internet access.
