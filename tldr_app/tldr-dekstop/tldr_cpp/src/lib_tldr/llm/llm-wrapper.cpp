@@ -87,7 +87,7 @@ namespace tldr {
     std::string LlmManager::get_chat_response(const std::string &context, const std::string &prompt) {
         std::cout<<"\nGenerating Chat LLM Response ..."<<std::endl;
         const std::string system_prompt =
-                "You are a helpful AI Assistant. Use the context and answer the user's question. Keep it short and precise.";
+                "You are a helpful AI Assistant. Use the context and answer the user's question. Keep it short and precise. Don't mention sources.";
         std::string formatted_prompt = "<|system|>\n" + system_prompt + "\n<|context|>\n" + context + "\n<|user|>\n" +
                                        prompt + "\nBrief response:\n";
 
