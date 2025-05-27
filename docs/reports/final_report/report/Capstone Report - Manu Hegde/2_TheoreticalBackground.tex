@@ -88,6 +88,58 @@ The M1's integrated architecture is highly beneficial for deploying LLMs locally
 
 In the context of this project, these capabilities enable a lightweight, resource-efficient desktop application that performs real-time summarization and question answering over a user-provided corpus without relying on cloud resources.
 
+%----------------------
+\section*{Data Leakage Risks with LLMs}
+\label{sec:RisksWithLLMs}
+%----------------------
+Large language models (LLMs), such as those deployed in online platforms like ChatGPT, often log user inputs and chat history to improve model performance. While this data collection can be valuable for enhancing capabilities through fine-tuning, it also introduces serious privacy risks. In particular, when user-provided inputs are incorporated into the training corpus, there is a possibility that the model may memorize and later reproduce fragments of this data, either verbatim or with high fidelity. This behavior can be exploited through various adversarial attacks, raising concerns about the inadvertent exposure of sensitive or personally identifiable information (PII).
+
+In this context, there exist two key types of attacks—\textit{data extraction attacks} and \textit{membership inference attacks}—that have been demonstrated in recent studies to exploit this behavior.
+
+\paragraph{Data Extraction Attacks:} 
+A data extraction attack involves repeatedly querying the model to extract sensitive or confidential information it may have memorized during training. As shown by~\cite{nasr2023extraction}, adversaries can craft prompts that exploit memorized patterns within the model. For instance, prompting a model to ``repeat a poem forever'' can lead to unintended output of PII or proprietary text segments from the training set (as seen in Fig~\ref{fig:data_extraction_attack}). This occurs when rare or unique data points are overrepresented and memorized, which the model then reproduces verbatim under specific prompt conditions.
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=0.6\linewidth]{images/data-extraction-attack.png}
+    \caption{Data extraction attack~\cite{chandradas2024security}}
+    \label{fig:data_extraction_attack}
+\end{figure}
+
+\paragraph{Membership Inference Attacks:}
+Membership inference attacks, as described by~\cite{shokri2016membership} and  ~\cite{mattern2023membership}, aim to determine whether a particular data point was included in the model’s training dataset. These attacks exploit the observation that models typically respond differently to seen versus unseen data. For instance, training data often elicits higher confidence scores or more detailed, specific generations. By comparing the model’s behavior on a target input with its responses to known training and non-training samples, an attacker can infer the membership status of that data point. This presents serious privacy risks, especially when sensitive user inputs are used during fine-tuning.
+
+These risks underscore the need for careful consideration of input data handling in the training and deployment of LLMs, particularly in contexts where privacy and confidentiality are paramount.
+%----------------------
+\section{Zero-Copy File Read Using DMA and mmap}
+\label{sec:ZeroCopyRead}
+%----------------------
+File reading in modern systems most often utilizes Direct Memory Access (DMA), where a dedicated hardware controller transfers data from storage to main memory (RAM) without direct involvement of the CPU, as seen in ~\ref{fig:dma-mmap}.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\linewidth]{images/dma-mmap.png}
+    \caption{Direct Memory Access I/O pattern coupled with mmap}
+    \label{fig:dma-mmap}
+\end{figure}
+
+However, in traditional buffered file I/O, once the data is loaded into memory, the CPU is still involved in copying the data from the kernel space buffer to the user space, leading to additional overhead. This additional step of data copy can be avoided by using the \textbf{mmap} system call, which directly maps a pointer to the location to which the DMA controller loads the data.
+
+\texttt{mmap} (memory-mapped file I/O)~\cite{man7_mmap} is a system call that maps a file or device into memory, allowing applications to access file contents as if they were part of the process's address space. This technique enables \textbf{'zero-copy'} behavior — the operating system maps the file directly into the process’s virtual memory, eliminating intermediate copying steps. This leads to reduced memory bandwidth usage and improved I/O performance without involving CPU compute cycles.
+
+% \texttt{mmap} is particularly effective in applications such as:
+% \begin{itemize}
+%   \item Media and file streaming servers, where large files (e.g., video segments) are served to clients with minimal overhead.
+%   \item Database systems that manage large data tables with direct memory access.
+%   \item Structured binary arrays such as vector dumps where the data can be read in contiguous chunks.
+% \end{itemize}
+In this project, it is necessary to scan a corpus of input documents to retrieve relevant text segments for each user query. The use of \texttt{mmap} offers several key advantages in this context of repeated searches over large document corpora:
+\begin{itemize}
+  \item Multiple parallel read attempts on a file can be consolidated into a single memory-mapped view, avoiding redundant I/O operations.
+  \item Memory-mapped files can be paged out to swap space and paged back into main memory efficiently by the operating system, enabling effective memory management during repeated access.
+  \item Only the required portions of the file are loaded into main memory on-demand, eliminating the need to load the entire file at once.
+\end{itemize}
+
+Hence, in the context of this project, memory-mapping enables the application to efficiently load vector embeddings from a dump file, allowing the system to read contiguous chunks of data when searching for relevant vectors corresponding to a given user query.
 
 %----------------------
 \section{Retrieval-Augmented Generation (RAG) Pipeline}
