@@ -91,44 +91,84 @@ struct ChatView: View {
                 }
             }
             
-            // Input area with loading indicator
+            // Resizable info panel
             VStack(spacing: 0) {
-                if viewModel.isLoading {
-                    HStack {
-                        ProgressView()
-                            .padding(.leading, 8)
-                        Text("Generating response...")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
+                if viewModel.infoText != nil {
+                    ScrollView {
+                        Text(viewModel.infoText ?? "")
+                            .font(.system(.caption, design: .monospaced))
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.bottom, 4)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: viewModel.infoPanelHeight)
+                    .background(Color(.textBackgroundColor))
+                    .overlay(
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(Color(.separatorColor)),
+                        alignment: .bottom
+                    )
+                    // Add a resize handle at the bottom
+                    .overlay(
+                        HStack {
+                            Spacer()
+                            Image(systemName: "arrow.up.and.down")
+                                .foregroundColor(.secondary)
+                                .padding(4)
+                                .contentShape(Rectangle())
+                                .gesture(
+                                    DragGesture()
+                                        .onChanged { value in
+                                            let newHeight = viewModel.infoPanelHeight - value.translation.height
+                                            viewModel.infoPanelHeight = max(50, min(300, newHeight))
+                                        }
+                                )
+                        }
+                        .padding(.trailing, 4),
+                        alignment: .bottom
+                    )
                 }
                 
-                HStack {
-                    TextField("Type a message...", text: $viewModel.newMessageText, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(1...5)
-                        .onSubmit {
-                            if !viewModel.newMessageText.isEmpty && !viewModel.isLoading {
-                                viewModel.sendMessage()
+                // Input area with loading indicator
+                VStack(spacing: 0) {
+                    if viewModel.isLoading {
+                        HStack {
+                            ProgressView()
+                                .padding(.leading, 8)
+                            Text("Generating response...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                        .padding(.bottom, 4)
+                    }
+                    
+                    HStack {
+                        TextField("Type a message...", text: $viewModel.newMessageText, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(1...5)
+                            .onSubmit {
+                                if !viewModel.newMessageText.isEmpty && !viewModel.isLoading {
+                                    viewModel.sendMessage()
+                                }
+                            }
+                            .submitLabel(.send)
+                        
+                        Button(action: viewModel.sendMessage) {
+                            if viewModel.isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle())
+                            } else {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .font(.title2)
                             }
                         }
-                        .submitLabel(.send)
-                    
-                    Button(action: viewModel.sendMessage) {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                        } else {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(.title2)
-                        }
+                        .disabled(viewModel.newMessageText.isEmpty || viewModel.isLoading)
                     }
-                    .disabled(viewModel.newMessageText.isEmpty || viewModel.isLoading)
+                    .padding()
+                    .background(Color(NSColor.windowBackgroundColor).shadow(radius: 0.5))
                 }
-                .padding()
-                .background(Color(NSColor.windowBackgroundColor).shadow(radius: 0.5))
             }
         }
         .navigationTitle(conversation.title)
