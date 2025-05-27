@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import AppKit
 import TldrAPI
+import OSLog
 
 @MainActor
 class ChatViewModel: ObservableObject {
@@ -10,6 +11,11 @@ class ChatViewModel: ObservableObject {
     @Published var newMessageText: String = ""
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
+    @Published var infoText: String? = nil
+    @Published var infoPanelHeight: CGFloat = 100
+    
+    // Output capture manager for stdout/stderr
+    private var outputCaptureManager = OutputCaptureManager()
 
     
     private let conversationsKey = "savedConversations"
@@ -322,6 +328,9 @@ class ChatViewModel: ObservableObject {
         // Show loading indicator
         isLoading = true
         
+        // Clear and initialize the info panel
+        updateInfoPanel(with: "")
+        
         // Add a system message about the action
         if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
             var updatedConversation = conversation
@@ -337,14 +346,41 @@ class ChatViewModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
+            // Start capturing stdout and stderr
+            self.outputCaptureManager.startCapturing { [weak self] (output, isStderr) in
+                guard let self = self else { return }
+                
+                // Update the info panel on the main thread with the captured output
+                DispatchQueue.main.async {
+                    // Get current info text or initialize with empty string
+                    var currentText = self.infoText ?? ""
+                    
+                    // Add new output with appropriate formatting
+                    if isStderr {
+                        // For stderr, add in red color (using ANSI escape codes that SwiftUI can render)
+                        currentText += "\u{001B}[31m\(output)\u{001B}[0m"
+                    } else {
+                        // For stdout, add as normal text
+                        currentText += output
+                    }
+                    
+                    // Update the info panel
+                    self.updateInfoPanel(with: currentText)
+                }
+            }
+            
             // Call the existing TldrWrapper.addCorpus method
+            // This will generate stdout/stderr that will be captured by our manager
             TldrWrapper.addCorpus(conversation.corpusDir)
+            
+            // Stop capturing stdout and stderr
+            self.outputCaptureManager.stopCapturing()
             
             // Update UI on main thread
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 
-                // Add completion message
+                // Add completion message to the conversation
                 if let index = self.conversations.firstIndex(where: { $0.id == conversation.id }) {
                     var updatedConversation = self.conversations[index]
                     updatedConversation.messages.append(
@@ -361,6 +397,10 @@ class ChatViewModel: ObservableObject {
                 self.isLoading = false
             }
         }
+    }
+    
+    func updateInfoPanel(with text: String?) {
+        infoText = text
     }
     
     func updateConversationTitle(_ conversation: ConversationData, newTitle: String) {
