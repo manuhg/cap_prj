@@ -415,8 +415,8 @@ The initialization phase sets up the backend infrastructure and prepares the app
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.0\linewidth]{images/tldr-app-worklfow-pt1.jpg}
-    \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+    \caption{Corpus Embedding Workflow Steps}
+    \label{fig:corpusembedworkflowsteps}
 \end{figure}
 
 When a user selects a directory to embed the following actions take place:
@@ -435,8 +435,8 @@ This dual-storage mechanism (DB + mmap vector cache) allows fast retrieval durin
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.0\linewidth]{images/tldr-app-worklfow-pt3.jpg}
-    \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+    \caption{RAG workflow steps}
+    \label{fig:ragworkflowsteps}
 \end{figure}
 
 Once the corpus is embedded, the system is ready to answer user's queries. When the user proceeds to inquire the system, the following steps are executed:
@@ -451,4 +451,4 @@ Once the corpus is embedded, the system is ready to answer user's queries. When 
 \end{itemize}
 
 
-With these steps, the TLDR project is able to perform retrieval augmented generation on documents present in the user's device, without requring any external resources or internet access.
+With these steps, the TLDR project is able to perform retrieval-augmented generation on documents present in the user's device, without requiring any external resources or internet access.

@@ -1,18 +1,48 @@
 
-\chapter{Conclusion-TODO}
+\chapter{Conclusion}
 \label{ch:Conclusion}
 
-% --------------------------------------
-\section{Conclusion}
-\label{sec:Conclusion}
-% --------------------------------------
+% % --------------------------------------
+\section{Takeaways}
+\label{sec:Takeaways}
+% % --------------------------------------
+The following are the key takeaways of this project:
+\begin{enumerate}[label=\alph*.]
+\item Apple Neural Engine (ANE) Utilization: This project explored leveraging the underused NPU for LLM inference, going beyond standard CoreML use cases and showed that it can be viable.
 
-% --------------------------------------
+\item Retrieval-Augmented Generation (RAG) without Internet : Implements a lightweight RAG pipeline that only uses on device resources.
+
+\item Portability and Ease of use: Application size of less than 1GB that includes everything.
+
+\item Quantized LLMs: Uses compact models (50–500MB) for efficient, on-device inference allowing for seamless multitasking and manages to obtain results comparable to mainstream cloud LLMs.
+\end{enumerate}
+% % --------------------------------------
 \section{Limitations}
 \label{sec:Limitations}
-% --------------------------------------
+% % --------------------------------------
+Following are the main limitations uncovered during the implementation of this project:
+\begin{enumerate}[label=\alph*.]
+\item While this project demonstrates the feasibility to accelerate the retrieval part of the RAG pipeline, the LLM Inference still only leverages the GPU and does not leverage the NPU.
 
-% --------------------------------------
+\item Indexing(embedding) takes 90+% of overall runtime
+
+\item Many smaller LLMs available currently (3B or less) are only instruction-tuned i.e trained for text completion and not for chat. This can lead to unfavorable responses during chat.
+
+\item Excessive usage limits to quick draining of power, especially on portable devices.
+
+\item The breadth of retrieval space is limited not by resources but by the context size of the Chat LLM, since both input and expected output must fit in the LLM context.
+
+\end{enumerate}
+% % --------------------------------------
 \section{Future work}
 \label{sec:FutureWork}
-% --------------------------------------
+% % --------------------------------------
+\begin{enumerate}[label=\alph*.]
+    \item Enhance data safety mechanisms for vectordump files.
+    \item Add NPU backend for GGML and llama.cpp.
+    \item Quantize and convert fine-tuned chat-optimized LLMs to the GGUF format.
+    \item Implement a dedicated parallelized tokenization module.
+    \item Extend the application support beyond Apple Silicon.
+    \item Add NPU and GPU acceleration support for SQLite and Postgres vector search extensions (they currently only support CPU).
+    \item Create an optimized decoding and tokenization workflow dedicated for embedding (e.g., no KV cache).
+\end{enumerate}

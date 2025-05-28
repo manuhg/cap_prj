@@ -1,0 +1,75 @@
+1 What is system design in software engineering?
+System design in software engineering is the process of defining the architecture, components, data flow, and interfaces of a software system to meet specified requirements. It focuses on how to build scalable, reliable, and maintainable systems by making high-level decisions on technologies, structure, and communication between parts of the system.
+
+
+
+2 how to generate prime numbers?
+
+To generate prime numbers, Cracking the Coding Interview outlines two main methods:
+
+⸻
+
+1. Trial Division (Checking for Primality)
+
+Check if a number n is divisible by any number from 2 to √n.
+
+boolean isPrime(int n) {
+    if (n < 2) return false;
+    for (int i = 2; i <= Math.sqrt(n); i++) {
+        if (n % i == 0) return false;
+    }
+    return true;
+}
+
+Use this for checking if a single number is prime. The time complexity is O(√n) ￼.
+
+⸻
+
+2. Sieve of Eratosthenes (Efficient List Generation)
+
+Used to generate all prime numbers up to a given limit max.
+
+boolean[] sieveOfEratosthenes(int max) {
+    boolean[] flags = new boolean[max + 1];
+    Arrays.fill(flags, true);
+    flags[0] = flags[1] = false;
+    for (int prime = 2; prime <= Math.sqrt(max); prime++) {
+        if (flags[prime]) {
+            for (int i = prime * prime; i <= max; i += prime) {
+                flags[i] = false;
+            }
+        }
+    }
+    return flags;
+}
+
+This algorithm marks multiples of each prime starting from 2. It’s efficient with O(n log log n) time complexity ￼.
+
+⸻
+
+For generating a list of primes efficiently, use the Sieve of Eratosthenes. For checking if a number is prime, use trial division up to √n.
+
+
+
+3 What is caching?
+
+Caching is the practice of storing frequently accessed or expensive-to-compute data in a fast, temporary storage layer—usually in-memory—so that future requests for that data are served more quickly.
+
+Key Points from the Documents:
+
+📘 System Design Interview: An Insider’s Guide:
+	•	A cache is a temporary storage area that holds the result of expensive responses or frequently accessed data.
+	•	It sits between the web/application layer and the database, significantly reducing database load and improving response times.
+	•	Read-through caching is common: the app checks the cache first; if the data isn’t found (a cache miss), it retrieves it from the DB, stores it in the cache, and serves it to the user.
+	•	Strategies include setting expiration policies, maintaining consistency, and handling failures (e.g., avoiding single points of failure with replicated cache servers) ￼.
+
+📙 Cracking the Coding Interview:
+	•	Describes cache as an in-memory key-value store that applications check before querying the database.
+	•	Highlights efficient lookup and expiration as key design requirements.
+	•	Shows how a combination of hash maps and linked lists can implement an LRU (Least Recently Used) cache ￼.
+
+⸻
+
+In Summary:
+
+Caching improves system performance by storing data in fast-access memory. It’s especially useful when data is read often but rarely updated. The cache helps reduce latency, lower database load, and improve scalability.
