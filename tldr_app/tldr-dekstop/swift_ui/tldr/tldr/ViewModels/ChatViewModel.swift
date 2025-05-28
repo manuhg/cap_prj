@@ -202,6 +202,9 @@ class ChatViewModel: ObservableObject {
             self.selectedConversation = updatedConversation
             self.saveConversations()
             
+            // Clear and initialize the info panel for query logs
+            self.updateInfoPanel(with: "Querying RAG system with: \(messageText)\n")
+            
             // Perform RAG query in background
             print("[DEBUG] Starting RAG query in background thread")
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -210,8 +213,37 @@ class ChatViewModel: ObservableObject {
                 print("[DEBUG] Querying RAG system with message: \(messageText)")
                 print("[DEBUG] Using corpus directory: \(conversation.corpusDir)")
                 
+                // Start capturing stdout and stderr
+                self.outputCaptureManager.startCapturing { [weak self] (output, isStderr) in
+                    guard let self = self else { return }
+                    
+                    // Update the info panel on the main thread with the captured output
+                    DispatchQueue.main.async {
+                        // Get current info text or initialize with empty string
+                        var currentText = self.infoText ?? ""
+                        
+                        // Add new output with appropriate formatting
+                        if isStderr {
+                            // For stderr, add in red color (using ANSI escape codes that SwiftUI can render)
+                            currentText += "\u{001B}[31m\(output)\u{001B}[0m"
+                        } else {
+                            // For stdout, add as normal text
+                            currentText += output
+                        }
+                        
+                        // Update the info panel
+                        self.updateInfoPanel(with: currentText)
+                    }
+                }
+                
                 // Query the RAG system using the conversation's corpusDir
-                if let result = TldrWrapper.queryRag(messageText, corpusDir: conversation.corpusDir) {
+                // This will generate stdout/stderr that will be captured by our manager
+                let result = TldrWrapper.queryRag(messageText, corpusDir: conversation.corpusDir)
+                
+                // Stop capturing stdout and stderr
+                self.outputCaptureManager.stopCapturing()
+                
+                if let result = result {
                     print("[DEBUG] RAG query successful, response length: \(result.response.count)")
                     DispatchQueue.main.async { [weak self] in
                         guard let self = self else { return }
