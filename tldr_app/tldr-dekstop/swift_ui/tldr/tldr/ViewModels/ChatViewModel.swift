@@ -12,31 +12,36 @@ class ChatViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     @Published var infoText: String? = nil
-    @Published var infoPanelHeight: CGFloat = 100
+    @Published var infoPanelHeight: CGFloat = 150 {
+        didSet {
+            // Save the panel height when it changes
+            UserDefaults.standard.set(Double(infoPanelHeight), forKey: infoPanelHeightKey)
+        }
+    }
     
     // Output capture manager for stdout/stderr
     private var outputCaptureManager = OutputCaptureManager()
 
-    
-    private let conversationsKey = "savedConversations"
-    private let selectedConversationIdKey = "selectedConversationId"
+    // UserDefaults keys
+    private let conversationsKey = "tldr_conversations"
+    private let selectedConversationIdKey = "tldr_selected_conversation_id"
+    private let infoPanelHeightKey = "tldr_info_panel_height"
     private let defaultCorpusDir = "~/Downloads"
     
     init() {
         print("[DEBUG] Initializing ChatViewModel")
         // Initialize the TLDR system
-        let initResult = TldrWrapper.initialize()
-        print("[DEBUG] TldrWrapper.initialize() result: \(initResult)")
-        
-        if !initResult {
-            print("[DEBUG] Failed to initialize TLDR system")
+        if !TldrWrapper.initialize() {
             errorMessage = "Failed to initialize TLDR system"
-        } else {
-            print("[DEBUG] TLDR system initialized successfully")
         }
         
         // Load saved conversations
         loadSavedConversations()
+        
+        // Load saved panel height if available
+        if let savedHeight = UserDefaults.standard.object(forKey: infoPanelHeightKey) as? Double {
+            infoPanelHeight = CGFloat(savedHeight)
+        }
     }
     
     deinit {
@@ -270,7 +275,12 @@ class ChatViewModel: ObservableObject {
         print("[DEBUG] Response text length: \(responseText.count)")
         print("[DEBUG] Response text preview: \(responseText.prefix(100))")
         
-        let assistantMessage = Message(content: responseText, sender: .assistant)
+        // Create assistant message with context chunks
+        let assistantMessage = Message(
+            content: responseText, 
+            sender: .assistant, 
+            contextChunks: result.contextChunks
+        )
         
         // Update conversation with assistant's response
         var updatedConversation = conversations[conversationIndex]
@@ -433,6 +443,54 @@ class ChatViewModel: ObservableObject {
     
     func updateInfoPanel(with text: String?) {
         infoText = text
+    }
+    
+    func showSourcesInInfoPanel(for message: Message) {
+        guard let contextChunks = message.contextChunks, !contextChunks.isEmpty else {
+            // No context chunks to show
+            infoText = "No source context available for this message."
+            return
+        }
+        
+        // Format the context chunks for display
+        var formattedText = "Source Context:\n\n"
+        
+        for (index, chunk) in contextChunks.enumerated() {
+            // Add source header with file info
+            formattedText += "Source #\(index + 1): "
+            
+            // Add file name or path
+            if !chunk.fileName.isEmpty {
+                formattedText += chunk.fileName
+            } else {
+                formattedText += (chunk.filePath as NSString).lastPathComponent
+            }
+            
+            // Add page info if available
+            if chunk.pageNumber > 0 {
+                formattedText += " (page \(chunk.pageNumber))"
+            }
+            
+            // Add similarity score
+            formattedText += " [similarity: \(String(format: "%.2f", chunk.similarity))]\n"
+            
+            // Add document metadata if available
+            if !chunk.title.isEmpty || !chunk.author.isEmpty {
+                formattedText += "Title: \(chunk.title)\n"
+                formattedText += "Author: \(chunk.author)\n"
+            }
+            
+            // Add the actual text content with some formatting
+            formattedText += "\n\"\(chunk.text)\"\n\n"
+            
+            // Add separator between chunks
+            if index < contextChunks.count - 1 {
+                formattedText += "---\n\n"
+            }
+        }
+        
+        // Update the info panel with the formatted text
+        infoText = formattedText
     }
     
     func updateConversationTitle(_ conversation: ConversationData, newTitle: String) {

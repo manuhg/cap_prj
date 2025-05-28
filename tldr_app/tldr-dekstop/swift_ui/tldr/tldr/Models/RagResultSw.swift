@@ -1,7 +1,7 @@
 import Foundation
 import TldrAPI
 /// Represents a context chunk from a RAG query result
-public struct ContextChunkSw: Identifiable {
+public struct ContextChunkSw: Identifiable, Codable {
     public let id: UInt64  // Using hash as unique identifier
     public let text: String
     public let filePath: String
@@ -23,10 +23,23 @@ public struct ContextChunkSw: Identifiable {
         self.pageNumber = chunk.page_number
         self.similarity = chunk.similarity
     }
+    
+    // Additional initializer for creating from stored data
+    public init(id: UInt64, text: String, filePath: String, fileName: String, title: String, author: String, pageCount: Int32, pageNumber: Int32, similarity: Float) {
+        self.id = id
+        self.text = text
+        self.filePath = filePath
+        self.fileName = fileName
+        self.title = title
+        self.author = author
+        self.pageCount = pageCount
+        self.pageNumber = pageNumber
+        self.similarity = similarity
+    }
 }
 
 /// Represents the result of a RAG query
-public struct RagResultSw {
+public struct RagResultSw: Codable {
     /// The generated response from the LLM
     public let response: String
     
@@ -48,7 +61,9 @@ public struct RagResultSw {
         var chunks: [ContextChunkSw] = []
         for i in 0..<cResult.context_chunks_count {
             let cChunk = cResult.context_chunks[Int(i)]
-            chunks.append(ContextChunkSw(cChunk))
+            if (cChunk.similarity>=0.4){
+                chunks.append(ContextChunkSw(cChunk))
+            }
         }
         self.contextChunks = chunks
     }
@@ -62,14 +77,31 @@ public struct RagResultSw {
         if !contextChunks.isEmpty {
             formattedResponse += "\n\nSources:\n"
             
-            // Number each chunk sequentially
-            var sourceNumber = 1
+            // Use a set to track unique combinations of file path and page number
+            // We'll use a tuple of (filePath, pageNumber) as the key
+            var uniqueSources = Set<String>()
+            var uniqueChunks: [ContextChunkSw] = []
             
-            // Add each chunk as a numbered source
+            // Filter out duplicate sources
             for chunk in contextChunks {
                 // Only process PDF files
                 guard chunk.filePath.lowercased().hasSuffix(".pdf") else { continue }
                 
+                // Create a unique key for this source (filePath + pageNumber)
+                let sourceKey = "\(chunk.filePath)_\(chunk.pageNumber)"
+                
+                // Only add this source if we haven't seen it before
+                if !uniqueSources.contains(sourceKey) {
+                    uniqueSources.insert(sourceKey)
+                    uniqueChunks.append(chunk)
+                }
+            }
+            
+            // Number each unique chunk sequentially
+            var sourceNumber = 1
+            
+            // Add each unique chunk as a numbered source
+            for chunk in uniqueChunks {
                 // Format the file path for display (just the filename)
                 let displayName = chunk.fileName.isEmpty ? 
                     (chunk.filePath as NSString).lastPathComponent : 
@@ -81,7 +113,6 @@ public struct RagResultSw {
                 
                 // Escape the file path by encoding it for a URL
                 let escapedPath = chunk.filePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? chunk.filePath
-                
                 
                 let urlPath = "file://\(escapedPath)"
                 let pageParam = chunk.pageNumber > 0 ? "#page=\(chunk.pageNumber)" : ""

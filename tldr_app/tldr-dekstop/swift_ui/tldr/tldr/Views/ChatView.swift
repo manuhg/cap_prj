@@ -64,7 +64,7 @@ struct ChatView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(conversation.messages) { message in
-                            MessageBubble(message: message)
+                            MessageBubble(message: message, viewModel: viewModel)
                                 .id(message.id)
                                 .transition(.opacity)
                         }
@@ -99,6 +99,7 @@ struct ChatView: View {
                             .font(.system(.caption, design: .monospaced))
                             .padding(8)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled) // Make text selectable
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: viewModel.infoPanelHeight)
@@ -116,12 +117,15 @@ struct ChatView: View {
                             Image(systemName: "arrow.up.and.down")
                                 .foregroundColor(.secondary)
                                 .padding(4)
+                                .background(Color.secondary.opacity(0.1))
+                                .cornerRadius(4)
                                 .contentShape(Rectangle())
                                 .gesture(
                                     DragGesture()
                                         .onChanged { value in
                                             let newHeight = viewModel.infoPanelHeight - value.translation.height
-                                            viewModel.infoPanelHeight = max(50, min(300, newHeight))
+                                            // Maintain the increased max height of 600 for more resizing range
+                                            viewModel.infoPanelHeight = max(80, min(600, newHeight))
                                         }
                                 )
                         }
@@ -179,6 +183,7 @@ struct ChatView: View {
 
 struct MessageBubble: View {
     let message: Message
+    let viewModel: ChatViewModel
     
     private var bubbleColor: Color {
         switch message.sender {
@@ -219,6 +224,17 @@ struct MessageBubble: View {
             VStack {
                 // Use a custom Text view that handles URLs properly
                 LinkifiedText(text: message.content)
+                
+                // Show a small indicator if the message has source context
+                if message.hasSourceContext {
+                    HStack {
+                        Spacer()
+                        Label("Context available", systemImage: "doc.text.magnifyingglass")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    }
+                }
             }
             .padding(12)
             .background(bubbleColor)
@@ -231,6 +247,15 @@ struct MessageBubble: View {
                     NSPasteboard.general.setString(message.content, forType: .string)
                 }) {
                     Label("Copy", systemImage: "doc.on.doc")
+                }
+                
+                // Add option to view sources if available
+                if message.hasSourceContext {
+                    Button(action: {
+                        viewModel.showSourcesInInfoPanel(for: message)
+                    }) {
+                        Label("View Sources", systemImage: "doc.text.magnifyingglass")
+                    }
                 }
             }
             
@@ -253,6 +278,7 @@ struct LinkifiedText: View {
         if urls.isEmpty {
             // No URLs found, just use regular Text
             Text(text)
+                .textSelection(.enabled) // Make text selectable
         } else {
             // URLs found, create a custom view with our extracted URLs
             CustomLinkTextView(text: text, urls: urls)
@@ -332,6 +358,7 @@ struct CustomLinkTextView: View {
                     .buttonStyle(PlainButtonStyle())
                 } else {
                     Text(item.text)
+                        .textSelection(.enabled) // Make text selectable
                 }
             }
         }
