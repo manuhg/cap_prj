@@ -34,8 +34,6 @@ static void batch_decode(llama_context *ctx, llama_batch &batch, float *output, 
 
     // clear previous kv_cache values (irrelevant for embeddings)
     llama_kv_cache_clear(ctx);
-
-    // run model
     if (llama_model_has_encoder(model) && !llama_model_has_decoder(model)) {
         // encoder-only model
         if (llama_encode(ctx, batch) < 0) {
@@ -142,22 +140,12 @@ std::vector<std::vector<float>> LlmEmbeddings::llm_get_embeddings(std::vector<st
         const int n_tokens = -llama_tokenize(vocab, inp.c_str(), inp.size(), NULL, 0, true, true);
         
         if (n_tokens <= 0) {
-            #pragma omp critical
-            {
-                std::cerr << "fail: empty tensor after tokenization: " << __func__ << std::endl;
-                std::cerr << "      prompt: " << inp << std::endl;
-            }
             continue; // Skip this input
         }
         
         // Allocate space and get the actual tokens
         inputs[i].resize(n_tokens);
         if (llama_tokenize(vocab, inp.c_str(), inp.size(), inputs[i].data(), inputs[i].size(), true, true) < 0) {
-            #pragma omp critical
-            {
-                std::cerr << "fail: tokenization error: " << __func__ << std::endl;
-                std::cerr << "      prompt: " << inp << std::endl;
-            }
             inputs[i].clear(); // Mark as failed
         }
     }
