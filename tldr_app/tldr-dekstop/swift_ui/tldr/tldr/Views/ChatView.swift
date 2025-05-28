@@ -190,7 +190,7 @@ struct MessageBubble: View {
         case .user:
             return .blue
         case .system:
-            return Color(.systemGreen)
+            return Color(.darkGray)
         case .assistant:
             return Color(NSColor.controlBackgroundColor)
         }
