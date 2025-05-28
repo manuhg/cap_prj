@@ -9,6 +9,7 @@ struct ChatView: View {
     }
     
     @State private var scrollToBottomId: UUID? = nil
+    @State private var lastMessageCount: Int = 0
     
     var body: some View {
         VStack(spacing: 0) {
@@ -79,14 +80,32 @@ struct ChatView: View {
                 .onAppear {
                     scrollView.scrollTo("BOTTOM", anchor: .bottom)
                 }
-                .onChange(of: conversation.messages.count) { _ in
+                .onChange(of: conversation.messages.count) { newCount in
+                    // Always scroll to bottom when new messages appear
                     withAnimation {
                         scrollView.scrollTo("BOTTOM", anchor: .bottom)
                     }
+                    // Set a small delay to ensure content is fully rendered before final scroll
+                    if newCount > lastMessageCount {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation {
+                                scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                            }
+                        }
+                        lastMessageCount = newCount
+                    }
                 }
                 .onChange(of: viewModel.selectedConversation?.id) { _ in
+                    // Reset counter and scroll to bottom when conversation changes
+                    lastMessageCount = conversation.messages.count
                     withAnimation {
                         scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                    }
+                    // Additional delayed scroll to ensure it reaches bottom after layout
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation {
+                            scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                        }
                     }
                 }
             }
@@ -125,7 +144,7 @@ struct ChatView: View {
                                         .onChanged { value in
                                             let newHeight = viewModel.infoPanelHeight - value.translation.height
                                             // Maintain the increased max height of 600 for more resizing range
-                                            viewModel.infoPanelHeight = max(80, min(600, newHeight))
+                                            viewModel.infoPanelHeight = max(40, min(600, newHeight))
                                         }
                                 )
                         }
@@ -236,7 +255,7 @@ struct MessageBubble: View {
                     }
                 }
             }
-            .padding(12)
+            .padding(8)
             .background(bubbleColor)
             .foregroundColor(textColor)
             .cornerRadius(16)
@@ -342,67 +361,48 @@ struct CustomLinkTextView: View {
     let urls: [(range: Range<String.Index>, url: URL)]
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(0..<processedText().count, id: \.self) { index in
-                let item = processedText()[index]
-                if item.isLink {
-                    Button(action: {
-                        if let url = item.url {
-                            handleURL(url)
-                        }
-                    }) {
-                        Text(item.displayText)
-                            .foregroundColor(.blue)
-                            .underline()
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                } else {
-                    Text(item.text)
-                        .textSelection(.enabled) // Make text selectable
-                }
-            }
-        }
+        // Use AttributedString for inline links with proper spacing
+        Text(processedAttributedString)
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true) // Allow proper wrapping
     }
     
-    private func processedText() -> [(text: String, displayText: String, isLink: Bool, url: URL?)] {
-        var result: [(text: String, displayText: String, isLink: Bool, url: URL?)] = []
-        var currentIndex = text.startIndex
+    // Create the AttributedString with links properly formatted
+    private var processedAttributedString: AttributedString {
+        var attributedString = AttributedString(text)
         
-        for urlInfo in urls {
-            // Add text before the link
-            if currentIndex < urlInfo.range.lowerBound {
-                let textSegment = String(text[currentIndex..<urlInfo.range.lowerBound])
-                result.append((textSegment, textSegment, false, nil))
-            }
-            
-            // Add the link
-            let linkText = String(text[urlInfo.range])
-            
-            // Create display text (for file URLs, show just the filename)
-            var displayText = linkText
-            if urlInfo.url.scheme == "file" {
-                // For file URLs, just show the filename
-                displayText = urlInfo.url.lastPathComponent
+        // Process URLs in reverse order to avoid index shifting issues
+        for urlInfo in urls.sorted(by: { $0.range.lowerBound > $1.range.lowerBound }) {
+            if let stringRange = Range(urlInfo.range, in: attributedString) {
+                // Create display text (for file URLs, show just the filename + page)
+                var displayText = String(text[urlInfo.range])
+                if urlInfo.url.scheme == "file" {
+                    // For file URLs, create a compact display format
+                    displayText = urlInfo.url.lastPathComponent
+                    if let fragment = urlInfo.url.fragment, fragment.hasPrefix("page="),
+                       let pageNumber = Int(fragment.dropFirst(5)) {
+                        // Use compact format with minimal spacing
+                        displayText += "(p\(pageNumber))"
+                    }
+                }
                 
-                // If there's a page number, add it to the display
-                if let fragment = urlInfo.url.fragment, fragment.hasPrefix("page="),
-                   let pageNumber = Int(fragment.dropFirst(5)) {
-                    displayText += " (page \(pageNumber))"
+                // Replace the URL with display text
+                attributedString.replaceSubrange(stringRange, with: AttributedString(displayText))
+                
+                // If we have a valid range after replacement
+                if let newRange = attributedString.range(of: displayText) {
+                    // Apply link formatting
+                    attributedString[newRange].foregroundColor = .blue
+                    attributedString[newRange].underlineStyle = .single
+                    attributedString[newRange].link = urlInfo.url
                 }
             }
-            
-            result.append((linkText, displayText, true, urlInfo.url))
-            currentIndex = urlInfo.range.upperBound
         }
         
-        // Add any remaining text after the last link
-        if currentIndex < text.endIndex {
-            let textSegment = String(text[currentIndex..<text.endIndex])
-            result.append((textSegment, textSegment, false, nil))
-        }
-        
-        return result
+        return attributedString
     }
+    
+
     
     private func handleURL(_ url: URL) {
         print("Opening URL: \(url)")

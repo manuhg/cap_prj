@@ -10,8 +10,8 @@ int main() {
         return 1;
     }
     // Add a single file
-    std::string testFile = "~/Downloads/corpus/0.System Design Interview An Insider’s Guide by Alex Xu.pdf";
-    tldr_cpp_api::addCorpus(testFile);
+    // std::string testFile = "~/Downloads/corpus/0.System Design Interview An Insider’s Guide by Alex Xu.pdf";
+    // tldr_cpp_api::addCorpus(testFile);
 
     // Add a folder
     tldr_cpp_api::addCorpus("~/Downloads/complete");

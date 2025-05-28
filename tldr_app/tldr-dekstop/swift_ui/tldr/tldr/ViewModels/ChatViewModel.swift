@@ -13,7 +13,7 @@ class ChatViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     @Published var infoText: String? = nil
-    @Published var infoPanelHeight: CGFloat = 150 {
+    @Published var infoPanelHeight: CGFloat = 100 {
 
         didSet {
             // Save the panel height when it changes

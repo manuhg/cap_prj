@@ -66,10 +66,11 @@ bool LlmChat::initialize_model(const std::string& model_path) {
         
         // Create context pool with sizes defined in constants.h
         llama_context_params ctx_params = llama_context_default_params();
-        ctx_params.n_ctx = 131072;//8192; // Default context size
+        ctx_params.n_ctx = 8192; // Default context size
         ctx_params.n_batch = 512; // Default batch size
         
-        context_pool = std::make_unique<tldr::LlmContextPool>(model, CHAT_MIN_CONTEXTS, CHAT_MAX_CONTEXTS, ctx_params);
+        // Set max_uses to 3 for chat contexts - they will be destroyed after 3 uses
+        context_pool = std::make_unique<tldr::LlmContextPool>(model, CHAT_MIN_CONTEXTS, CHAT_MAX_CONTEXTS, ctx_params, 1);
         
         return true;
     } catch (const std::exception &e) {
@@ -162,9 +163,8 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
             if (result < 0) {
                 fprintf(stderr, "%s : encode fallback also failed with code %d\n", __func__, result);
                 return {true, "failed to process batch - both decode and encode failed\n"};
-            } else {
-                fprintf(stderr, "Using encode as fallback succeeded\n");
             }
+            fprintf(stderr, "Using encode as fallback succeeded\n");
         }
 
         n_pos += batch.n_tokens;
