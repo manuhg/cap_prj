@@ -48,7 +48,7 @@ std::shared_ptr<ContextHandle> LlmContextPool::acquire_context() {
     }
     
     // Clear the KV cache before reusing the context
-    llama_kv_cache_clear(ctx);
+    llama_kv_self_clear(ctx);
     
     return std::make_shared<ContextHandle>(ctx, this);
 }

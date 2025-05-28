@@ -15,6 +15,12 @@ public:
     bool initialize_model(const std::string& model_path);
     void embedding_cleanup();
     std::vector<std::vector<float>> llm_get_embeddings(std::vector<std::string_view> input_batch);
+    
+    // Model type detection properties - made public for access from batch_decode
+    std::string model_name;
+    bool has_encoder = false;
+    bool has_decoder = false;
+    bool is_embedding_model = false;
 private:
     std::string model_path;
     llama_model * model;

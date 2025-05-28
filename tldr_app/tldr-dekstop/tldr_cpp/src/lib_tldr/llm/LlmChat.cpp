@@ -47,9 +47,26 @@ bool LlmChat::initialize_model(const std::string& model_path) {
         this->model = llama_model_load_from_file(model_path.c_str(), model_params);
         this->vocab = llama_model_get_vocab(model);
         
+        // Perform model type detection during initialization using only llama API functions
+        this->has_encoder = llama_model_has_encoder(model);
+        this->has_decoder = llama_model_has_decoder(model);
+        
+        // For chat models, we typically expect decoder capabilities
+        // If a model has decoder capabilities, it's likely suitable for chat
+        this->is_chat_model = this->has_decoder;
+        
+        // We can't reliably detect if it's specifically a Llama model without checking the name
+        // So we'll just assume any decoder-only model could be used for chat
+        this->is_llama_model = this->has_decoder && !this->has_encoder;
+        
+        // Log model information
+        fprintf(stderr, "Chat Model info - has_encoder: %s, has_decoder: %s\n", 
+                has_encoder ? "true" : "false", 
+                has_decoder ? "true" : "false");
+        
         // Create context pool with sizes defined in constants.h
         llama_context_params ctx_params = llama_context_default_params();
-        ctx_params.n_ctx = 8192; // Default context size
+        ctx_params.n_ctx = 131072;//8192; // Default context size
         ctx_params.n_batch = 512; // Default batch size
         
         context_pool = std::make_unique<tldr::LlmContextPool>(model, CHAT_MIN_CONTEXTS, CHAT_MAX_CONTEXTS, ctx_params);
@@ -129,11 +146,25 @@ llm_result LlmChat::chat_with_llm(std::string prompt) {
 
     // Get the context size from the context parameters
     const int ctx_size = llama_n_ctx(ctx);
+    
     for (int n_pos = 0; n_pos + batch.n_tokens < ctx_size;) {
         // evaluate the current batch with the transformer model
-        if (llama_decode(ctx, batch)) {
-            fprintf(stderr, "%s : failed to eval, return code %d\n", __func__, 1);
-            return {true, "failed to eval\n"};
+        
+        // ALWAYS use decode for chat models - this is the most reliable approach
+        // This bypasses any model type detection which might be unreliable
+        int result = llama_decode(ctx, batch);
+        
+        if (result != 0) {
+            fprintf(stderr, "%s : decode failed with code %d, trying encode as fallback\n", __func__, result);
+            
+            // Only try encode as a last resort fallback
+            result = llama_encode(ctx, batch);
+            if (result < 0) {
+                fprintf(stderr, "%s : encode fallback also failed with code %d\n", __func__, result);
+                return {true, "failed to process batch - both decode and encode failed\n"};
+            } else {
+                fprintf(stderr, "Using encode as fallback succeeded\n");
+            }
         }
 
         n_pos += batch.n_tokens;
