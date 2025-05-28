@@ -593,6 +593,7 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
 
 bool addFileToCorpus(const std::string &sourcePath, const std::string &fileHash) {
     std::cout << "Processing file: " << sourcePath << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
     try {
         std::string expanded_path = translatePath(sourcePath);
 
@@ -641,6 +642,8 @@ bool addFileToCorpus(const std::string &sourcePath, const std::string &fileHash)
         }
 
         std::cout << "Document added to corpus successfully." << std::endl;
+        auto end = std::chrono::high_resolution_clock::now();
+        std::cout << " Took " << (end - start).count()/1000000000.0 << "s for file " << sourcePath << std::endl;
         return true;
     } catch (const std::exception &e) {
         std::cerr << "Error processing " << sourcePath << ": " << e.what() << std::endl;
@@ -775,11 +778,7 @@ bool getFilesToBeEmbedded(const std::string &sourcePath, std::vector<std::string
 bool addFilesToCorpusSequential(std::vector<std::pair<std::string, std::string> > filesWithHashes, WorkResult &value1) {
     try {
         for (const auto &[filePath, fileHash]: filesWithHashes) {
-            std::cout << "Adding file to corpus: " << filePath << std::endl;
-            auto start = std::chrono::high_resolution_clock::now();
             addFileToCorpus(filePath, fileHash);
-            auto end = std::chrono::high_resolution_clock::now();
-            std::cout << " Took " << (end - start).count()/1000000000.0 << "s for file " << filePath << std::endl;
         }
     } catch (const std::exception &e) {
         std::cerr << "Error in addFilesToCorpusSequence()" << std::endl;
