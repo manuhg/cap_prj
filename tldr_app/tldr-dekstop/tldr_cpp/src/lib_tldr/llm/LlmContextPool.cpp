@@ -24,6 +24,7 @@ LlmContextPool::~LlmContextPool() {
 llama_context* LlmContextPool::createContext() {
     llama_context *ctx = create_context();
     if (ctx) {
+        std::cout<<"Creating new LLM context ... "<<std::endl;
         all_contexts_.push_back(ctx);
         // Initialize usage count for new context
         context_uses_[ctx] = 0;
