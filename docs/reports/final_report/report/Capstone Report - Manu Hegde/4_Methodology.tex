@@ -329,7 +329,7 @@ Although cosine similarity involves a full scan of the embedded corpus for each 
 
 The project integrates a customized fork of \texttt{llama.cpp}—a lightweight C++ inference engine for LLaMA and related transformer models—to serve as the core engine for both text generation and embedding extraction. The fork is hosted at \url{https://github.com/manuhg/llama.cpp}, and includes minor modifications that streamline the build process for macOS targets. Specifically, the build scripts were stripped down to produce a static library using the \texttt{ggml} Metal backend, optimized for Apple Silicon devices.  The result is a single, portable C++ static library named \texttt{libllama.a} which is then statically linked with the RAG backend (\texttt{lib-tldr.a}).
 
-The core functionalities such as tokenization, decoding, and sampling are accessed through the public APIs exposed in \texttt{llama.h} and \texttt{ggml.h}. Two primary components—\texttt{LLmChat} and \texttt{LLmEmbedding}—are built around workflows inspired by \textttt{simple.cpp}~\cite{llama_simple} \texttt{server.cpp}~\cite{llama_server} and \texttt{embedding.cpp}~\cite{llama_embedding} from the upstream \texttt{llama.cpp}~\cite{llamacpp} project. 
+The core functionalities such as tokenization, decoding, and sampling are accessed through the public APIs exposed in \texttt{llama.h} and \texttt{ggml.h}. Two primary components—\texttt{LLmChat} and \texttt{LLmEmbedding}—are built around workflows inspired by \texttt{simple.cpp}~\cite{llama_simple} \texttt{server.cpp}~\cite{llama_server} and \texttt{embedding.cpp}~\cite{llama_embedding} from the upstream \texttt{llama.cpp}~\cite{llamacpp} project. 
 
 Further, to improve the performance, \texttt{OpenMP} support was added for parallelizing the tokenization and batch decoding steps. This optimization ensures efficient utilization of CPU cores, resulting in faster preprocessing and inference, particularly during multi-threaded interactions.
 
@@ -391,8 +391,8 @@ The following sections show a detailed breakdown of these phases.
 \begin{figure}[H]
     \centering
     \includegraphics[width=1.0\linewidth]{images/tldr-app-worklfow-pt1.jpg}
-    \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+    \caption{System initialization workflow}
+    \label{fig:tldrsysteminitworkflow}
 \end{figure}
 
 

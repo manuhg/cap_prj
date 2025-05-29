@@ -70,7 +70,7 @@ The Apple M1 chip, introduced in 2020, is a System-on-Chip (SoC) built on the AR
     \centering
     \includegraphics[width=0.8\linewidth]{images/AppleM1SOC.jpeg}
     \caption{ Apple M1 Architecture - (A12 Bionic) Chip floor plan~\cite{hollemans2020apple}}
-    \label{fig:autoregressive_decoding}
+    \label{fig:AppleM1Architecture}
 \end{figure}
 
 \subsubsection*{Unified Memory Architecture}
@@ -252,15 +252,9 @@ The retrieval phase is initiated whenever a user submits a query or task. This p
     \item \textbf{ScaNN (Scalable Nearest Neighbors):} A Google-designed ANN method that integrates pruning, quantization, and partitioning for scalable, memory-efficient retrieval \cite{guo2020accelerating}.
   \end{enumerate}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.6\linewidth]{images/autoregressive-decoding.png}
-    \caption{Autoregressive decoding ~\cite{nabi2024all}}
-    \label{fig:autoregressive_decoding}
-\end{figure}
 
 \item \textbf{Output Generation:}
-In this phase, the retrieved context and the user input—both in plain text form—are fed into the Large Language Model, as illustrated in Figure 1.3. The LLM processes the portion of input that fits within its context window and generates an output token. This token is then concatenated with the input and passed back to the LLM. The process repeats iteratively until the LLM produces an <EOS> (end-of-sequence) token.
+In this phase, the retrieved context and the user input—both in plain text form—are fed into the Large Language Model, as illustrated in Figure~\ref{fig:autoregressive_decoding}. The LLM processes the portion of input that fits within its context window and generates an output token. This token is then concatenated with the input and passed back to the LLM. The process repeats iteratively until the LLM produces an <EOS> (end-of-sequence) token.
 
 
 \end{enumerate}
@@ -268,7 +262,7 @@ In this phase, the retrieved context and the user input—both in plain text for
 \subsection{Output Evaluation:}
 The evaluation of a Retrieval-Augmented Generation (RAG) system focuses on the quality of the output in terms of its relevance to the user's query and the information stored in the vector database. Since different components contribute uniquely to the overall performance, multiple metrics are used rather than a single aggregated score to allow for precise attribution and targeted optimization.
 
-Classical metrics such as Precision, Recall, and F1 score, alongside NLP-specific metrics like ROUGE, are employed to assess performance. The evaluation considers several factors, as illustrated in Figure 1.5:
+Classical metrics such as Precision, Recall, and F1 score, alongside NLP-specific metrics like ROUGE, are employed to assess performance. The evaluation considers several factors, as illustrated in Figure \ref{fig:RAGOutputevaluationmetrics}:
 \begin{itemize}
     \item \textbf{Faithfulness, Output Relevance \& Semantic Similarity:} Measures the quality of the output relative to the input queries and retrieved context.
     \item \textbf{Context Recall \& Context Precision:} Assess the effectiveness of context retrieval and its utilization by the LLM.
@@ -277,6 +271,6 @@ Classical metrics such as Precision, Recall, and F1 score, alongside NLP-specifi
     \centering
     \includegraphics[width=0.56\linewidth]{images/rag-eval.png}
     \caption{RAG Output evaluation metrics ~\cite{cardenas2023rag}}
-    \label{fig:autoregressive_decoding}
+    \label{fig:RAGOutputevaluationmetrics}
 \end{figure}
 
