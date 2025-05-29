@@ -14,11 +14,11 @@ int main() {
     tldr_cpp_api::addCorpus(testFile);
 
     // Add a folder
-    tldr_cpp_api::addCorpus("~/Downloads/corpus");
+    tldr_cpp_api::addCorpus("~/Downloads/complete");
 
     // Do RAG
     std::string query = "What is the hotspot problem in cache?";
-    std::string corpus_dir = "~/Downloads/corpus";
+    std::string corpus_dir = "~/Downloads/complete";
     RagResult result = tldr_cpp_api::queryRag(query, corpus_dir, "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/release-products/artefacts/CosineSimilarityBatched.mlmodelc");
     
     // Format and print the result with all context metadata

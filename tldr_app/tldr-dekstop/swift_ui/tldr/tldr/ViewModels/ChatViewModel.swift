@@ -3,6 +3,7 @@ import SwiftUI
 import AppKit
 import TldrAPI
 import OSLog
+import Combine
 
 @MainActor
 class ChatViewModel: ObservableObject {
@@ -12,7 +13,8 @@ class ChatViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
     @Published var infoText: String? = nil
-    @Published var infoPanelHeight: CGFloat = 150 {
+    @Published var infoPanelHeight: CGFloat = 100 {
+
         didSet {
             // Save the panel height when it changes
             UserDefaults.standard.set(Double(infoPanelHeight), forKey: infoPanelHeightKey)
@@ -21,6 +23,10 @@ class ChatViewModel: ObservableObject {
     
     // Output capture manager for stdout/stderr
     private var outputCaptureManager = OutputCaptureManager()
+    
+    // Track active queries to prevent UI updates for old conversations
+    private var activeQueryConversationId: UUID? = nil
+    private var cancellables = Set<AnyCancellable>()
 
     // UserDefaults keys
     private let conversationsKey = "tldr_conversations"
@@ -181,8 +187,9 @@ class ChatViewModel: ObservableObject {
         
         print("[DEBUG] Using corpus directory: \(conversation.corpusDir)")
         
-        // Create a local copy of the message text
+        // Create a local copy of the message text and conversation ID
         let messageText = newMessageText
+        let conversationId = conversation.id
         
         // Clear input field immediately
         newMessageText = ""
@@ -190,6 +197,9 @@ class ChatViewModel: ObservableObject {
         // Show loading indicator
         isLoading = true
         errorMessage = nil
+        
+        // Set this as the active query conversation
+        activeQueryConversationId = conversationId
         
         // Schedule the rest of the updates for the next run loop
         DispatchQueue.main.async { [weak self] in
@@ -250,24 +260,38 @@ class ChatViewModel: ObservableObject {
                 
                 if let result = result {
                     print("[DEBUG] RAG query successful, response length: \(result.response.count)")
-                    DispatchQueue.main.async { [weak self] in
+                    Task { @MainActor [weak self] in
                         guard let self = self else { return }
                         print("[DEBUG] Handling RAG result on main thread")
-                        self.handleRagResult(result, for: conversationIndex)
+                        
+                        // Only process the result if this is still the active conversation
+                        if self.activeQueryConversationId == conversationId {
+                            self.handleRagResult(result, for: conversationIndex, conversationId: conversationId)
+                        } else {
+                            print("[DEBUG] Ignoring RAG result for inactive conversation")
+                            // Still need to set isLoading to false if this was the active loading conversation
+                            if self.isLoading && self.activeQueryConversationId == nil {
+                                self.isLoading = false
+                            }
+                        }
                     }
                 } else {
                     print("[DEBUG] RAG query failed, result is nil")
-                    DispatchQueue.main.async { [weak self] in
+                    Task { @MainActor [weak self] in
                         guard let self = self else { return }
-                        self.errorMessage = "Failed to get response from RAG system"
-                        self.isLoading = false
+                        
+                        // Only show error if this is still the active conversation
+                        if self.activeQueryConversationId == conversationId {
+                            self.errorMessage = "Failed to get response from RAG system"
+                            self.isLoading = false
+                        }
                     }
                 }
             }
         }
     }
     
-    private func handleRagResult(_ result: RagResultSw, for conversationIndex: Int) {
+    private func handleRagResult(_ result: RagResultSw, for conversationIndex: Int, conversationId: UUID) {
         print("[DEBUG] handleRagResult called with result")
         
         // Get formatted response
@@ -288,17 +312,37 @@ class ChatViewModel: ObservableObject {
         updatedConversation.messages.append(assistantMessage)
         updatedConversation.lastUpdated = Date()
         
+        // Check if this conversation is still valid and in the same position
+        guard conversationIndex < conversations.count,
+              conversations[conversationIndex].id == conversationId else {
+            print("[DEBUG] Conversation index no longer valid, aborting update")
+            // Clear the active query flag
+            if activeQueryConversationId == conversationId {
+                activeQueryConversationId = nil
+                isLoading = false
+            }
+            return
+        }
+        
         // Update UI
         print("[DEBUG] Updating UI with new conversation data")
         conversations[conversationIndex] = updatedConversation
-        selectedConversation = updatedConversation
+        
+        // Only update selected conversation if this is still the active one
+        if selectedConversation?.id == conversationId {
+            selectedConversation = updatedConversation
+        }
         
         // Save changes
         print("[DEBUG] Saving conversations to UserDefaults")
         saveConversations()
         
-        print("[DEBUG] Setting isLoading to false")
-        isLoading = false
+        // Clear the active query flag
+        if activeQueryConversationId == conversationId {
+            print("[DEBUG] Setting isLoading to false")
+            activeQueryConversationId = nil
+            isLoading = false
+        }
     }
     
     func deleteConversation(_ conversation: ConversationData) {

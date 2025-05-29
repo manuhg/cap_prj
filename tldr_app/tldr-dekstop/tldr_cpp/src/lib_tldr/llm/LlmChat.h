@@ -27,15 +27,21 @@ public:
 
 private:
     std::string model_path;
-    int n_gpu_layers;
-    llama_model *model;
-    const llama_vocab *vocab;
+    llama_model* model = nullptr;
+    const llama_vocab* vocab = nullptr;
     common_params params;
     std::vector<double> call_times_ms;
     std::vector<size_t> prompt_sizes;
     
     // Context pool for reusing contexts
     std::unique_ptr<tldr::LlmContextPool> context_pool;
+    
+    // Model type detection properties
+    std::string model_name;
+    bool has_encoder = false;
+    bool has_decoder = false;
+    bool is_llama_model = false;
+    bool is_chat_model = false;
 };
 
 #endif //LLM_CHAT_H

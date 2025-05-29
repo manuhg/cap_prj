@@ -9,6 +9,7 @@ struct ChatView: View {
     }
     
     @State private var scrollToBottomId: UUID? = nil
+    @State private var lastMessageCount: Int = 0
     
     var body: some View {
         VStack(spacing: 0) {
@@ -79,14 +80,32 @@ struct ChatView: View {
                 .onAppear {
                     scrollView.scrollTo("BOTTOM", anchor: .bottom)
                 }
-                .onChange(of: conversation.messages.count) { _ in
+                .onChange(of: conversation.messages.count) { newCount in
+                    // Always scroll to bottom when new messages appear
                     withAnimation {
                         scrollView.scrollTo("BOTTOM", anchor: .bottom)
                     }
+                    // Set a small delay to ensure content is fully rendered before final scroll
+                    if newCount > lastMessageCount {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation {
+                                scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                            }
+                        }
+                        lastMessageCount = newCount
+                    }
                 }
                 .onChange(of: viewModel.selectedConversation?.id) { _ in
+                    // Reset counter and scroll to bottom when conversation changes
+                    lastMessageCount = conversation.messages.count
                     withAnimation {
                         scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                    }
+                    // Additional delayed scroll to ensure it reaches bottom after layout
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation {
+                            scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                        }
                     }
                 }
             }
@@ -125,7 +144,7 @@ struct ChatView: View {
                                         .onChanged { value in
                                             let newHeight = viewModel.infoPanelHeight - value.translation.height
                                             // Maintain the increased max height of 600 for more resizing range
-                                            viewModel.infoPanelHeight = max(80, min(600, newHeight))
+                                            viewModel.infoPanelHeight = max(40, min(600, newHeight))
                                         }
                                 )
                         }
@@ -236,7 +255,7 @@ struct MessageBubble: View {
                     }
                 }
             }
-            .padding(12)
+            .padding(8)
             .background(bubbleColor)
             .foregroundColor(textColor)
             .cornerRadius(16)

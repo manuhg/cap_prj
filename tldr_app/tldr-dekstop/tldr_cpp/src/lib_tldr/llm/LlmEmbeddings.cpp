@@ -30,19 +30,23 @@ static void batch_add_seq(llama_batch &batch, const std::vector<int32_t> &tokens
 
 static void batch_decode(llama_context *ctx, llama_batch &batch, float *output, int n_seq, int n_embd, int embd_norm) {
     const enum llama_pooling_type pooling_type = llama_pooling_type(ctx);
-    const struct llama_model *model = llama_get_model(ctx);
-
+    
     // clear previous kv_cache values (irrelevant for embeddings)
-    llama_kv_cache_clear(ctx);
-    if (llama_model_has_encoder(model) && !llama_model_has_decoder(model)) {
-        // encoder-only model
-        if (llama_encode(ctx, batch) < 0) {
-            std::cerr << "failed to encode :" << __func__ << std::endl;
-        }
-    } else if (!llama_model_has_encoder(model) && llama_model_has_decoder(model)) {
-        // decoder-only model
-        if (llama_decode(ctx, batch) < 0) {
-            std::cerr << "failed to decode :" << __func__ << std::endl;
+    llama_kv_self_clear(ctx);
+    
+    // ALWAYS use encode for embeddings - this is the most reliable approach
+    // This bypasses any model type detection which might be unreliable
+    int result = llama_encode(ctx, batch);
+    
+    if (result < 0) {
+        std::cerr << "Warning: encode failed with code " << result << ", trying decode as fallback..." << std::endl;
+        
+        // Only try decode as a last resort fallback
+        result = llama_decode(ctx, batch);
+        if (result != 0) {
+            std::cerr << "Error: decode fallback also failed with code " << result << std::endl;
+        } else {
+            std::cerr << "Using decode as fallback succeeded" << std::endl;
         }
     }
 
@@ -85,6 +89,19 @@ bool LlmEmbeddings::initialize_model(const std::string& model_path) {
 
     this->model = llama_model_load_from_file(model_path.c_str(), model_params);
     this->vocab = llama_model_get_vocab(model);
+    
+    // Perform model type detection during initialization using only llama API functions
+    this->has_encoder = llama_model_has_encoder(model);
+    this->has_decoder = llama_model_has_decoder(model);
+    
+    // For embedding models, we typically expect encoder capabilities
+    // If a model has encoder capabilities, it's likely suitable for embeddings
+    this->is_embedding_model = this->has_encoder;
+    
+    // Log model information
+    std::cerr << "Embedding Model info - has_encoder: " << (has_encoder ? "true" : "false")
+              << ", has_decoder: " << (has_decoder ? "true" : "false")
+              << ", is_embedding_model: " << (is_embedding_model ? "true" : "false") << std::endl;
 
     // Set number of OpenMP threads
     int max_threads = omp_get_max_threads();
@@ -96,7 +113,8 @@ bool LlmEmbeddings::initialize_model(const std::string& model_path) {
     ctx_params.embeddings = true;
     
     // Create context pool with sizes defined in constants.h
-    context_pool = std::make_unique<tldr::LlmContextPool>(model, EMBEDDING_MIN_CONTEXTS, EMBEDDING_MAX_CONTEXTS, ctx_params);
+    // Set max_uses to 10 for embedding contexts - they will be destroyed after 10 uses
+    context_pool = std::make_unique<tldr::LlmContextPool>(model, EMBEDDING_MIN_CONTEXTS, EMBEDDING_MAX_CONTEXTS, ctx_params, 10);
     
     return true;
 }
