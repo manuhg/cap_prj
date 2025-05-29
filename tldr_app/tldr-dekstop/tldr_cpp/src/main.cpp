@@ -10,15 +10,15 @@ int main() {
         return 1;
     }
     // Add a single file
-    std::string testFile = "~/proj_tldr/corpus/current/0.System Design Interview An Insider’s Guide by Alex Xu.pdf";
+    std::string testFile = "~/Downloads/corpus/0.System Design Interview An Insider’s Guide by Alex Xu.pdf";
     tldr_cpp_api::addCorpus(testFile);
 
     // Add a folder
-    tldr_cpp_api::addCorpus("~/proj_tldr/corpus/current");
+    tldr_cpp_api::addCorpus("~/Downloads/complete");
 
     // Do RAG
     std::string query = "What is the hotspot problem in cache?";
-    std::string corpus_dir = "~/proj_tldr/corpus/current";
+    std::string corpus_dir = "~/Downloads/complete";
     RagResult result = tldr_cpp_api::queryRag(query, corpus_dir, "/Users/manu/dev/UW/cap_prj/tldr_app/tldr-dekstop/release-products/artefacts/CosineSimilarityBatched.mlmodelc");
     
     // Format and print the result with all context metadata

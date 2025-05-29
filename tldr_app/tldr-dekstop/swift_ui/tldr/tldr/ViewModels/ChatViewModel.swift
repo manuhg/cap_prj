@@ -2,6 +2,8 @@ import Foundation
 import SwiftUI
 import AppKit
 import TldrAPI
+import OSLog
+import Combine
 
 @MainActor
 class ChatViewModel: ObservableObject {
@@ -10,27 +12,42 @@ class ChatViewModel: ObservableObject {
     @Published var newMessageText: String = ""
     @Published var isLoading: Bool = false
     @Published var errorMessage: String? = nil
+    @Published var infoText: String? = nil
+    @Published var infoPanelHeight: CGFloat = 100 {
 
+        didSet {
+            // Save the panel height when it changes
+            UserDefaults.standard.set(Double(infoPanelHeight), forKey: infoPanelHeightKey)
+        }
+    }
     
-    private let conversationsKey = "savedConversations"
-    private let selectedConversationIdKey = "selectedConversationId"
+    // Output capture manager for stdout/stderr
+    private var outputCaptureManager = OutputCaptureManager()
+    
+    // Track active queries to prevent UI updates for old conversations
+    private var activeQueryConversationId: UUID? = nil
+    private var cancellables = Set<AnyCancellable>()
+
+    // UserDefaults keys
+    private let conversationsKey = "tldr_conversations"
+    private let selectedConversationIdKey = "tldr_selected_conversation_id"
+    private let infoPanelHeightKey = "tldr_info_panel_height"
     private let defaultCorpusDir = "~/Downloads"
     
     init() {
         print("[DEBUG] Initializing ChatViewModel")
         // Initialize the TLDR system
-        let initResult = TldrWrapper.initialize()
-        print("[DEBUG] TldrWrapper.initialize() result: \(initResult)")
-        
-        if !initResult {
-            print("[DEBUG] Failed to initialize TLDR system")
+        if !TldrWrapper.initialize() {
             errorMessage = "Failed to initialize TLDR system"
-        } else {
-            print("[DEBUG] TLDR system initialized successfully")
         }
         
         // Load saved conversations
         loadSavedConversations()
+        
+        // Load saved panel height if available
+        if let savedHeight = UserDefaults.standard.object(forKey: infoPanelHeightKey) as? Double {
+            infoPanelHeight = CGFloat(savedHeight)
+        }
     }
     
     deinit {
@@ -170,8 +187,9 @@ class ChatViewModel: ObservableObject {
         
         print("[DEBUG] Using corpus directory: \(conversation.corpusDir)")
         
-        // Create a local copy of the message text
+        // Create a local copy of the message text and conversation ID
         let messageText = newMessageText
+        let conversationId = conversation.id
         
         // Clear input field immediately
         newMessageText = ""
@@ -179,6 +197,9 @@ class ChatViewModel: ObservableObject {
         // Show loading indicator
         isLoading = true
         errorMessage = nil
+        
+        // Set this as the active query conversation
+        activeQueryConversationId = conversationId
         
         // Schedule the rest of the updates for the next run loop
         DispatchQueue.main.async { [weak self] in
@@ -196,6 +217,9 @@ class ChatViewModel: ObservableObject {
             self.selectedConversation = updatedConversation
             self.saveConversations()
             
+            // Clear and initialize the info panel for query logs
+            self.updateInfoPanel(with: "Querying RAG system with: \(messageText)\n")
+            
             // Perform RAG query in background
             print("[DEBUG] Starting RAG query in background thread")
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -204,27 +228,70 @@ class ChatViewModel: ObservableObject {
                 print("[DEBUG] Querying RAG system with message: \(messageText)")
                 print("[DEBUG] Using corpus directory: \(conversation.corpusDir)")
                 
+                // Start capturing stdout and stderr
+                self.outputCaptureManager.startCapturing { [weak self] (output, isStderr) in
+                    guard let self = self else { return }
+                    
+                    // Update the info panel on the main thread with the captured output
+                    DispatchQueue.main.async {
+                        // Get current info text or initialize with empty string
+                        var currentText = self.infoText ?? ""
+                        
+                        // Add new output with appropriate formatting
+                        if isStderr {
+                            // For stderr, add in red color (using ANSI escape codes that SwiftUI can render)
+                            currentText += "\u{001B}[31m\(output)\u{001B}[0m"
+                        } else {
+                            // For stdout, add as normal text
+                            currentText += output
+                        }
+                        
+                        // Update the info panel
+                        self.updateInfoPanel(with: currentText)
+                    }
+                }
+                
                 // Query the RAG system using the conversation's corpusDir
-                if let result = TldrWrapper.queryRag(messageText, corpusDir: conversation.corpusDir) {
+                // This will generate stdout/stderr that will be captured by our manager
+                let result = TldrWrapper.queryRag(messageText, corpusDir: conversation.corpusDir)
+                
+                // Stop capturing stdout and stderr
+                self.outputCaptureManager.stopCapturing()
+                
+                if let result = result {
                     print("[DEBUG] RAG query successful, response length: \(result.response.count)")
-                    DispatchQueue.main.async { [weak self] in
+                    Task { @MainActor [weak self] in
                         guard let self = self else { return }
                         print("[DEBUG] Handling RAG result on main thread")
-                        self.handleRagResult(result, for: conversationIndex)
+                        
+                        // Only process the result if this is still the active conversation
+                        if self.activeQueryConversationId == conversationId {
+                            self.handleRagResult(result, for: conversationIndex, conversationId: conversationId)
+                        } else {
+                            print("[DEBUG] Ignoring RAG result for inactive conversation")
+                            // Still need to set isLoading to false if this was the active loading conversation
+                            if self.isLoading && self.activeQueryConversationId == nil {
+                                self.isLoading = false
+                            }
+                        }
                     }
                 } else {
                     print("[DEBUG] RAG query failed, result is nil")
-                    DispatchQueue.main.async { [weak self] in
+                    Task { @MainActor [weak self] in
                         guard let self = self else { return }
-                        self.errorMessage = "Failed to get response from RAG system"
-                        self.isLoading = false
+                        
+                        // Only show error if this is still the active conversation
+                        if self.activeQueryConversationId == conversationId {
+                            self.errorMessage = "Failed to get response from RAG system"
+                            self.isLoading = false
+                        }
                     }
                 }
             }
         }
     }
     
-    private func handleRagResult(_ result: RagResultSw, for conversationIndex: Int) {
+    private func handleRagResult(_ result: RagResultSw, for conversationIndex: Int, conversationId: UUID) {
         print("[DEBUG] handleRagResult called with result")
         
         // Get formatted response
@@ -232,7 +299,12 @@ class ChatViewModel: ObservableObject {
         print("[DEBUG] Response text length: \(responseText.count)")
         print("[DEBUG] Response text preview: \(responseText.prefix(100))")
         
-        let assistantMessage = Message(content: responseText, sender: .assistant)
+        // Create assistant message with context chunks
+        let assistantMessage = Message(
+            content: responseText, 
+            sender: .assistant, 
+            contextChunks: result.contextChunks
+        )
         
         // Update conversation with assistant's response
         var updatedConversation = conversations[conversationIndex]
@@ -240,17 +312,37 @@ class ChatViewModel: ObservableObject {
         updatedConversation.messages.append(assistantMessage)
         updatedConversation.lastUpdated = Date()
         
+        // Check if this conversation is still valid and in the same position
+        guard conversationIndex < conversations.count,
+              conversations[conversationIndex].id == conversationId else {
+            print("[DEBUG] Conversation index no longer valid, aborting update")
+            // Clear the active query flag
+            if activeQueryConversationId == conversationId {
+                activeQueryConversationId = nil
+                isLoading = false
+            }
+            return
+        }
+        
         // Update UI
         print("[DEBUG] Updating UI with new conversation data")
         conversations[conversationIndex] = updatedConversation
-        selectedConversation = updatedConversation
+        
+        // Only update selected conversation if this is still the active one
+        if selectedConversation?.id == conversationId {
+            selectedConversation = updatedConversation
+        }
         
         // Save changes
         print("[DEBUG] Saving conversations to UserDefaults")
         saveConversations()
         
-        print("[DEBUG] Setting isLoading to false")
-        isLoading = false
+        // Clear the active query flag
+        if activeQueryConversationId == conversationId {
+            print("[DEBUG] Setting isLoading to false")
+            activeQueryConversationId = nil
+            isLoading = false
+        }
     }
     
     func deleteConversation(_ conversation: ConversationData) {
@@ -322,6 +414,9 @@ class ChatViewModel: ObservableObject {
         // Show loading indicator
         isLoading = true
         
+        // Clear and initialize the info panel
+        updateInfoPanel(with: "")
+        
         // Add a system message about the action
         if let index = conversations.firstIndex(where: { $0.id == conversation.id }) {
             var updatedConversation = conversation
@@ -337,14 +432,41 @@ class ChatViewModel: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
+            // Start capturing stdout and stderr
+            self.outputCaptureManager.startCapturing { [weak self] (output, isStderr) in
+                guard let self = self else { return }
+                
+                // Update the info panel on the main thread with the captured output
+                DispatchQueue.main.async {
+                    // Get current info text or initialize with empty string
+                    var currentText = self.infoText ?? ""
+                    
+                    // Add new output with appropriate formatting
+                    if isStderr {
+                        // For stderr, add in red color (using ANSI escape codes that SwiftUI can render)
+                        currentText += "\u{001B}[31m\(output)\u{001B}[0m"
+                    } else {
+                        // For stdout, add as normal text
+                        currentText += output
+                    }
+                    
+                    // Update the info panel
+                    self.updateInfoPanel(with: currentText)
+                }
+            }
+            
             // Call the existing TldrWrapper.addCorpus method
+            // This will generate stdout/stderr that will be captured by our manager
             TldrWrapper.addCorpus(conversation.corpusDir)
+            
+            // Stop capturing stdout and stderr
+            self.outputCaptureManager.stopCapturing()
             
             // Update UI on main thread
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 
-                // Add completion message
+                // Add completion message to the conversation
                 if let index = self.conversations.firstIndex(where: { $0.id == conversation.id }) {
                     var updatedConversation = self.conversations[index]
                     updatedConversation.messages.append(
@@ -361,6 +483,58 @@ class ChatViewModel: ObservableObject {
                 self.isLoading = false
             }
         }
+    }
+    
+    func updateInfoPanel(with text: String?) {
+        infoText = text
+    }
+    
+    func showSourcesInInfoPanel(for message: Message) {
+        guard let contextChunks = message.contextChunks, !contextChunks.isEmpty else {
+            // No context chunks to show
+            infoText = "No source context available for this message."
+            return
+        }
+        
+        // Format the context chunks for display
+        var formattedText = "Source Context:\n\n"
+        
+        for (index, chunk) in contextChunks.enumerated() {
+            // Add source header with file info
+            formattedText += "Source #\(index + 1): "
+            
+            // Add file name or path
+            if !chunk.fileName.isEmpty {
+                formattedText += chunk.fileName
+            } else {
+                formattedText += (chunk.filePath as NSString).lastPathComponent
+            }
+            
+            // Add page info if available
+            if chunk.pageNumber > 0 {
+                formattedText += " (page \(chunk.pageNumber))"
+            }
+            
+            // Add similarity score
+            formattedText += " [similarity: \(String(format: "%.2f", chunk.similarity))]\n"
+            
+            // Add document metadata if available
+            if !chunk.title.isEmpty || !chunk.author.isEmpty {
+                formattedText += "Title: \(chunk.title)\n"
+                formattedText += "Author: \(chunk.author)\n"
+            }
+            
+            // Add the actual text content with some formatting
+            formattedText += "\n\"\(chunk.text)\"\n\n"
+            
+            // Add separator between chunks
+            if index < contextChunks.count - 1 {
+                formattedText += "---\n\n"
+            }
+        }
+        
+        // Update the info panel with the formatted text
+        infoText = formattedText
     }
     
     func updateConversationTitle(_ conversation: ConversationData, newTitle: String) {

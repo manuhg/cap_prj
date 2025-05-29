@@ -6,6 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <memory>
+#include <unordered_map>
 #include "llama.h"
 
 namespace tldr {
@@ -24,14 +25,16 @@ public:
      * @param initial_size Initial number of contexts to create
      * @param max_size Maximum number of contexts in the pool
      * @param ctx_params Parameters for context creation
+     * @param max_uses Maximum number of times a context can be used before being destroyed
      */
-    LlmContextPool(llama_model* model, size_t initial_size, size_t max_size, const llama_context_params& ctx_params);
+    LlmContextPool(llama_model* model, size_t initial_size, size_t max_size, const llama_context_params& ctx_params, size_t max_uses = 0);
     
     /**
      * Destructor - frees all contexts
      */
     ~LlmContextPool();
-    
+    llama_context *createContext();
+
     /**
      * Get a context from the pool, creating a new one if necessary
      * @return A handle to a context that will be returned to the pool when it goes out of scope
@@ -52,10 +55,14 @@ public:
 private:
     llama_model* model_;
     size_t max_size_;
+    size_t max_uses_;
     llama_context_params ctx_params_;
     
     std::vector<llama_context*> all_contexts_; // All contexts created by this pool
     std::queue<llama_context*> available_contexts_; // Contexts available for use
+    
+    // Map to track usage count for each context
+    std::unordered_map<llama_context*, size_t> context_uses_;
     
     std::mutex mutex_;
     std::condition_variable cv_;

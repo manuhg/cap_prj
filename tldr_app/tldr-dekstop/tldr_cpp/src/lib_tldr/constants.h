@@ -7,11 +7,11 @@
 #define AVG_WORDS_PER_SENTENCE 6
 #define AVG_CHARS_PER_WORD 5
 #define CHUNK_N_SENTENCES 10
-#define CHUNK_N_OVERLAP 80 // overlap in characters at start and end
+#define CHUNK_N_OVERLAP 40 // overlap in characters at start and end
 #define CHUNK_N_CHARS ((CHUNK_N_SENTENCES * AVG_WORDS_PER_SENTENCE * AVG_CHARS_PER_WORD)+(CHUNK_N_OVERLAP*2))
 #define MAX_CHARS_PER_BATCH 512
 #define MAX_CHUNK_SIZE (MAX_CHARS_PER_BATCH-(CHUNK_N_OVERLAP*2))
-#define BATCH_SIZE 8
+#define BATCH_SIZE 10
 
 #define DB_HASH_PRESENT_UPSERT 1
 #define DB_HASH_PRESENT_DO_NOTHING 2
@@ -29,10 +29,9 @@
 #define EMBEDDING_MIN_CONTEXTS (4)
 #define EMBEDDING_MAX_CONTEXTS (2+4)
 
-
 #define CORPUS_FILE_PROC_TYPE_PARALLEL 1
 #define CORPUS_FILE_PROC_TYPE_SEQUENTIAL 2
-#define CORPUS_FILE_PROC_TYPE CORPUS_FILE_PROC_TYPE_PARALLEL
+#define CORPUS_FILE_PROC_TYPE CORPUS_FILE_PROC_TYPE_SEQUENTIAL
 
 // Directory name for storing vector cache files
 constexpr const char* VECDUMP_DIR = "_vecdumps";

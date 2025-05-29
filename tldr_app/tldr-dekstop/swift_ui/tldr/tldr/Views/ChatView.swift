@@ -9,6 +9,7 @@ struct ChatView: View {
     }
     
     @State private var scrollToBottomId: UUID? = nil
+    @State private var lastMessageCount: Int = 0
     
     var body: some View {
         VStack(spacing: 0) {
@@ -64,7 +65,7 @@ struct ChatView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(conversation.messages) { message in
-                            MessageBubble(message: message)
+                            MessageBubble(message: message, viewModel: viewModel)
                                 .id(message.id)
                                 .transition(.opacity)
                         }
@@ -79,56 +80,118 @@ struct ChatView: View {
                 .onAppear {
                     scrollView.scrollTo("BOTTOM", anchor: .bottom)
                 }
-                .onChange(of: conversation.messages.count) { _ in
+                .onChange(of: conversation.messages.count) { newCount in
+                    // Always scroll to bottom when new messages appear
                     withAnimation {
                         scrollView.scrollTo("BOTTOM", anchor: .bottom)
                     }
+                    // Set a small delay to ensure content is fully rendered before final scroll
+                    if newCount > lastMessageCount {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation {
+                                scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                            }
+                        }
+                        lastMessageCount = newCount
+                    }
                 }
                 .onChange(of: viewModel.selectedConversation?.id) { _ in
+                    // Reset counter and scroll to bottom when conversation changes
+                    lastMessageCount = conversation.messages.count
                     withAnimation {
                         scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                    }
+                    // Additional delayed scroll to ensure it reaches bottom after layout
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation {
+                            scrollView.scrollTo("BOTTOM", anchor: .bottom)
+                        }
                     }
                 }
             }
             
-            // Input area with loading indicator
+            // Resizable info panel
             VStack(spacing: 0) {
-                if viewModel.isLoading {
-                    HStack {
-                        ProgressView()
-                            .padding(.leading, 8)
-                        Text("Generating response...")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
+                if viewModel.infoText != nil {
+                    ScrollView {
+                        Text(viewModel.infoText ?? "")
+                            .font(.system(.caption, design: .monospaced))
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled) // Make text selectable
                     }
-                    .padding(.bottom, 4)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: viewModel.infoPanelHeight)
+                    .background(Color(.textBackgroundColor))
+                    .overlay(
+                        Rectangle()
+                            .frame(height: 1)
+                            .foregroundColor(Color(.separatorColor)),
+                        alignment: .bottom
+                    )
+                    // Add a resize handle at the bottom
+                    .overlay(
+                        HStack {
+                            Spacer()
+                            Image(systemName: "arrow.up.and.down")
+                                .foregroundColor(.secondary)
+                                .padding(4)
+                                .background(Color.secondary.opacity(0.1))
+                                .cornerRadius(4)
+                                .contentShape(Rectangle())
+                                .gesture(
+                                    DragGesture()
+                                        .onChanged { value in
+                                            let newHeight = viewModel.infoPanelHeight - value.translation.height
+                                            // Maintain the increased max height of 600 for more resizing range
+                                            viewModel.infoPanelHeight = max(40, min(600, newHeight))
+                                        }
+                                )
+                        }
+                        .padding(.trailing, 4),
+                        alignment: .bottom
+                    )
                 }
                 
-                HStack {
-                    TextField("Type a message...", text: $viewModel.newMessageText, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(1...5)
-                        .onSubmit {
-                            if !viewModel.newMessageText.isEmpty && !viewModel.isLoading {
-                                viewModel.sendMessage()
+                // Input area with loading indicator
+                VStack(spacing: 0) {
+                    if viewModel.isLoading {
+                        HStack {
+                            ProgressView()
+                                .padding(.leading, 8)
+                            Text("Generating response...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                        .padding(.bottom, 4)
+                    }
+                    
+                    HStack {
+                        TextField("Type a message...", text: $viewModel.newMessageText, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(1...5)
+                            .onSubmit {
+                                if !viewModel.newMessageText.isEmpty && !viewModel.isLoading {
+                                    viewModel.sendMessage()
+                                }
+                            }
+                            .submitLabel(.send)
+                        
+                        Button(action: viewModel.sendMessage) {
+                            if viewModel.isLoading {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle())
+                            } else {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .font(.title2)
                             }
                         }
-                        .submitLabel(.send)
-                    
-                    Button(action: viewModel.sendMessage) {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                        } else {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(.title2)
-                        }
+                        .disabled(viewModel.newMessageText.isEmpty || viewModel.isLoading)
                     }
-                    .disabled(viewModel.newMessageText.isEmpty || viewModel.isLoading)
+                    .padding()
+                    .background(Color(NSColor.windowBackgroundColor).shadow(radius: 0.5))
                 }
-                .padding()
-                .background(Color(NSColor.windowBackgroundColor).shadow(radius: 0.5))
             }
         }
         .navigationTitle(conversation.title)
@@ -139,13 +202,14 @@ struct ChatView: View {
 
 struct MessageBubble: View {
     let message: Message
+    let viewModel: ChatViewModel
     
     private var bubbleColor: Color {
         switch message.sender {
         case .user:
             return .blue
         case .system:
-            return Color(.systemGreen)
+            return Color(.darkGray)
         case .assistant:
             return Color(NSColor.controlBackgroundColor)
         }
@@ -179,8 +243,19 @@ struct MessageBubble: View {
             VStack {
                 // Use a custom Text view that handles URLs properly
                 LinkifiedText(text: message.content)
+                
+                // Show a small indicator if the message has source context
+                if message.hasSourceContext {
+                    HStack {
+                        Spacer()
+                        Label("Context available", systemImage: "doc.text.magnifyingglass")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    }
+                }
             }
-            .padding(12)
+            .padding(8)
             .background(bubbleColor)
             .foregroundColor(textColor)
             .cornerRadius(16)
@@ -191,6 +266,15 @@ struct MessageBubble: View {
                     NSPasteboard.general.setString(message.content, forType: .string)
                 }) {
                     Label("Copy", systemImage: "doc.on.doc")
+                }
+                
+                // Add option to view sources if available
+                if message.hasSourceContext {
+                    Button(action: {
+                        viewModel.showSourcesInInfoPanel(for: message)
+                    }) {
+                        Label("View Sources", systemImage: "doc.text.magnifyingglass")
+                    }
                 }
             }
             
@@ -213,6 +297,7 @@ struct LinkifiedText: View {
         if urls.isEmpty {
             // No URLs found, just use regular Text
             Text(text)
+                .textSelection(.enabled) // Make text selectable
         } else {
             // URLs found, create a custom view with our extracted URLs
             CustomLinkTextView(text: text, urls: urls)
@@ -292,6 +377,7 @@ struct CustomLinkTextView: View {
                     .buttonStyle(PlainButtonStyle())
                 } else {
                     Text(item.text)
+                        .textSelection(.enabled) // Make text selectable
                 }
             }
         }

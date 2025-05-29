@@ -30,7 +30,17 @@ struct ContentView: View {
                 
                 Divider()
                 
-                List(selection: $viewModel.selectedConversation) {
+                List(selection: Binding(
+    get: { viewModel.selectedConversation },
+    set: { newValue in
+        // If there's an active query, handle it properly before switching conversations
+        if viewModel.isLoading {
+            // First set isLoading to false to stop any UI updates related to the loading state
+            viewModel.isLoading = false
+        }
+        viewModel.selectedConversation = newValue
+    }
+)) {
                 ForEach(viewModel.conversations) { conversation in
                     NavigationLink(value: conversation) {
                         VStack(alignment: .leading) {
