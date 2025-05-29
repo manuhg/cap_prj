@@ -4,8 +4,8 @@
 
 namespace tldr {
 
-LlmContextPool::LlmContextPool(llama_model* model, size_t initial_size, size_t max_size, const llama_context_params& ctx_params, size_t max_uses)
-    : model_(model), max_size_(max_size), max_uses_(max_uses), ctx_params_(ctx_params) {
+LlmContextPool::LlmContextPool(llama_model* model, size_t initial_size, size_t max_size, const llama_context_params& ctx_params)
+    : model_(model), max_size_(max_size), ctx_params_(ctx_params) {
     
     // Create initial contexts
     for (size_t i = 0; i < initial_size; ++i) {
@@ -26,8 +26,6 @@ llama_context* LlmContextPool::createContext() {
     if (ctx) {
         std::cout<<"Creating new LLM context ... "<<std::endl;
         all_contexts_.push_back(ctx);
-        // Initialize usage count for new context
-        context_uses_[ctx] = 0;
     }
     return ctx;
 }
@@ -56,34 +54,14 @@ std::shared_ptr<ContextHandle> LlmContextPool::acquire_context() {
         return nullptr;
     }
     
-    // Increment usage count
-    context_uses_[ctx]++;
-    
     return std::make_shared<ContextHandle>(ctx, this);
 }
 
 void LlmContextPool::release_context(llama_context* ctx) {
     std::unique_lock<std::mutex> lock(mutex_);
     
-    // Check if context should be destroyed based on usage count
-    if (max_uses_ > 0 && context_uses_[ctx] >= max_uses_) {
-        // Remove from all_contexts_
-        all_contexts_.erase(std::remove(all_contexts_.begin(), all_contexts_.end(), ctx), all_contexts_.end());
-        
-        // Remove from usage tracking
-        context_uses_.erase(ctx);
-        
-        // Free the context
-        llama_free(ctx);
-        
-        std::cerr << "Destroyed context after " << max_uses_ << " uses" << std::endl;
-        if (max_uses_==1 && all_contexts_.size() < max_size_) {
-            createContext();
-        }
-    } else {
-        // Add the context back to the available queue
-        available_contexts_.push(ctx);
-    }
+    // Add the context back to the available queue
+    available_contexts_.push(ctx);
     
     // Notify one waiting thread that a context is available
     cv_.notify_one();
@@ -105,9 +83,6 @@ void LlmContextPool::clear() {
     // Clear the queue (no easy way to clear a std::queue)
     std::queue<llama_context*> empty;
     std::swap(available_contexts_, empty);
-    
-    // Clear the usage tracking
-    context_uses_.clear();
 }
 
 llama_context* LlmContextPool::create_context() {

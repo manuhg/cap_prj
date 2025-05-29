@@ -69,8 +69,8 @@ bool LlmChat::initialize_model(const std::string& model_path) {
         ctx_params.n_ctx = 8192; // Default context size
         ctx_params.n_batch = 512; // Default batch size
         
-        // Set max_uses to 3 for chat contexts - they will be destroyed after 3 uses
-        context_pool = std::make_unique<tldr::LlmContextPool>(model, CHAT_MIN_CONTEXTS, CHAT_MAX_CONTEXTS, ctx_params, 1);
+        // Create the context pool
+        context_pool = std::make_unique<tldr::LlmContextPool>(model, CHAT_MIN_CONTEXTS, CHAT_MAX_CONTEXTS, ctx_params);
         
         return true;
     } catch (const std::exception &e) {

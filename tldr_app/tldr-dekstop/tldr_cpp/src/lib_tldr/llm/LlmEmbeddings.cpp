@@ -113,8 +113,7 @@ bool LlmEmbeddings::initialize_model(const std::string& model_path) {
     ctx_params.embeddings = true;
     
     // Create context pool with sizes defined in constants.h
-    // Set max_uses to 10 for embedding contexts - they will be destroyed after 10 uses
-    context_pool = std::make_unique<tldr::LlmContextPool>(model, EMBEDDING_MIN_CONTEXTS, EMBEDDING_MAX_CONTEXTS, ctx_params, 10);
+    context_pool = std::make_unique<tldr::LlmContextPool>(model, EMBEDDING_MIN_CONTEXTS, EMBEDDING_MAX_CONTEXTS, ctx_params);
     
     return true;
 }

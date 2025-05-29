@@ -557,14 +557,16 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
         // Calculate how many batches each thread should process
         size_t batches_per_thread = (total_batches + num_threads - 1) / num_threads;
 
+#if EMBEDDING_PROCESSING==EMBEDDING_PROCESSING_MULTI_THREADED
         // Vector to hold all thread objects
         std::vector<std::thread> threads;
-
+#endif
         // Create and start threads
         for (size_t t = 0; t < num_threads; ++t) {
             size_t start_batch = t * batches_per_thread;
             size_t end_batch = std::min((t + 1) * batches_per_thread, total_batches);
 
+#if EMBEDDING_PROCESSING==EMBEDDING_PROCESSING_MULTI_THREADED
             // Only create a thread if there's work to do
             if (start_batch < total_batches) {
                 threads.emplace_back(processBatchBlocks, t, start_batch, end_batch,
@@ -572,14 +574,17 @@ obtainEmbeddings(const std::vector<std::string> &chunks,
                                      batch_size, std::ref(all_embeddings), std::ref(all_hashes),
                                      std::ref(result_mutex));
             }
+#else
+            if (start_batch < total_batches) {
+                processBatchBlocks (t, start_batch, end_batch,
+                                     std::ref(chunks), std::ref(chunkPageNums), std::ref(fileHash),
+                                     batch_size, std::ref(all_embeddings), std::ref(all_hashes),
+                                     std::ref(result_mutex));
+            }
+            #endif
+
         }
 
-        // Wait for all threads to complete
-        for (auto &thread: threads) {
-            if (thread.joinable()) {
-                thread.join();
-            }
-        }
 
         std::cout << "Completed processing all chunks. Total embeddings: "
                 << all_embeddings.size() << ", total hashes: "

@@ -25,9 +25,8 @@ public:
      * @param initial_size Initial number of contexts to create
      * @param max_size Maximum number of contexts in the pool
      * @param ctx_params Parameters for context creation
-     * @param max_uses Maximum number of times a context can be used before being destroyed
      */
-    LlmContextPool(llama_model* model, size_t initial_size, size_t max_size, const llama_context_params& ctx_params, size_t max_uses = 0);
+    LlmContextPool(llama_model* model, size_t initial_size, size_t max_size, const llama_context_params& ctx_params);
     
     /**
      * Destructor - frees all contexts
@@ -55,14 +54,10 @@ public:
 private:
     llama_model* model_;
     size_t max_size_;
-    size_t max_uses_;
     llama_context_params ctx_params_;
     
     std::vector<llama_context*> all_contexts_; // All contexts created by this pool
     std::queue<llama_context*> available_contexts_; // Contexts available for use
-    
-    // Map to track usage count for each context
-    std::unordered_map<llama_context*, size_t> context_uses_;
     
     std::mutex mutex_;
     std::condition_variable cv_;
