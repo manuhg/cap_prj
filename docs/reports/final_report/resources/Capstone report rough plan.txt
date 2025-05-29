@@ -1,0 +1,41 @@
+1. Introduction
+- Background and Motivation
+- Our Contributions
+- Scope
+- Paper Overview
+
+2. Theoritical Background
+- LLMs, components of inference such as LLM context, sampler, KV cache, etc.
+- LLM weight quantization
+- M1 SOC (System-On-Chip), GPU, NPU, Benefits of Shared virtual address space
+- Zero copy file read (using mmap): mechanism and existing use cases
+- LLM data leakage
+- How coreML leverages NPU
+
+3. Related Work
+- RAG (quick overview)
+- llama.cpp
+- Ollama
+- LLaMaFile
+- tinygrad project and its npu API reverse engineering
+
+4. Methodology
+- RAG pipeline 
+- Tldr Application Design
+	- Modules and workflow
+	- Vector dump & mem map IO
+	- Working with NPU
+
+- Tldr Application Implementation (& Workflow)
+	-  the worklfow and its explanation and UI screenshots
+	- Swift UI, static library linkage
+	- llama context pool and db thread pool (& choice of postgre over sqlite)
+	- all the sub modules
+
+5. Experimentation
+- bertscore x models x quantization levels & resource consumption.
+- result analysis
+
+6. Conclusion & Future work
+- limitations
+- npu backend for llama.cpp

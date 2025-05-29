@@ -1,0 +1,18 @@
+What is system design in software engineering?
+
+System design is the process of creating a software system that meets the requirements of the users and the business. It involves defining the system architecture, selecting the appropriate technologies, and designing the user interface. The goal of system design is to create a system that is efficient, scalable, and maintainable. It is a critical process in software engineering that requires careful planning, analysis, and testing.
+
+
+how to generate prime numbers?
+
+To generate prime numbers, you start with a list of all the numbers up to a certain number (in this case, max). Then, you cross off all the multiples of each prime number you find. This process continues until you've crossed off all the multiples of all the prime numbers you've found. The remaining numbers in the list are the prime numbers.
+Here's a step-by-step guide:
+1. Create a list of all the numbers up to max.
+2. Cross off all the multiples of each prime number you find.
+3. Continue this process until you've crossed off all the multiples of all the prime numbers you've found.
+Note: You can use the Sieve of Eratosthenes algorithm to generate a list of prime numbers up to max.
+
+
+what is caching?
+
+Caching is a technique used to improve the performance of an application by storing frequently accessed data in a temporary storage area, called the cache. This allows the application to retrieve the data quickly, reducing the load on the database or data store. Caching can be used to improve the performance of web applications, database applications, and even mobile applications. It is a technique that can be used to mitigate the problem of the "cold start" problem, where the application has to wait for the data to be retrieved from the database or data store. Caching can be implemented in various ways, including the use of caching tiers, caching strategies, and caching APIs.

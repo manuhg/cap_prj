@@ -1,0 +1,1 @@
+System design in software engineering is the process of defining the architecture, components, data flow, and interfaces of a software system to meet specified requirements. It focuses on how to build scalable, reliable, and maintainable systems by making high-level decisions on technologies, structure, and communication between parts of the system.
