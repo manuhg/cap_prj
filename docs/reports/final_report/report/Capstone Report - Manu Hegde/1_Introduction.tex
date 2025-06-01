@@ -1,0 +1,62 @@
+
+\chapter {Introduction}
+\label{ch:Introduction}
+
+%----------------------
+\section{Background and Motivation}
+\label{sec:BackgroundAndMotivation}
+%----------------------
+
+The field of Natural Language Processing (NLP) has undergone a significant transformation with the advent of Large Language Models (LLMs), which are capable of performing complex language understanding and generation tasks. Groundbreaking works such as the Transformer architecture \cite{vaswani2017attention}, BERT \cite{devlin2018bert}, and GPT-family models \cite{brown2020language, openai2023gpt4} have paved the way for highly capable models that support applications such as summarization \cite{liu2019text}, question answering \cite{izacard2021leveraging}, and document understanding \cite{beltagy2020longformer}. These advances have been further systematized in the concept of foundation models \cite{bommasani2021opportunities}, which emphasize the broad applicability and adaptability of pre-trained LLMs.
+
+Despite their success, most widely used LLM applications operate via cloud-based services, which introduce significant limitations when it comes to privacy, data security, and control over computational resources. This is particularly concerning in academic contexts, where students and researchers often deal with sensitive or proprietary content. Recent studies have raised awareness of the risks associated with exposing private data to generative models, including membership inference \cite{mattern2023membership} and data extraction attacks \cite{nasr2023extraction}. Moreover, surveys indicate increasing usage of LLMs in research and education, highlighting both the demand for such tools and the concerns around data governance \cite{deschenes2024survey, hosseini2023chatgpt}.
+
+Simultaneously, the hardware landscape has evolved to enable local deployment of such models. Apple's M1 and M2 chipsets integrate high-performance CPUs, GPUs, and a dedicated Neural Processing Unit (NPU) through the Apple Neural Engine (ANE). These architectures offer a promising platform for efficient, on-device inference of LLMs, provided the models are adapted appropriately to operate under limited memory and compute budgets.
+
+This convergence of high-capability models, growing privacy concerns, and increasingly powerful consumer hardware forms the backdrop for \textit{Project TLDR}—a standalone desktop application for summarization and question answering over a user-specified corpus. The tool is designed to run entirely offline, preserving user privacy while leveraging optimized LLM inference. The project makes use of modern techniques such as quantization \cite{jacob2017quantization} and low-rank adaptation (LoRA) \cite{hu2021lora} to reduce computational overhead and improve deployment feasibility on M1/M2 hardware. Additionally, the use of Retrieval-Augmented Generation (RAG) \cite{lewis2020rag} ensures that answers and summaries are grounded in user-provided text, enhancing both contextual relevance and factual consistency.
+
+In essence, this project is motivated by the goal of empowering academic users with a practical, secure, and efficient means of engaging with large volumes of textual data. By tying together advances in NLP, secure computing practices, and consumer-grade hardware acceleration, Project TLDR aims to demonstrate that high-quality language understanding can be brought directly to the user's device—without compromise.
+%----------------------
+\section{Our Contributions}
+\label{sec:OurContributions}
+%----------------------
+
+In this project, we present \textit{Project TLDR}, a privacy-preserving, offline, and resource-efficient desktop application that enables users to perform Question Answering (QA) and Summarization over personal document repositories. Designed primarily for MacOS systems powered by Apple’s M1 and M2 architectures, the application aims to support academic and research workflows where confidentiality, simplicity, and efficiency are paramount.
+
+Our key contributions are as follows:
+
+\begin{itemize}
+    
+    \item \textbf{Novel Utilization of Apple Neural Engine (ANE)}: A significant technical contribution of this project is our investigation into utilizing Apple’s underused Neural Processing Unit (ANE), capable of up to 11 TOPS in INT8 precision \cite{apple2024ane}. While current LLM deployment frameworks such as LLaMA.cpp \cite{llamacpp2023} or Ollama\cite{ollama2023} do not harness this co-processor, we demonstrate and document methods to tap into the ANE for local inference acceleration. We build on the NPU API reverse-engineering work by tinygrad \cite{tinygrad2023ane} and leverage the learnings to open a new direction for efficient LLM deployment on Apple silicon devices. We hence leverage the NPU outside of traditional CoreML model deployment paradigm and demonstrate how it can be used for various use cases.
+
+    \item \textbf{Retrieval-Augmented Generation (RAG) Architecture}: We implement a lightweight yet effective RAG pipeline \cite{lewis2020rag} for performing QA and summarization tasks over local collections of documents. This enables the application to provide context-grounded, source-aware responses from user-specified corpora while leveraging limited compute resources.
+
+    \item \textbf{Efficient On-Device Inference Using Quantized LLMs}: We leverage quantized transformer models \cite{jacob2017quantization}, reducing memory and compute demands without compromising output quality. Instead of multi-gigabyte model downloads (as required by tools like Ollama \cite{ollama2023} or LLaMA.cpp \cite{llamacpp2023}), we use compact models (50–500MB) that support practical usage scenarios with minimal setup, enhancing portability and usability for non-technical users.
+
+    \item \textbf{User-Friendly and Ready-to-Use Design}: Unlike tools such as Ollama \cite{ollama2023} and LLaMAFile\cite{llamafile2023}, which require technical familiarity and understanding the nuances of various models, our application provides a clean graphical interface with ready-to-use capabilities tailored to common academic needs—eliminating the steep learning curve and reducing operational friction.
+    
+    \item \textbf{Privacy-Preserving Document Analysis}: By running entirely on-device, our application mitigates the risks associated with uploading sensitive or proprietary documents to third-party services (e.g., ChatGPT, Claude, Gemini), which have raised concerns over data leakage \cite{mattern2023membership,nasr2023extraction}. Users can securely summarize, query, and rephrase information without network access or cloud APIs.
+
+\end{itemize}
+
+Through this suite of contributions, \textit{Project TLDR} demonstrates that meaningful and secure LLM-powered applications can be brought directly to end-users without reliance on cloud services or specialized technical knowledge, thereby filling a critical gap in the current LLM applications ecosystem.
+
+
+%----------------------
+\section{Scope}
+\label{sec:Scope}
+%----------------------
+
+This project aims to develop a standalone desktop application capable of performing Question Answering (QA) and Summarization over a locally stored corpus of documents using Retrieval-Augmented Generation (RAG). Unlike most current solutions, such as ChatGPT or Gemini, which require users to upload documents each time they wish to query them, this application allows persistent storage and indexing of documents on the user's device. Once added to the local vector store, documents are automatically embedded and made queryable without requiring repeated user intervention.
+
+The application is designed to operate entirely offline, preserving data privacy while minimizing resource consumption. It is optimized for modern Apple Silicon devices (e.g., M1/M2 Macs), with the target of using less than 50\% of system resources. By utilizing quantized models ranging between 50MB and 500MB in size and streamlining the entire RAG pipeline—from document ingestion to local inference—this tool ensures meaningful results without the need for large downloads or technical configuration. The scope includes a graphical interface, local embedding and vector database management, and natural language generation capabilities tailored for academic and research use cases.
+%----------------------
+\section{Paper overview}
+\label{sec:PaperOverview}
+%----------------------
+
+This paper is organized as follows. Chapter~\ref{ch:TheoreticalBackground} presents the theoretical foundations relevant to the project, including an overview of Large Language Models (LLMs), key components involved in inference such as the context window and KV cache, and a discussion on the Apple M1 System-on-Chip (SoC) architecture, with emphasis on the GPU and Neural Processing Unit (NPU). It also covers zero-copy file access techniques, quantization methods, risks of data leakage in LLM usage, and how CoreML leverages the NPU.
+
+Chapter~\ref{ch:RelatedWork} surveys related work, highlighting limitations of existing desktop LLM tools like Ollama and LLaMaFile, prior work on Retrieval-Augmented Generation (RAG), and efforts in reverse engineering NPU APIs by the tinygrad project. Chapter~\ref{ch:Methodology} details our methodology and low-level design, including vector dump and memory-mapped reads, interfacing with the NPU, and the internal structure of the RAG pipeline. Furthermore, it describes our software architecture and implementation details, covering our use of SwiftUI, static library linkage, the design of the LLM context pool, and thread management strategies. 
+
+Chapter~\ref{ch:Results} presents our experimentation process and evaluation results using BERTScore across different models and quantization levels. Finally, Chapter~\ref{ch:Conclusion} concludes the paper, discusses limitations, and outlines future work including the development of an NPU backend for llama.cpp.

@@ -1,0 +1,150 @@
+## PowerPoint Presentation Outline: Project TLDR – Standalone Desktop Application for Question Answering and Summarization Using Resource-Efficient LLMs
+
+---
+
+### **Slide 1: Title Slide**
+**Project TLDR:**  
+Standalone Desktop Application for Question Answering and Summarization Using Resource-Efficient LLMs  
+Manu Hegde  
+University of Washington, 2025
+
+---
+
+### **Slide 2: Introduction**
+- Natural Language Processing (NLP) has advanced rapidly with Large Language Models (LLMs) like GPT, BERT, and LLaMA.
+- Most LLM applications are cloud-based, raising privacy and resource concerns.
+- Project TLDR addresses these by providing an offline, privacy-preserving desktop tool for question answering and summarization over local document corpora, optimized for Apple M1/M2 hardware[1][2].
+
+---
+
+### **Slide 3: Motivation and Background**
+- Academic and research users often handle sensitive or proprietary content.
+- Cloud-based LLMs risk data leakage and require constant internet access.
+- Apple’s M1/M2 chips offer on-device AI acceleration, enabling efficient, local LLM inference.
+- Project TLDR empowers users to interact with large text corpora securely and efficiently[1].
+
+---
+
+### **Slide 4: Key Contributions**
+- **Apple Neural Engine (ANE) Utilization:** Leverages underused NPU for LLM inference, going beyond standard CoreML applications.
+- **Retrieval-Augmented Generation (RAG):** Implements a lightweight RAG pipeline for context-grounded QA and summarization.
+- **Quantized LLMs:** Uses compact models (50–500MB) for efficient, on-device inference.
+- **User-Friendly GUI:** Provides an intuitive MacOS interface with no technical setup required.
+- **Privacy-Preserving:** Runs entirely offline, eliminating cloud privacy risks[1].
+
+---
+
+### **Slide 5: Application Scope**
+- Standalone MacOS app for QA and summarization over local PDFs.
+- Persistent storage and indexing of documents on-device.
+- Optimized for low resource usage (<50% system resources).
+- No internet or cloud dependencies[1].
+
+---
+
+### **Slide 6: Theoretical Foundations**
+- **LLMs & Inference:** Transformer-based models with context window and Key-Value (KV) cache for efficient text generation.
+- **Quantization:** Reduces model size and computational load by using lower-precision weights (e.g., Q3_K_L format).
+- **Apple M1/M2 Architecture:** Unified memory, integrated CPU/GPU/NPU, and high-performance on-device AI[1].
+
+---
+
+### **Slide 7: Retrieval-Augmented Generation (RAG) Pipeline**
+- **Embedding Phase:**  
+  - Documents are chunked and embedded using MiniLM.
+  - Embeddings stored in a vector database and binary "vectordump" files.
+- **Retrieval Phase:**  
+  - User queries are embedded and matched to document chunks via cosine similarity (accelerated by ANE).
+  - Relevant chunks retrieved and passed to LLM for answer generation[1].
+
+---
+
+### **Slide 8: System Architecture**
+- **Modules:**
+  - User Interface (SwiftUI)
+  - RAG Backend (C++ static library)
+  - Database (PostgreSQL)
+  - File System (Corpus Directory & Vectordump)
+  - NPU-Accelerated Cosine Similarity
+  - llama.cpp for LLM inference
+- **Workflow:**  
+  - User interacts via GUI → Backend processes query → NPU accelerates retrieval → LLM generates response → Result displayed[1].
+
+---
+
+### **Slide 9: User Interface**
+- Native MacOS app built with SwiftUI.
+- Clean, chat-style interface for queries and responses.
+- Fully self-contained package with all dependencies included.
+- Stores conversation history and user preferences locally[1].
+
+---
+
+### **Slide 10: Backend Details**
+- **RAG Backend:** Orchestrates embedding, retrieval, and generation.
+- **Database:** PostgreSQL stores document metadata and embeddings.
+- **File System:** Vectordump files enable efficient, memory-mapped access to embeddings.
+- **NPU Module:** CoreML model for batched cosine similarity on the ANE[1].
+
+---
+
+### **Slide 11: Performance and Evaluation**
+- Functional metrics: BERTScore comparisons with ChatGPT outputs.
+- Non-functional metrics: Memory and CPU usage.
+- Demonstrates high efficiency and responsiveness on Apple Silicon[2].
+
+---
+
+### **Slide 12: Comparison with Existing Solutions**
+
+| Feature               | Project TLDR         | Ollama/Llamafile         | Cloud LLMs (ChatGPT)      |
+|-----------------------|----------------------|--------------------------|---------------------------|
+| Privacy               | Full local/offline   | Local, sometimes online  | Cloud-based (data leaves device) |
+| Hardware Optimization | Apple M1/M2, ANE     | General CPU/GPU          | Cloud hardware            |
+| Model Size            | 50–500 MB (quantized)| Often multi-GB           | N/A (server-side)         |
+| User Interface        | Native MacOS GUI     | CLI, basic UI            | Web/Cloud UI              |
+| Setup Complexity      | Minimal              | Moderate                  | None (but uploads data)   |
+
+---
+
+### **Slide 13: Limitations and Future Work**
+- Current focus is on PDF documents.
+- Further work needed on broader document formats and NPU backend for llama.cpp.
+- Plans for more advanced RAG evaluation and user features[1].
+
+---
+
+### **Slide 14: Conclusion**
+- Project TLDR demonstrates that advanced LLM-powered document analysis can be performed efficiently, privately, and locally on consumer hardware.
+- Fills a critical gap for academic and research users needing secure, high-quality NLP tools without cloud reliance[1][2].
+
+---
+
+### **Slide 15: Acknowledgments**
+- Supervisory Committee: Dr. Erika Parsons, Dr. Michael Stiber, Dr. Shane Steinert-Threlkeld
+- University of Washington, School of STEM
+
+---
+
+### **Slide 16: Questions**
+- Thank you for your attention!
+- Questions and discussion
+
+---
+
+**Note:**  
+For each slide, use concise bullet points and relevant visuals (e.g., architecture diagrams, screenshots of the UI, workflow charts). The content above is directly based on the provided capstone report and is structured for clarity and impact in a presentation setting[1][2].
+
+Citations:
+[1] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/35249793/0e6d60f4-d3ca-4c01-afd4-a9b9015cdd4e/Capstone_Report___Manu_Hegde.pdf
+[2] https://www.uwb.edu/stem/graduate/defense-schedule
+[3] https://www.linkedin.com/pulse/how-put-large-language-model-inside-standalone-app-using-de-shazer-rxmyf
+[4] https://learn.microsoft.com/en-us/azure/ai-services/language-service/summarization/how-to/document-summarization
+[5] https://www.semanticscholar.org/product/tldr
+[6] https://swharden.com/blog/2024-02-19-local-ai-chat-csharp/
+[7] https://www.reddit.com/r/ArtificialInteligence/comments/1frbqno/offline_ai_that_answers_questions_based_on_all_my/
+[8] https://www.cs.vassar.edu/~cs395/docs/23.pdf
+[9] https://xmind.app/blog/ai-youtube-video-summarizers/
+
+---
+Answer from Perplexity: pplx.ai/share
