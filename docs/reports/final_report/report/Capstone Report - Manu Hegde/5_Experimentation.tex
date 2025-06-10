@@ -14,15 +14,15 @@ We compare sample results from TLDR application using \texttt{Llama-3.2-1B-Instr
 
 \subsection{Result comparisons}
 \label{subsec:Result comparisons}
+Source documents:
 \begin{itemize}
     \item \textit{97 Things Every Software Architect Should Know}
     \item \textit{Cracking the Coding Interview}
     \item \textit{189 Programming Questions and Solutions}
     \item \textit{System Design Interview: An Insider’s Guide} by Alex Xu
 \end{itemize}
-
 \textbf{TLDR Application:}
-\\ \textbf{Note:} The references to the sources from TLDR's responses have been trimmed for comparison.
+\\ \textbf{Note:} The references to the sources from TLDR's responses have been trimmed for sake of uniformity during comparison with ChatGPT responses.
 
 \begin{enumerate}[label=\arabic*.]
 
@@ -78,17 +78,17 @@ The table below presents the precision, recall, and F1 score obtained using BERT
 \hline
 \textbf{Row} & \textbf{Precision (P)} & \textbf{Recall (R)} & \textbf{F1 Score} \\
 \hline
-1 & 0.863623 & 0.897878 & 0.880417 \\
-2 & 0.851684 & 0.854167 & 0.852923 \\
-3 & 0.919073 & 0.916270 & 0.917669 \\
+1 & 0.8636 & 0.8978 & 0.8804 \\
+2 & 0.8516 & 0.8541 & 0.8529 \\
+3 & 0.9190 & 0.9162 & 0.9176 \\
 \hline
 \end{tabular}
 \caption{Performance metrics for three different evaluations}
 \label{tab:metrics}
 \end{table}
 The results demonstrate a high degree of similarity between the model responses. Overall, the key takeaway is that the TLDR model is capable of generating responses that are comparable in quality to those produced by cloud-based models, despite operating with significantly fewer resources.
-\section{Screenshots}
-\label{SampleScreenshots}
+\section{Demonstration}
+\label{Demonstration}
 \begin{figure}[h]
     \centering
     \includegraphics[width=1.0\linewidth]{images/result1.png}
@@ -103,4 +103,4 @@ The results demonstrate a high degree of similarity between the model responses.
     \label{fig:tldrAppDemoSc2}
 \end{figure}
 
-Sample Demo video: https://youtu.be/0axHrUs-mek
+Demonstration video: https://youtu.be/0axHrUs-mek

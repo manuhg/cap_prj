@@ -254,12 +254,12 @@ The retrieval phase is initiated whenever a user submits a query or task. This p
 
 
 \item \textbf{Output Generation:}
-In this phase, the retrieved context and the user input—both in plain text form—are fed into the Large Language Model, as illustrated in Figure~\ref{fig:autoregressive_decoding}. The LLM processes the portion of input that fits within its context window and generates an output token. This token is then concatenated with the input and passed back to the LLM. The process repeats iteratively until the LLM produces an <EOS> (end-of-sequence) token.
+In this phase, the retrieved context and the user input—both in plain text form—are fed into the Large Language Model, as illustrated in Figure~\ref{fig:autoregressive_decoding}. The LLM processes the portion of input that fits within its context window and generates an output token. This token is then concatenated with the input and passed back to the LLM. The process repeats iteratively until the LLM produces an \textless{}EOS\textgreater{} (end-of-sequence) token.
 
 
 \end{enumerate}
 
-\subsection{Output Evaluation:}
+\subsection{Output Evaluation}
 The evaluation of a Retrieval-Augmented Generation (RAG) system focuses on the quality of the output in terms of its relevance to the user's query and the information stored in the vector database. Since different components contribute uniquely to the overall performance, multiple metrics are used rather than a single aggregated score to allow for precise attribution and targeted optimization.
 
 Classical metrics such as Precision, Recall, and F1 score, alongside NLP-specific metrics like ROUGE, are employed to assess performance. The evaluation considers several factors, as illustrated in Figure \ref{fig:RAGOutputevaluationmetrics}:
