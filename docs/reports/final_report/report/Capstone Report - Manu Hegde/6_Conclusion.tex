@@ -16,6 +16,7 @@ The following are the key takeaways of this project:
 
 \item Quantized LLMs: Uses compact models (50–500MB) for efficient, on-device inference allowing for seamless multitasking and manages to obtain results comparable to mainstream cloud LLMs.
 \end{enumerate}
+Source code of the project is available as an open-source repository on GitHub at \\ \href{https://github.com/manuhg/ms-capstone}{\textbf{github.com/manuhg/ms-capstone}}
 % % --------------------------------------
 \section{Limitations}
 \label{sec:Limitations}
@@ -26,7 +27,7 @@ Following are the main limitations uncovered during the implementation of this p
 
 \item Indexing(embedding) takes 90+% of overall runtime
 
-\item Many smaller LLMs available currently (3B or less) are only instruction-tuned i.e trained for text completion and not for chat. This can lead to unfavorable responses during chat.
+\item Many smaller LLMs available currently (3B or less) are only instruction-tuned i.e trained for text completion and not optimized for multi-turn chat interactions. This can lead to unfavorable responses during chat.
 
 \item Excessive usage limits to quick draining of power, especially on portable devices.
 
